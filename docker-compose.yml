@@ -69,6 +69,12 @@ services:
       - n8n_data:/home/node/.n8n
       - ./local-files:/files
 
+  watchtower:
+    image: containrrr/watchtower:latest
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
 volumes:
   traefik_data:
   n8n_data:
