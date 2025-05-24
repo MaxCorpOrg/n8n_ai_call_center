@@ -1,0 +1,6 @@
+http:
+  middlewares:
+    n8n-basic-auth:
+      basicAuth:
+        users:
+          - "admingodmode:$2y$05$nvxUtGvkoqUcwAgc/DzYXeYmYGfZD09OyPyKbBOzyuusjeEL/UPKG"
