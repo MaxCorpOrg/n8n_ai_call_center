@@ -1,20 +1,29 @@
 # n8n_ai_call_center
-Продакшн-конфигурация сервера AI Call Center на базе n8n (Ubuntu 24.04, Docker, HTTPS).
+Продакшн-конфигурация AI Call Center на базе n8n (Ubuntu 24.04, Docker, Traefik, HTTPS, автоматические бэкапы).
 
-## Краткое описание проекта
-Проект разворачивает n8n для автоматизации AI-робота и call-сценариев:
-- временный запуск по IP (`docker-compose.ip.yml`);
-- продакшн-запуск по домену и HTTPS через Traefik + Let's Encrypt (`docker-compose.https.yml`);
-- регулярные бэкапы данных n8n (`scripts/backup_n8n.sh`).
+## Краткое описание
+Проект предназначен для развёртывания n8n в продакшн-режиме:
+- HTTPS через Traefik + Let's Encrypt;
+- отдельный временный IP-режим для первичной настройки;
+- резервное копирование и восстановление данных n8n.
 
-## Основные файлы
-- `docker-compose.ip.yml` — запуск n8n по IP/HTTP для первичной настройки.
-- `docker-compose.https.yml` — продакшн-режим с TLS.
-- `.env.example` и `.env.https.example` — шаблоны переменных окружения.
-- `scripts/backup_n8n.sh` — скрипт резервного копирования тома n8n с retention.
+## Структура
+- `docker-compose.yml` — основной продакшн стек (HTTPS).
+- `docker-compose.https.yml` — явный HTTPS стек (идентичен прод-режиму).
+- `docker-compose.ip.yml` — временный HTTP режим по IP.
+- `.env.example` — шаблон переменных для IP-режима.
+- `.env.https.example` — шаблон переменных для HTTPS-режима.
+- `scripts/backup_n8n.sh` — бэкап тома `n8n_data`.
+- `scripts/restore_n8n.sh` — восстановление `n8n_data` из архива.
+- `legacy/` — устаревшие конфиги, оставлены только для справки.
 
 ## Быстрый запуск
-1. Заполнить `.env` (для IP-режима) или `.env.https` (для HTTPS-режима).
-2. Запустить нужный compose:
-   - `docker compose -f docker-compose.ip.yml up -d`
+1. Подготовьте `.env.https` на сервере (на основе `.env.https.example`).
+2. Запустите продакшн стек:
    - `docker compose --env-file .env.https -f docker-compose.https.yml up -d`
+
+## Бэкапы
+- Ручной запуск:
+  - `./scripts/backup_n8n.sh`
+- Восстановление:
+  - `./scripts/restore_n8n.sh /home/aicore/n8n-backups/n8n-backup_YYYY-MM-DD_HH-MM-SS.tar.gz`

@@ -15,16 +15,17 @@
 6. Поднят n8n в двух режимах:
    - IP/HTTP для первичной инициализации;
    - домен/HTTPS через Traefik + Let's Encrypt.
-7. Настроен автоматический бэкап данных n8n:
-   - скрипт `scripts/backup_n8n.sh`;
-   - ежедневный cron-запуск;
-   - удаление старых архивов по retention.
+7. Настроены резервные копии:
+   - `scripts/backup_n8n.sh` — создание архива `n8n_data`;
+   - `scripts/restore_n8n.sh` — восстановление `n8n_data`;
+   - ежедневный cron-запуск backup-скрипта.
 
 ## Файлы конфигурации
-- `docker-compose.ip.yml` — временный режим запуска по IP.
-- `docker-compose.https.yml` — продакшн через домен и TLS.
-- `.env.example` — базовый шаблон переменных.
-- `.env.https.example` — шаблон переменных для HTTPS-режима.
+- `docker-compose.yml` — основной продакшн стек (HTTPS).
+- `docker-compose.https.yml` — явный HTTPS-стек.
+- `docker-compose.ip.yml` — временный IP/HTTP стек.
+- `.env.example` — шаблон для IP-режима.
+- `.env.https.example` — шаблон для HTTPS-режима.
 
 ## Команды эксплуатации
 ```bash
@@ -41,7 +42,11 @@ docker compose --env-file .env.https -f docker-compose.https.yml logs -f traefik
 cd ~/n8n-server
 docker compose --env-file .env.https -f docker-compose.https.yml restart n8n
 
-# Бэкапы
-ls -lah ~/n8n-backups
-tail -n 100 ~/n8n-backups/backup.log
+# Бэкап
+cd ~/n8n-server
+./scripts/backup_n8n.sh
+
+# Восстановление
+cd ~/n8n-server
+./scripts/restore_n8n.sh /home/aicore/n8n-backups/n8n-backup_YYYY-MM-DD_HH-MM-SS.tar.gz
 ```

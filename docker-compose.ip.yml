@@ -1,12 +1,18 @@
 services:
   redis:
-    image: redis:alpine
+    image: redis:7.4-alpine
     restart: always
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
     volumes:
       - redis_data:/data
 
   n8n:
-    image: docker.n8n.io/n8nio/n8n:latest
+    image: docker.n8n.io/n8nio/n8n:2.6.4
     restart: always
     ports:
       - "5678:5678"
@@ -22,11 +28,20 @@ services:
       N8N_BASIC_AUTH_USER: "${N8N_BASIC_AUTH_USER}"
       N8N_BASIC_AUTH_PASSWORD: "${N8N_BASIC_AUTH_PASSWORD}"
       N8N_ENCRYPTION_KEY: "${N8N_ENCRYPTION_KEY}"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "node -e \"const http=require('http');const req=http.get('http://127.0.0.1:5678',res=>process.exit(res.statusCode<500?0:1));req.on('error',()=>process.exit(1));\""
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     volumes:
       - n8n_data:/home/node/.n8n
       - ./local-files:/files
-    depends_on:
-      - redis
 
 volumes:
   redis_data:

@@ -1,67 +1,69 @@
 services:
-  # ─────────────────────────────────────────────────────────────────────────────
-  # 1) Traefik — обратный прокси для HTTPS, Basic Auth и маршрутизации
   traefik:
-    image: traefik:latest
+    image: traefik:v2.11.36
     restart: always
     ports:
       - "80:80"
       - "443:443"
-    volumes:
-      - traefik_data:/letsencrypt
-      - ./traefik_dynamic.yml:/etc/traefik/traefik_dynamic.yml:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
     command:
-      - "--api=true"
-      - "--api.insecure=true"
       - "--providers.docker=true"
+      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
       - "--providers.docker.exposedbydefault=false"
-      - "--providers.file.filename=/etc/traefik/traefik_dynamic.yml"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
       - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
       - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.mytlschallenge.acme.tlschallenge=true"
-      - "--certificatesresolvers.mytlschallenge.acme.email=${SSL_EMAIL}"
-      - "--certificatesresolvers.mytlschallenge.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.le.acme.tlschallenge=true"
+      - "--certificatesresolvers.le.acme.email=${SSL_EMAIL}"
+      - "--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json"
+      - "--log.level=INFO"
+    volumes:
+      - traefik_data:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
-  # ─────────────────────────────────────────────────────────────────────────────
-  # 2) Redis — бекенд для Chat Memory (бесплатно, без OpenAI-ключей)
   redis:
-    image: redis:alpine
+    image: redis:7.4-alpine
     restart: always
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
     volumes:
       - redis_data:/data
 
-  # ─────────────────────────────────────────────────────────────────────────────
-  # 3) n8n — сервис автоматизации
   n8n:
-    image: docker.n8n.io/n8nio/n8n:latest
+    image: docker.n8n.io/n8nio/n8n:2.6.4
     restart: always
-    ports:
-      - "127.0.0.1:5678:5678"
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      N8N_HOST: "${DOMAIN_NAME}"
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: "https"
+      N8N_SECURE_COOKIE: "true"
+      N8N_PROXY_HOPS: "1"
+      WEBHOOK_URL: "https://${DOMAIN_NAME}/"
+      GENERIC_TIMEZONE: "${GENERIC_TIMEZONE}"
+      NODE_ENV: "production"
+      N8N_ENCRYPTION_KEY: "${N8N_ENCRYPTION_KEY}"
     labels:
       - "traefik.enable=true"
-      # Telegram webhooks — без авторизации
-      - "traefik.http.routers.n8n-webhook.rule=Host(`${DOMAIN_NAME}`) && PathPrefix(`/webhook`)"
-      - "traefik.http.routers.n8n-webhook.entrypoints=web,websecure"
-      - "traefik.http.routers.n8n-webhook.priority=100"
-      - "traefik.http.routers.n8n-webhook.tls=true"
-      - "traefik.http.routers.n8n-webhook.tls.certresolver=mytlschallenge"
-      # Основной UI/API — с Basic Auth
-      - "traefik.http.routers.n8n.rule=Host(`${DOMAIN_NAME}`) && !PathPrefix(`/webhook`)"
-      - "traefik.http.routers.n8n.entrypoints=web,websecure"
+      - "traefik.http.routers.n8n.rule=Host(`${DOMAIN_NAME}`)"
+      - "traefik.http.routers.n8n.entrypoints=websecure"
       - "traefik.http.routers.n8n.tls=true"
-      - "traefik.http.routers.n8n.tls.certresolver=mytlschallenge"
-      - "traefik.http.routers.n8n.middlewares=n8n-basic-auth@file"
+      - "traefik.http.routers.n8n.tls.certresolver=le"
       - "traefik.http.services.n8n.loadbalancer.server.port=5678"
-    environment:
-      - N8N_HOST=${DOMAIN_NAME}
-      - N8N_PORT=5678
-      - N8N_PROTOCOL=https
-      - WEBHOOK_URL=${WEBHOOK_URL}
-      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
-      - NODE_ENV=production
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "node -e \"const http=require('http');const req=http.get('http://127.0.0.1:5678',res=>process.exit(res.statusCode<500?0:1));req.on('error',()=>process.exit(1));\""
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     volumes:
       - n8n_data:/home/node/.n8n
       - ./local-files:/files
