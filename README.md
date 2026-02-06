@@ -27,3 +27,9 @@
   - `./scripts/backup_n8n.sh`
 - Восстановление:
   - `./scripts/restore_n8n.sh /home/aicore/n8n-backups/n8n-backup_YYYY-MM-DD_HH-MM-SS.tar.gz`
+
+## Watchlist
+- Проверка релизов и security advisory:
+  - `./scripts/check_n8n_watchlist.sh`
+- Подробный регламент:
+  - `docs/N8N_WATCHLIST_RU.md`

@@ -49,4 +49,8 @@ cd ~/n8n-server
 # Восстановление
 cd ~/n8n-server
 ./scripts/restore_n8n.sh /home/aicore/n8n-backups/n8n-backup_YYYY-MM-DD_HH-MM-SS.tar.gz
+
+# Watchlist релизов/уязвимостей n8n
+cd ~/n8n-server
+./scripts/check_n8n_watchlist.sh
 ```
