@@ -1,30 +1,30 @@
-#!/bin/bash
-# backup_n8n.sh — создаёт бэкап Docker-тома n8n_data
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Переменные
-VOLUME_NAME="n8n_data"            # имя Docker-тома, как в вашем docker-compose.yml
-BACKUP_DIR="/root/n8n-backups"    # куда сохранять архивы на хосте
-TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
-RETENTION_DAYS=7
+COMPOSE_FILE="${COMPOSE_FILE:-/home/aicore/n8n-server/docker-compose.ip.yml}"
+BACKUP_DIR="${BACKUP_DIR:-/home/aicore/n8n-backups}"
+RETENTION_DAYS="${RETENTION_DAYS:-14}"
+TIMESTAMP="$(date +"%Y-%m-%d_%H-%M-%S")"
+ARCHIVE="${BACKUP_DIR}/n8n-backup_${TIMESTAMP}.tar.gz"
+LOG_FILE="${BACKUP_DIR}/backup.log"
 
-# Создать папку для бэкапов
-mkdir -p "$BACKUP_DIR"
+mkdir -p "${BACKUP_DIR}"
 
-# Запустить временный контейнер, замапить том и сделать архив
-docker run --rm \
-  -v "${VOLUME_NAME}":/data:ro \
-  -v "${BACKUP_DIR}":/backup \
-  busybox \
-  sh -c "tar czf /backup/n8n-backup_${TIMESTAMP}.tar.gz -C /data ."
-
-# Проверка успешности
-if [ $? -ne 0 ]; then
-  echo "[$(date)] ERROR: Не удалось создать бэкап тома ${VOLUME_NAME}" >> "${BACKUP_DIR}/backup.log"
+N8N_CID="$(docker compose -f "${COMPOSE_FILE}" ps -q n8n)"
+if [ -z "${N8N_CID}" ]; then
+  echo "[$(date)] ERROR: n8n container not found via compose file ${COMPOSE_FILE}" | tee -a "${LOG_FILE}"
   exit 1
 fi
 
-# Удалить старые бэкапы
-find "$BACKUP_DIR" -type f -name "n8n-backup_*.tar.gz" -mtime +$RETENTION_DAYS -delete
+# Backup the persistent n8n data from mounted volume in n8n container.
+docker run --rm \
+  --user "$(id -u):$(id -g)" \
+  --volumes-from "${N8N_CID}":ro \
+  -v "${BACKUP_DIR}":/backup \
+  busybox \
+  sh -c "tar czf /backup/$(basename "${ARCHIVE}") -C /home/node/.n8n ."
 
-# Логирование успеха
-echo "[$(date)] Backup completed: n8n-backup_${TIMESTAMP}.tar.gz" >> "${BACKUP_DIR}/backup.log"
+find "${BACKUP_DIR}" -type f -name "n8n-backup_*.tar.gz" -mtime +"${RETENTION_DAYS}" -delete
+
+SIZE="$(du -h "${ARCHIVE}" | cut -f1)"
+echo "[$(date)] OK: ${ARCHIVE} (${SIZE})" | tee -a "${LOG_FILE}"
