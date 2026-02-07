@@ -52,6 +52,7 @@ jobs:
           set -euo pipefail
           ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" "mkdir -p ${DEPLOY_TARGET}"
           rsync -az \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
             --exclude ".git/" \
             --exclude ".github/" \
             ./ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_TARGET}/"
