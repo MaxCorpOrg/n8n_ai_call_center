@@ -3,6 +3,7 @@ name: Deploy to Server
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -29,7 +30,7 @@ jobs:
             exit 1
           fi
 
-      - name: Prepare SSH key
+      - name: Prepare SSH key (native deploy)
         shell: bash
         run: |
           set -euo pipefail
