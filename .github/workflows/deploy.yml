@@ -11,6 +11,7 @@ jobs:
       DEPLOY_HOST: ${{ secrets.SERVER_HOST || vars.SERVER_HOST }}
       DEPLOY_USER: aicore
       DEPLOY_SSH_KEY: ${{ secrets.SERVER_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_TARGET: /home/aicore/n8n-server
 
     steps:
       - uses: actions/checkout@v4
@@ -27,28 +28,41 @@ jobs:
             echo "::error::Missing SSH key. Set secrets.SERVER_SSH_KEY (or secrets.DEPLOY_SSH_KEY)."
             exit 1
           fi
-          echo "Deploy host is configured."
+
+      - name: Prepare SSH key
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          # Supports both true multiline keys and one-line keys with literal \n.
+          printf '%s' "${DEPLOY_SSH_KEY}" | perl -pe 's/\\n/\n/g' > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          if ! ssh-keygen -y -f ~/.ssh/deploy_key >/dev/null 2>&1; then
+            echo "::error::SERVER_SSH_KEY is not a valid private key. Paste full private key including BEGIN/END lines."
+            exit 1
+          fi
+
+          ssh-keyscan -H "${DEPLOY_HOST}" >> ~/.ssh/known_hosts
 
       - name: Copy files to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ env.DEPLOY_HOST }}
-          username: ${{ env.DEPLOY_USER }}
-          key: ${{ env.DEPLOY_SSH_KEY }}
-          source: "."
-          target: "/home/aicore/n8n-server"
-          overwrite: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" "mkdir -p ${DEPLOY_TARGET}"
+          rsync -az \
+            --exclude ".git/" \
+            --exclude ".github/" \
+            ./ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_TARGET}/"
 
       - name: SSH and deploy HTTPS stack
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ env.DEPLOY_HOST }}
-          username: ${{ env.DEPLOY_USER }}
-          key: ${{ env.DEPLOY_SSH_KEY }}
-          script_stop: true
-          script: |
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" '
             set -e
             cd /home/aicore/n8n-server
             docker compose --env-file .env.https -f docker-compose.https.yml pull
             docker compose --env-file .env.https -f docker-compose.https.yml up -d --remove-orphans
             docker image prune -f
+          '
