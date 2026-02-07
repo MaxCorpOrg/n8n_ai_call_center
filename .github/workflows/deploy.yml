@@ -7,16 +7,34 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      DEPLOY_HOST: ${{ secrets.SERVER_HOST || vars.SERVER_HOST }}
+      DEPLOY_USER: aicore
+      DEPLOY_SSH_KEY: ${{ secrets.SERVER_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
 
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate deploy settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${DEPLOY_HOST}" ]; then
+            echo "::error::Missing deploy host. Set secrets.SERVER_HOST or vars.SERVER_HOST."
+            exit 1
+          fi
+          if [ -z "${DEPLOY_SSH_KEY}" ]; then
+            echo "::error::Missing SSH key. Set secrets.SERVER_SSH_KEY (or secrets.DEPLOY_SSH_KEY)."
+            exit 1
+          fi
+          echo "Deploy host is configured."
+
       - name: Copy files to server
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: aicore
-          key: ${{ secrets.SERVER_SSH_KEY }}
+          host: ${{ env.DEPLOY_HOST }}
+          username: ${{ env.DEPLOY_USER }}
+          key: ${{ env.DEPLOY_SSH_KEY }}
           source: "."
           target: "/home/aicore/n8n-server"
           overwrite: true
@@ -24,9 +42,9 @@ jobs:
       - name: SSH and deploy HTTPS stack
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: aicore
-          key: ${{ secrets.SERVER_SSH_KEY }}
+          host: ${{ env.DEPLOY_HOST }}
+          username: ${{ env.DEPLOY_USER }}
+          key: ${{ env.DEPLOY_SSH_KEY }}
           script_stop: true
           script: |
             set -e

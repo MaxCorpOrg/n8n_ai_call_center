@@ -33,3 +33,8 @@
   - `./scripts/check_n8n_watchlist.sh`
 - Подробный регламент:
   - `docs/N8N_WATCHLIST_RU.md`
+
+## GitHub Actions Deploy
+Для workflow `.github/workflows/deploy.yml` должны быть настроены:
+- `secrets.SERVER_SSH_KEY` (или `secrets.DEPLOY_SSH_KEY`) — приватный SSH-ключ пользователя `aicore`.
+- `secrets.SERVER_HOST` (или `vars.SERVER_HOST`) — IP/домен сервера.
