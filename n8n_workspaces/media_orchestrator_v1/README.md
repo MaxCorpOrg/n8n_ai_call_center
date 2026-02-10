@@ -1,12 +1,13 @@
 # Media Orchestrator Workspace (n8n)
 
-Пакет переносит рабочее пространство из 6 связанных workflow:
+Пакет переносит рабочее пространство из 7 связанных workflow:
 - Agent 1: менеджер и диалог в Telegram (оркестратор)
 - Router: Intent Router (Code + Switch маршрутизация)
 - Agent 2: сценарий и промпты
 - Agent 3: генерация изображения через Pollinations (fallback)
 - Agent 5: генерация изображения через Gemini/Flow (Vertex)
 - Agent 4: генерация/проверка видео в Kling
+- KB Sync Agent: автообновление changelog базы знаний + проверка свежести KB
 
 ## Выбор генератора изображений
 В Agent 1 доступны команды:
@@ -20,6 +21,15 @@
 - Логика интентов вынесена из большого промпта в отдельный workflow `MEDIA_AGENT_ROUTER | Intent Router (draft)`.
 - В роутере используется `Switch` для маршрутизации (greeting, engine_select, config_update, confirm_photo, regenerate, confirm_video, image_request, fallback).
 - Ошибки обрабатываются на уровне мастера через вторую ветку выхода агента (`Set Error Reply`) и fallback-вопрос.
+
+## KB Sync Agent
+- Workflow: `KB_SYNC_AGENT | Knowledge Base Sync (draft)`.
+- Функции:
+  - проверяет свежесть `docs/knowledge_base` по последним коммитам;
+  - добавляет автоматическую запись в `docs/knowledge_base/09_PROJECT_CHANGELOG_AND_STATE.md` (через GitHub API);
+  - отправляет статус в Telegram.
+- Требует переменную окружения `KB_GITHUB_TOKEN` внутри n8n.
+- Опционально использует `N8N_PUBLIC_API_KEY` для краткой статистики по workflow.
 
 ## Структура
 - `workflows/raw/` — полные выгрузки с исходного инстанса
@@ -37,6 +47,7 @@
 export N8N_BASE_URL="https://your-n8n-domain"
 export N8N_API_KEY="your_public_api_key"
 export ACTIVATE_MASTER=true
+export ACTIVATE_KB_SYNC=false
 ```
 3. Запустите:
 ```bash
@@ -56,3 +67,4 @@ export ACTIVATE_MASTER=true
 - Agent 3 не требует API-ключа (Pollinations URL).
 - Agent 5 может упираться в geo/quota ограничения Gemini API.
 - Для переносимости роутер импортируется отдельно и автоматически подставляется в мастер скриптом `import_workspace.sh`.
+- Для KB Sync Agent добавьте env в n8n: `KB_GITHUB_TOKEN` (scope `repo` на нужный репозиторий).

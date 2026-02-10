@@ -1,0 +1,419 @@
+{
+  "name": "KB_SYNC_AGENT | Knowledge Base Sync (draft)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "kb-schedule",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1200,
+        120
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "kb-manual",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1200,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "github_api",
+              "value": "https://api.github.com",
+              "type": "string"
+            },
+            {
+              "name": "github_owner",
+              "value": "MaxCorpOrg",
+              "type": "string"
+            },
+            {
+              "name": "github_repo",
+              "value": "n8n_ai_call_center",
+              "type": "string"
+            },
+            {
+              "name": "github_branch",
+              "value": "main",
+              "type": "string"
+            },
+            {
+              "name": "kb_dir",
+              "value": "docs/knowledge_base",
+              "type": "string"
+            },
+            {
+              "name": "changelog_path",
+              "value": "docs/knowledge_base/09_PROJECT_CHANGELOG_AND_STATE.md",
+              "type": "string"
+            },
+            {
+              "name": "stale_days",
+              "value": "7",
+              "type": "number"
+            },
+            {
+              "name": "github_token",
+              "value": "={{ $env.KB_GITHUB_TOKEN || '' }}",
+              "type": "string"
+            },
+            {
+              "name": "n8n_api_base",
+              "value": "https://www.n-8-n.site/api/v1",
+              "type": "string"
+            },
+            {
+              "name": "n8n_api_key",
+              "value": "={{ $env.N8N_PUBLIC_API_KEY || '' }}",
+              "type": "string"
+            },
+            {
+              "name": "telegram_chat_id",
+              "value": "7326497224",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "kb-set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -960,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $input.first().json || {};\nconst missing = [];\n\nif (!cfg.github_token || String(cfg.github_token).trim().length < 20 || String(cfg.github_token).includes('REPLACE_')) {\n  missing.push('KB_GITHUB_TOKEN');\n}\n\nconst status = missing.length ? 'error' : 'ok';\nconst output = status === 'ok'\n  ? 'KB Sync Agent: конфиг валиден, запускаю проверку и обновление changelog.'\n  : `KB Sync Agent: отсутствует/некорректен конфиг: ${missing.join(', ')}. Добавьте env в n8n и повторите.`;\n\nreturn [{\n  json: {\n    ...cfg,\n    config_status: status,\n    chat_id: String(cfg.telegram_chat_id || '7326497224'),\n    output,\n  },\n}];"
+      },
+      "id": "kb-validate-config",
+      "name": "Validate Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.config_status }}",
+                    "rightValue": "ok",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "OK"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "kb-switch-config",
+      "name": "Switch Config",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -480,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $input.first().json || {};\n\nasync function getJson(ctx, url, headers = {}) {\n  return await ctx.helpers.httpRequest({\n    method: 'GET',\n    url,\n    headers,\n    json: true,\n  });\n}\n\ntry {\n  const api = String(cfg.github_api);\n  const owner = String(cfg.github_owner);\n  const repo = String(cfg.github_repo);\n  const branch = String(cfg.github_branch);\n  const kbDir = String(cfg.kb_dir);\n  const changelogPath = String(cfg.changelog_path);\n  const staleDays = Number(cfg.stale_days || 7);\n\n  const ghHeaders = {\n    Authorization: `Bearer ${cfg.github_token}`,\n    Accept: 'application/vnd.github+json',\n    'User-Agent': 'kb-sync-agent',\n  };\n\n  const repoBase = `${api}/repos/${owner}/${repo}`;\n  const kbCommitsUrl = `${repoBase}/commits?sha=${encodeURIComponent(branch)}&path=${encodeURIComponent(kbDir)}&per_page=20`;\n  const repoCommitsUrl = `${repoBase}/commits?sha=${encodeURIComponent(branch)}&per_page=5`;\n  const changelogUrl = `${repoBase}/contents/${encodeURIComponent(changelogPath)}?ref=${encodeURIComponent(branch)}`;\n\n  const [kbCommits, repoCommits, changelogMeta] = await Promise.all([\n    getJson(this, kbCommitsUrl, ghHeaders),\n    getJson(this, repoCommitsUrl, ghHeaders),\n    getJson(this, changelogUrl, ghHeaders),\n  ]);\n\n  const now = new Date();\n  const nowIso = now.toISOString();\n  const markerDate = nowIso.slice(0, 10);\n\n  let kbLastCommitAt = null;\n  let kbIsStale = true;\n  let kbLastFiles = [];\n\n  if (Array.isArray(kbCommits) && kbCommits.length) {\n    kbLastCommitAt = kbCommits[0]?.commit?.committer?.date || kbCommits[0]?.commit?.author?.date || null;\n    if (kbLastCommitAt) {\n      const diffMs = now.getTime() - new Date(kbLastCommitAt).getTime();\n      const diffDays = diffMs / (1000 * 60 * 60 * 24);\n      kbIsStale = diffDays > staleDays;\n    }\n\n    const firstSha = kbCommits[0]?.sha;\n    if (firstSha) {\n      try {\n        const commitDetails = await getJson(this, `${repoBase}/commits/${firstSha}`, ghHeaders);\n        kbLastFiles = (commitDetails.files || []).map((f) => f.filename).slice(0, 10);\n      } catch (_) {\n        kbLastFiles = [];\n      }\n    }\n  }\n\n  let n8nSummary = null;\n  if (cfg.n8n_api_key && String(cfg.n8n_api_key).trim()) {\n    try {\n      const workflowsResp = await getJson(this, `${cfg.n8n_api_base}/workflows?limit=100`, {\n        'X-N8N-API-KEY': String(cfg.n8n_api_key),\n      });\n      const items = workflowsResp?.data || [];\n      n8nSummary = {\n        total_workflows: items.length,\n        active_workflows: items.filter((w) => !!w.active).length,\n      };\n    } catch (e) {\n      n8nSummary = { error: e.message || 'n8n api failed' };\n    }\n  }\n\n  const changelogText = Buffer.from(changelogMeta.content || '', 'base64').toString('utf8');\n\n  const kbCommitsShort = (kbCommits || []).slice(0, 5).map((c) => ({\n    sha: String(c.sha || '').slice(0, 7),\n    date: c?.commit?.committer?.date || c?.commit?.author?.date || '',\n    message: c?.commit?.message?.split('\\n')[0] || '',\n    url: c?.html_url || '',\n  }));\n\n  const repoCommitsShort = (repoCommits || []).slice(0, 5).map((c) => ({\n    sha: String(c.sha || '').slice(0, 7),\n    date: c?.commit?.committer?.date || c?.commit?.author?.date || '',\n    message: c?.commit?.message?.split('\\n')[0] || '',\n    url: c?.html_url || '',\n  }));\n\n  return [{\n    json: {\n      ...cfg,\n      collect_status: 'ok',\n      now_utc: nowIso,\n      marker_date: markerDate,\n      kb_last_commit_at: kbLastCommitAt,\n      kb_is_stale: kbIsStale,\n      kb_last_files: kbLastFiles,\n      kb_commits_short: kbCommitsShort,\n      repo_commits_short: repoCommitsShort,\n      changelog_sha: changelogMeta.sha,\n      changelog_text: changelogText,\n      n8n_summary: n8nSummary,\n      chat_id: String(cfg.telegram_chat_id || '7326497224'),\n    },\n  }];\n} catch (e) {\n  return [{\n    json: {\n      ...cfg,\n      collect_status: 'error',\n      output: `KB Sync Agent: ошибка сбора данных: ${e.message || 'unknown'}`,\n      chat_id: String(cfg.telegram_chat_id || '7326497224'),\n    },\n  }];\n}"
+      },
+      "id": "kb-collect-state",
+      "name": "Collect KB State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $input.first().json || {};\n\nif (j.collect_status !== 'ok') {\n  return [{\n    json: {\n      ...j,\n      update_action: 'skip',\n      output: j.output || 'KB Sync Agent: пропуск обновления из-за ошибки сбора данных.',\n    },\n  }];\n}\n\nconst marker = `<!-- KB_SYNC: ${j.marker_date} -->`;\nconst alreadyUpdatedToday = String(j.changelog_text || '').includes(marker);\n\nconst kbStatus = j.kb_is_stale ? 'STALE' : 'FRESH';\nconst kbFilesLine = (j.kb_last_files || []).length\n  ? (j.kb_last_files || []).map((f) => `  - ${f}`).join('\\n')\n  : '  - (нет данных по файлам)';\n\nconst repoCommitsLines = (j.repo_commits_short || []).map((c) => `  - ${c.sha} | ${c.date} | ${c.message}`).join('\\n');\nconst kbCommitsLines = (j.kb_commits_short || []).map((c) => `  - ${c.sha} | ${c.date} | ${c.message}`).join('\\n');\n\nconst n8nLine = j.n8n_summary\n  ? (j.n8n_summary.error\n      ? `- n8n API: ${j.n8n_summary.error}`\n      : `- n8n workflows: total=${j.n8n_summary.total_workflows}, active=${j.n8n_summary.active_workflows}`)\n  : '- n8n API: пропущено (нет N8N_PUBLIC_API_KEY)';\n\nconst section = [\n  '',\n  `### ${j.now_utc} — KB Sync Agent`,\n  `- KB freshness: ${kbStatus} (last commit: ${j.kb_last_commit_at || 'n/a'}, threshold=${j.stale_days}d)`,\n  n8nLine,\n  '- Последние коммиты по KB:',\n  kbCommitsLines || '  - (нет данных)',\n  '- Файлы в последнем KB-коммите:',\n  kbFilesLine,\n  '- Последние коммиты репозитория:',\n  repoCommitsLines || '  - (нет данных)',\n  marker,\n  ''\n].join('\\n');\n\nif (alreadyUpdatedToday) {\n  const output = `KB Sync Agent: запись за ${j.marker_date} уже есть. Freshness=${kbStatus}.`;\n  return [{\n    json: {\n      ...j,\n      update_action: 'skip',\n      output,\n    },\n  }];\n}\n\nconst updatedText = `${j.changelog_text}\\n${section}`.trim() + '\\n';\nconst contentB64 = Buffer.from(updatedText, 'utf8').toString('base64');\nconst commitMessage = `chore(kb): автообновление changelog (${j.marker_date})`;\n\nreturn [{\n  json: {\n    ...j,\n    update_action: 'update',\n    output: `KB Sync Agent: подготовлено обновление changelog. Freshness=${kbStatus}.`,\n    changelog_updated_b64: contentB64,\n    changelog_commit_message: commitMessage,\n  },\n}];"
+      },
+      "id": "kb-build-update",
+      "name": "Build Changelog Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.update_action }}",
+                    "rightValue": "update",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Update"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "kb-switch-update",
+      "name": "Switch Update Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        260,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $input.first().json || {};\n\ntry {\n  const api = String(j.github_api);\n  const owner = String(j.github_owner);\n  const repo = String(j.github_repo);\n  const repoBase = `${api}/repos/${owner}/${repo}`;\n\n  const headers = {\n    Authorization: `Bearer ${j.github_token}`,\n    Accept: 'application/vnd.github+json',\n    'User-Agent': 'kb-sync-agent',\n    'Content-Type': 'application/json',\n  };\n\n  const body = {\n    message: String(j.changelog_commit_message || 'chore(kb): auto update changelog'),\n    content: String(j.changelog_updated_b64 || ''),\n    sha: String(j.changelog_sha || ''),\n    branch: String(j.github_branch || 'main'),\n  };\n\n  const res = await this.helpers.httpRequest({\n    method: 'PUT',\n    url: `${repoBase}/contents/${encodeURIComponent(String(j.changelog_path))}`,\n    headers,\n    body,\n    json: true,\n  });\n\n  const commitUrl = res?.commit?.html_url || '';\n  return [{\n    json: {\n      ...j,\n      push_status: 'ok',\n      output: `KB Sync Agent: changelog обновлён успешно. ${commitUrl}`.trim(),\n    },\n  }];\n} catch (e) {\n  return [{\n    json: {\n      ...j,\n      push_status: 'error',\n      output: `KB Sync Agent: не удалось обновить changelog: ${e.message || 'unknown'}`\n    },\n  }];\n}"
+      },
+      "id": "kb-push-update",
+      "name": "Push Changelog Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "output",
+              "value": "={{ $json.output || 'KB Sync Agent: обновление не требуется.' }}",
+              "type": "string"
+            },
+            {
+              "name": "chat_id",
+              "value": "={{ $json.chat_id || '7326497224' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "kb-set-skip",
+      "name": "Set Skip/Status Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        520,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id || '7326497224' }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "kb-telegram-notify",
+      "name": "Telegram Notify",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        780,
+        140
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "Validate Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Config": {
+      "main": [
+        [
+          {
+            "node": "Switch Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Config": {
+      "main": [
+        [
+          {
+            "node": "Collect KB State",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Skip/Status Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect KB State": {
+      "main": [
+        [
+          {
+            "node": "Build Changelog Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Changelog Update": {
+      "main": [
+        [
+          {
+            "node": "Switch Update Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Update Action": {
+      "main": [
+        [
+          {
+            "node": "Push Changelog Update",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Skip/Status Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Push Changelog Update": {
+      "main": [
+        [
+          {
+            "node": "Telegram Notify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Skip/Status Message": {
+      "main": [
+        [
+          {
+            "node": "Telegram Notify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  }
+}

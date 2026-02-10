@@ -27,5 +27,8 @@
         "workflows/raw/LG1KGfhnNCICjNra.json"
       ]
     }
+  ],
+  "notes": [
+    "KB Sync Agent does not use in-file placeholders. Configure KB_GITHUB_TOKEN env in n8n runtime."
   ]
 }

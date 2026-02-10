@@ -13,8 +13,8 @@
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1.1,
       "position": [
-        -640,
-        224
+        -768,
+        400
       ],
       "webhookId": "11765d1c-73a2-4b14-8ce9-bb31dbbb403e",
       "credentials": {
@@ -86,7 +86,7 @@
       "typeVersion": 3.2,
       "position": [
         -400,
-        224
+        96
       ]
     },
     {
@@ -119,7 +119,7 @@
             {
               "id": "7c0888d8-f3df-4e6b-8192-b1f45f9f2050",
               "name": "text",
-              "value": "={{ (() => {\n  const t = $json.message?.text || '';\n  const low = t.toLowerCase().trim();\n\n  const isGreeting = /^(привет|хай|hello|hi|здарова|добрый|start|старт)\\b/i.test(low);\n\n  const flowCmd = /\\/engine\\s*(flow|gemini)/i.test(t)\n    || low.includes('flow')\n    || low.includes('флоу')\n    || low.includes('на флоу')\n    || low.includes('через flow')\n    || low.includes('через гугл')\n    || low.includes('через google')\n    || low.includes('через gemini')\n    || low.includes('на гемини')\n    || low.includes('сделай на флоу')\n    || low.includes('используй flow')\n    || low.includes('используй флоу');\n\n  const pollinationsCmd = /\\/engine\\s*pollinations/i.test(t)\n    || low.includes('pollinations')\n    || low.includes('полинейшнс')\n    || low.includes('пуллинейшнс')\n    || low.includes('на pollinations')\n    || low.includes('через pollinations');\n\n  const regenerateCmd =\n    low.includes('не нравится')\n    || low.includes('не понрав')\n    || low.includes('переделай')\n    || low.includes('сделай другую')\n    || low.includes('другую фот')\n    || low.includes('ещё вариант')\n    || low.includes('еще вариант')\n    || low.includes('другой вариант')\n    || low.includes('не то')\n    || low.includes('сделай иначе')\n    || low.includes('заново давай');\n\n  const autopilotCmd =\n    low.includes('сделай сам')\n    || low.includes('на твой вкус')\n    || low.includes('без заморочек')\n    || low.includes('не заморачива')\n    || low.includes('как лучше')\n    || low.includes('сам выбери');\n\n  if (!isGreeting && !flowCmd && !pollinationsCmd && !regenerateCmd && !autopilotCmd) return t;\n\n  const lines = [];\n\n  if (isGreeting) {\n    lines.push(\n      'WIZARD_FORCE: начни простой мастер-диалог с выбора движка.',\n      'Спроси коротко: 1) Flow 2) Pollinations.'\n    );\n  }\n\n  if (autopilotCmd) {\n    lines.push(\n      'AUTOPILOT_FORCE: пользователь просит не заморачиваться.',\n      'Применяй дефолты и задай только 1 короткий вопрос по сцене/стилю.'\n    );\n  }\n\n  if (flowCmd) {\n    lines.push(\n      'FLOW_FORCE: пользователь выбрал движок GEMINI/FLOW.',\n      'ОБЯЗАТЕЛЬНО вызови tool geminiNanoBananaAgent в этом ответе.',\n      'Запрещено писать, что gemini вернул ошибку, пока tool не вызван реально.',\n      'Если текущий ввод короткий, возьми последний image_prompt из памяти чата.'\n    );\n  }\n\n  if (pollinationsCmd) {\n    lines.push(\n      'POLLINATIONS_FORCE: пользователь выбрал движок POLLINATIONS.',\n      'ОБЯЗАТЕЛЬНО вызови tool nanoBananaAgent в этом ответе.',\n      'Если текущий ввод короткий, возьми последний image_prompt из памяти чата.'\n    );\n  }\n\n  if (regenerateCmd) {\n    lines.push(\n      'REGENERATE_FORCE: пользователь просит новую версию фото.',\n      'Используй последний подтверждённый контекст, добавь правки из текущего сообщения и запусти генерацию снова.',\n      'Не начинай полный опрос заново, если контекст уже есть.'\n    );\n  }\n\n  lines.push('', 'Текущий ввод пользователя:', t);\n  return lines.join('\\n');\n})(); }}\n",
+              "value": "={{ (() => {\n  const t = $json.message?.text || '';\n  const low = t.toLowerCase().trim();\n\n  const isGreeting = /^(привет|хай|hello|hi|здарова|добрый|start|старт)\\b/i.test(low);\n\n  const flowCmd = /\\/engine\\s*(flow|gemini)/i.test(t)\n    || low.includes('flow')\n    || low.includes('флоу')\n    || low.includes('на флоу')\n    || low.includes('через flow')\n    || low.includes('через гугл')\n    || low.includes('через google')\n    || low.includes('через gemini')\n    || low.includes('на гемини')\n    || low.includes('сделай на флоу')\n    || low.includes('используй flow')\n    || low.includes('используй флоу');\n\n  const pollinationsCmd = /\\/engine\\s*pollinations/i.test(t)\n    || low.includes('pollinations')\n    || low.includes('полинейшнс')\n    || low.includes('пуллинейшнс')\n    || low.includes('на pollinations')\n    || low.includes('через pollinations');\n\n  const regenerateCmd =\n    low.includes('не нравится')\n    || low.includes('не понрав')\n    || low.includes('переделай')\n    || low.includes('сделай другую')\n    || low.includes('другую фот')\n    || low.includes('ещё вариант')\n    || low.includes('еще вариант')\n    || low.includes('другой вариант')\n    || low.includes('не то')\n    || low.includes('сделай иначе')\n    || low.includes('заново давай');\n\n  const autopilotCmd =\n    low.includes('сделай сам')\n    || low.includes('на твой вкус')\n    || low.includes('без заморочек')\n    || low.includes('не заморачива')\n    || low.includes('как лучше')\n    || low.includes('сам выбери');\n\n  const promptReadyCmd =\n    /(^|\\n)\\s*(prompt|промпт)\\s*[:=]/i.test(t)\n    || low.includes('готовый промпт')\n    || low.includes('вот промпт')\n    || low.includes('есть промпт')\n    || low.includes('у меня промпт')\n    || (t.length > 220 && (\n      low.includes('cinematic')\n      || low.includes('lighting')\n      || low.includes('style')\n      || low.includes('композиц')\n      || low.includes('освещен')\n    ));\n\n  const videoGoalCmd =\n    low.includes('видео')\n    || low.includes('ролик')\n    || low.includes('video content')\n    || low.includes('контент');\n\n  if (!isGreeting && !flowCmd && !pollinationsCmd && !regenerateCmd && !autopilotCmd && !promptReadyCmd && !videoGoalCmd) return t;\n\n  const lines = [];\n\n  if (isGreeting) {\n    lines.push(\n      'WIZARD_FORCE: начни простой мастер-диалог с выбора движка.',\n      'Спроси коротко: 1) Flow 2) Pollinations.'\n    );\n  }\n\n  if (autopilotCmd) {\n    lines.push(\n      'AUTOPILOT_FORCE: пользователь просит не заморачиваться.',\n      'Применяй дефолты и задай только 1 короткий вопрос по теме/стилю.'\n    );\n  }\n\n  if (promptReadyCmd) {\n    lines.push(\n      'PROMPT_READY_FORCE: у пользователя уже есть готовый промпт.',\n      'Не запускай полный опрос, уточни только недостающее для фото/видео пайплайна.'\n    );\n  }\n\n  if (videoGoalCmd) {\n    lines.push(\n      'VIDEO_GOAL_FORCE: конечная цель пользователя — видео-контент.',\n      'Веди пайплайн start/end frame -> video, не останавливайся на одном фото.'\n    );\n  }\n\n  if (flowCmd) {\n    lines.push(\n      'FLOW_FORCE: пользователь выбрал движок GEMINI/FLOW.',\n      'ОБЯЗАТЕЛЬНО вызови tool geminiNanoBananaAgent в фото-шаге.',\n      'Запрещено писать, что gemini вернул ошибку, пока tool не вызван реально.'\n    );\n  }\n\n  if (pollinationsCmd) {\n    lines.push(\n      'POLLINATIONS_FORCE: пользователь выбрал движок POLLINATIONS.',\n      'ОБЯЗАТЕЛЬНО вызови tool nanoBananaAgent в фото-шаге.'\n    );\n  }\n\n  if (regenerateCmd) {\n    lines.push(\n      'REGENERATE_FORCE: пользователь просит новую версию фото.',\n      'Используй последний подтверждённый контекст и перегенерируй без полного опроса.'\n    );\n  }\n\n  lines.push('', 'Текущий ввод пользователя:', t);\n  return lines.join('\\n');\n})(); }}\n",
               "type": "string"
             }
           ]
@@ -140,7 +140,7 @@
         "promptType": "define",
         "text": "={{ $json.text }}",
         "options": {
-          "systemMessage": "Ты Агент 1 (оркестратор). Твоя задача — вести простой диалог и запускать правильные инструменты по шагам.\n\nКлючевое правило архитектуры:\n- Сначала всегда вызывай intentRouterTool с текущим сообщением пользователя.\n- На основе route/next_action из роутера выбирай следующий инструмент.\n- Не держи всю логику в голове: роутер определяет направление, ты исполняешь шаг.\n\nДоступные инструменты:\n- intentRouterTool: классификация intent и route.\n- scriptPlannerAgent: формирование/улучшение промпта.\n- nanoBananaAgent: генерация фото через Pollinations.\n- geminiNanoBananaAgent: генерация фото через Flow/Gemini.\n- klingVideoAgent: генерация и проверка видео.\n- Tavily Search: веб-поиск при явном запросе.\n\nБазовый сценарий:\n1) greeting/ask_engine -> предложи выбор: 1) Flow 2) Pollinations.\n2) engine_select -> подтверди выбор движка и спроси следующий шаг (что создать).\n3) image_request/collect_or_plan -> собери недостающие параметры (по 1 вопросу), затем вызови scriptPlannerAgent и покажи image_prompt.\n4) после готового промпта попроси: \"ПОДТВЕРЖДАЮ ФОТО\".\n5) confirm_photo/generate_photo -> вызови image-агента по выбранному движку.\n6) regenerate/generate_photo_again -> перегенерируй фото по текущему контексту с правками из последнего сообщения.\n7) после фото попроси: \"ПОДТВЕРЖДАЮ ВИДЕО\".\n8) confirm_video/generate_video -> вызови klingVideoAgent.\n\nПравила качества:\n- Обычный человеческий диалог на русском, коротко.\n- Если пользователь пишет \"сделай сам/без заморочек\" — используй дефолты (Flow, Nano Banana Pro, 1K, png, 1 фото).\n- Если инструмент вернул ошибку, кратко объясни и предложи следующий безопасный шаг (например, /engine pollinations).\n- Никогда не говори, что у тебя нет инструментов/возможностей.\n- Не заявляй об ошибке инструмента без фактического вызова этого инструмента.\n\nFallback/Error handling:\n- Если intentRouterTool недоступен или вернул мусор, задай один уточняющий вопрос: \"Что делаем: выбрать движок, создать фото или сделать видео?\"\n- Если image-движок упал, предложи переключение движка и повтор шага.\n\nФормат ответа:\n- Русский язык.\n- 3-8 коротких строк.\n\n\nОбработка маркеров из входа (Set Text):\n- WIZARD_FORCE: начни с простого вопроса выбора движка (Flow/Pollinations).\n- AUTOPILOT_FORCE: примени дефолты и задай один вопрос по сцене/стилю.\n- FLOW_FORCE: при выполнении фото-шага используй geminiNanoBananaAgent.\n- POLLINATIONS_FORCE: при выполнении фото-шага используй nanoBananaAgent.\n- REGENERATE_FORCE: немедленно запусти перегенерацию фото по текущему контексту.\n"
+          "systemMessage": "Ты Агент 1 (оркестратор). Ты ведёшь живой диалог на русском и управляешь всем пайплайном до видео-результата.\n\nКлючевая цель:\n- Конечный результат = видео-контент.\n- Изображения (старт/энд кадры) — это подготовительные этапы для видео.\n\nКлючевое правило архитектуры:\n- Сначала вызывай intentRouterTool с текущим сообщением.\n- По route/next_action выбирай следующий инструмент.\n\nДоступные инструменты:\n- intentRouterTool\n- scriptPlannerAgent\n- nanoBananaAgent\n- geminiNanoBananaAgent\n- klingVideoAgent\n- Tavily Search\n\nДва режима входа:\n1) Guided mode (если промпта нет):\n- Пошагово собирай бриф наводящими вопросами (по 1-3 коротких вопроса).\n2) Prompt-ready mode (если у пользователя уже есть готовый промпт):\n- Не делай полный опрос.\n- Уточни только недостающее для запуска пайплайна:\n  - движок (Flow/Pollinations),\n  - формат/размер/пропорции,\n  - нужен ли end frame,\n  - режим видео (single_frame/start_end/image_to_video),\n  - длительность/динамика камеры.\n\nVideo-first сценарий:\n1) Выбор движка фото: Flow или Pollinations.\n2) Сбор/уточнение брифа (или быстрый intake готового промпта).\n3) Вызов scriptPlannerAgent -> получить image_prompt + start_frame_prompt + end_frame_prompt + video_prompt.\n4) Показать резюме и запросить: \"ПОДТВЕРЖДАЮ ФОТО\".\n5) Сгенерировать start frame (и при необходимости end frame) выбранным движком.\n6) Показать результат(ы) и запросить: \"ПОДТВЕРЖДАЮ ВИДЕО\".\n7) Вызвать klingVideoAgent и отдать отчёт (status/task_id/video_url).\n\nПравила диалога:\n- Если данных уже достаточно, не переспрашивай лишнее.\n- Если пользователь пишет свободно, извлекай параметры автоматически.\n- Если пользователь пишет \"сделай сам/без заморочек\" — используй дефолты, но задай 1 вопрос про тему/настроение.\n- Если пользователь пишет \"не нравится/переделай/другой вариант\" — делай перегенерацию без полного опроса.\n\nОбработка маркеров из Set Text:\n- WIZARD_FORCE: начни с выбора движка.\n- AUTOPILOT_FORCE: применяй дефолты + 1 вопрос.\n- FLOW_FORCE: для фото-шага используй geminiNanoBananaAgent.\n- POLLINATIONS_FORCE: для фото-шага используй nanoBananaAgent.\n- REGENERATE_FORCE: немедленная перегенерация фото.\n- PROMPT_READY_FORCE: у пользователя готовый промпт, включи быстрый intake.\n- VIDEO_GOAL_FORCE: зафиксируй приоритет видео-пайплайна (start/end frame -> video).\n\nОшибки и fallback:\n- Не заявляй об ошибке инструмента без фактического вызова инструмента.\n- При сбое фото-движка предложи переключение движка и повтор шага.\n- Никогда не говори, что у тебя нет инструментов/возможностей.\n\nФормат ответа:\n- Русский язык.\n- 3-10 коротких строк.\n"
         }
       },
       "id": "7eb2cd53-8d07-4820-888d-fde40f7e3ee4",
@@ -372,7 +372,7 @@
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2,
       "position": [
-        704,
+        928,
         560
       ],
       "id": "b4b6cca7-611f-48f5-a375-031f0ad62b23",
@@ -402,8 +402,86 @@
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2,
       "position": [
-        580,
-        520
+        752,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json || {};\nconst ownerIds = ['7326497224'];\n\nconst chatId = String(input?.message?.chat?.id || '');\nconst userId = String(input?.message?.from?.id || '');\n\nconst authorized = ownerIds.includes(chatId) || ownerIds.includes(userId);\n\nreturn [{\n  json: {\n    ...input,\n    auth_status: authorized ? 'allow' : 'deny',\n    auth_meta: {\n      chat_id: chatId,\n      user_id: userId,\n      owner_ids: ownerIds,\n    },\n  },\n}];\n"
+      },
+      "id": "access-control-node",
+      "name": "Access Control",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -960,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.auth_status }}",
+                    "rightValue": "allow",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Allowed"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "access-switch-node",
+      "name": "Access Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -736,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "unauth-output-id",
+              "name": "output",
+              "value": "Доступ к этому боту ограничен. Обратитесь к владельцу.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "unauthorized-reply-node",
+      "name": "Set Unauthorized Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -400,
+        336
       ]
     }
   ],
@@ -412,7 +490,7 @@
       "main": [
         [
           {
-            "node": "Switch Input",
+            "node": "Access Control",
             "type": "main",
             "index": 0
           }
@@ -571,6 +649,46 @@
           {
             "node": "AGENT 1 | Manager",
             "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Access Control": {
+      "main": [
+        [
+          {
+            "node": "Access Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Access Switch": {
+      "main": [
+        [
+          {
+            "node": "Switch Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Unauthorized Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Unauthorized Reply": {
+      "main": [
+        [
+          {
+            "node": "Telegram Reply",
+            "type": "main",
             "index": 0
           }
         ]

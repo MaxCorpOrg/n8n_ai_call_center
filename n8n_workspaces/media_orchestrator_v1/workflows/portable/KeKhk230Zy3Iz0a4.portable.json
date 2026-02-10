@@ -11,7 +11,7 @@
       "typeVersion": 1.1,
       "position": [
         -560,
-        120
+        128
       ]
     },
     {
@@ -27,8 +27,8 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.2,
       "position": [
-        -560,
-        320
+        -416,
+        384
       ],
       "id": "9a06669b-b7d8-4f47-b352-4ae8f4ab6f39",
       "name": "Mistral (OpenAI Compat)",
@@ -44,7 +44,7 @@
         "promptType": "define",
         "text": "={{ $json.query }}",
         "options": {
-          "systemMessage": "Ты Агент 2: сценарист-планировщик контента.\n\nЗадача:\n1) Проанализировать запрос пользователя.\n2) Сформировать последовательный продакшн-план: сюжет -> кадры -> фото/стартовый кадр -> видео -> музыка.\n3) Подготовить точные промпты для генерации фото и видео.\n\nВерни строго JSON с полями:\n{\n  \"project_summary\": \"...\",\n  \"content_goal\": \"...\",\n  \"style_notes\": \"...\",\n  \"image_prompt\": \"...\",\n  \"start_frame_prompt\": \"...\",\n  \"end_frame_prompt\": \"...\",\n  \"video_prompt\": \"...\",\n  \"music_prompt\": \"...\",\n  \"video_mode\": \"single_frame|start_end|image_to_video\",\n  \"report_for_manager\": \"Короткий отчёт для агента 1\"\n}\n\nТолько JSON, без markdown."
+          "systemMessage": "Ты Агент 2: сценарист-планировщик и генератор промптов для image->video пайплайна.\n\nВход:\n- Бриф/сообщение от Агент 1. Может быть:\n  1) детальный диалоговый бриф,\n  2) уже готовый пользовательский промпт.\n\nКлючевая цель:\n- Подготовить материалы для создания видео-контента.\n- Стартовый и конечный кадры — опорные шаги перед видео.\n\nПравила обработки входа:\n1) Если у пользователя уже готовый промпт:\n- Сохрани его смысл и стиль как основу.\n- Не переписывай в другую идею.\n- Добавь только недостающие технические и композиционные уточнения.\n2) Если вход неполный:\n- Сделай нейтральные, непротиворечивые допущения.\n\nЧто нужно собрать:\n- idea/mood,\n- objects/composition,\n- style/art references,\n- lighting/atmosphere,\n- technical params (ratio, size, format, quality),\n- restrictions.\n\nВыходные промпты:\n- image_prompt: главный промпт для изображения.\n- start_frame_prompt: конкретный начальный кадр.\n- end_frame_prompt: логичное развитие/финальный кадр для перехода в видео.\n- video_prompt: описание движения/перехода между кадрами + камера + атмосфера.\n- music_prompt: стиль звука/музыки под ролик.\n\nВерни строго JSON:\n{\n  \"project_summary\": \"...\",\n  \"content_goal\": \"...\",\n  \"style_notes\": \"...\",\n  \"image_prompt\": \"...\",\n  \"start_frame_prompt\": \"...\",\n  \"end_frame_prompt\": \"...\",\n  \"video_prompt\": \"...\",\n  \"music_prompt\": \"...\",\n  \"video_mode\": \"single_frame|start_end|image_to_video\",\n  \"report_for_manager\": \"Короткий отчёт для агента 1\"\n}\n\nЖёсткие требования:\n- Только JSON, без markdown.\n- Все поля заполнены (кроме video_mode — одно из допустимых значений).\n- report_for_manager: 1-2 короткие фразы, что учтено и что готово для видео-этапа.\n"
         }
       },
       "id": "d0b10860-c52f-4922-9841-9dfe62bf947a",
@@ -52,8 +52,8 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
       "position": [
-        -280,
-        120
+        -288,
+        128
       ],
       "onError": "continueErrorOutput"
     },
@@ -76,8 +76,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        20,
-        40
+        32,
+        48
       ]
     },
     {
@@ -99,8 +99,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        20,
-        200
+        32,
+        208
       ]
     }
   ],

@@ -19,6 +19,9 @@
 
 ## Быстрый запуск
 1. Подготовьте `.env.https` на сервере (на основе `.env.https.example`).
+   - Для KB Sync Agent задайте:
+     - `KB_GITHUB_TOKEN` (PAT с доступом к repo);
+     - `N8N_PUBLIC_API_KEY` (опционально, для статистики workflow через n8n API).
 2. Запустите продакшн стек:
    - `docker compose --env-file .env.https -f docker-compose.https.yml up -d`
 

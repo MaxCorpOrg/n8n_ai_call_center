@@ -30,6 +30,7 @@ A3_FILE="$ROOT_DIR/workflows/portable_no_credentials/KFWMYCaEpWAdVIn3.portable.j
 A4_FILE="$ROOT_DIR/workflows/portable_no_credentials/DUJBo0tvHA5qIafi.portable.json"
 A5_FILE="$ROOT_DIR/workflows/portable_no_credentials/LG1KGfhnNCICjNra.portable.json"
 R_FILE="$ROOT_DIR/workflows/portable_no_credentials/ABnHZb9Ee2YOtfr2.portable.json"
+KB_FILE="$ROOT_DIR/workflows/portable_no_credentials/K5es5hBE05LEeB1j.portable.json"
 M_FILE="$ROOT_DIR/workflows/portable_no_credentials/C8Wmmjuv5hC425PM.portable.json"
 
 A2_ID="$(api POST /api/v1/workflows "$A2_FILE" | jq -r '.id')"
@@ -37,8 +38,9 @@ A3_ID="$(api POST /api/v1/workflows "$A3_FILE" | jq -r '.id')"
 A4_ID="$(api POST /api/v1/workflows "$A4_FILE" | jq -r '.id')"
 A5_ID="$(api POST /api/v1/workflows "$A5_FILE" | jq -r '.id')"
 R_ID="$(api POST /api/v1/workflows "$R_FILE" | jq -r '.id')"
+KB_ID="$(api POST /api/v1/workflows "$KB_FILE" | jq -r '.id')"
 
-echo "Imported: router=$R_ID agent2=$A2_ID agent3=$A3_ID agent4=$A4_ID agent5=$A5_ID"
+echo "Imported: router=$R_ID agent2=$A2_ID agent3=$A3_ID agent4=$A4_ID agent5=$A5_ID kb_sync=$KB_ID"
 
 TMP_MASTER="$(mktemp)"
 jq \
@@ -66,7 +68,13 @@ if [[ "${ACTIVATE_MASTER:-true}" == "true" ]]; then
   echo "Master activated: $M_ID"
 fi
 
+if [[ "${ACTIVATE_KB_SYNC:-false}" == "true" ]]; then
+  api POST "/api/v1/workflows/${KB_ID}/activate" >/dev/null
+  echo "KB Sync activated: $KB_ID"
+fi
+
 echo "DONE"
 echo "Next:"
 echo "1) Assign credentials in n8n UI (Telegram + OpenAI-compatible)"
 echo "2) Replace placeholders REPLACE_KLING_API_KEY / REPLACE_TAVILY_API_KEY / REPLACE_GEMINI_API_KEY"
+echo "3) Set env KB_GITHUB_TOKEN for KB Sync Agent (and optional N8N_PUBLIC_API_KEY)"
