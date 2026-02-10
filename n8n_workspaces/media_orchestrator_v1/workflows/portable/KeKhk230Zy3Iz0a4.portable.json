@@ -1,0 +1,154 @@
+{
+  "name": "MEDIA_AGENT_2 | Script Planner (draft)",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "47c5160f-c793-4b45-9dc1-ed474289f7b3",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -560,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "mistral-small",
+          "mode": "list",
+          "cachedResultName": "mistral-small"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -560,
+        320
+      ],
+      "id": "9a06669b-b7d8-4f47-b352-4ae8f4ab6f39",
+      "name": "Mistral (OpenAI Compat)",
+      "credentials": {
+        "openAiApi": {
+          "id": "YI8Aw7A808POIRQz",
+          "name": "Mistral via OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.query }}",
+        "options": {
+          "systemMessage": "Ты Агент 2: сценарист-планировщик контента.\n\nЗадача:\n1) Проанализировать запрос пользователя.\n2) Сформировать последовательный продакшн-план: сюжет -> кадры -> фото/стартовый кадр -> видео -> музыка.\n3) Подготовить точные промпты для генерации фото и видео.\n\nВерни строго JSON с полями:\n{\n  \"project_summary\": \"...\",\n  \"content_goal\": \"...\",\n  \"style_notes\": \"...\",\n  \"image_prompt\": \"...\",\n  \"start_frame_prompt\": \"...\",\n  \"end_frame_prompt\": \"...\",\n  \"video_prompt\": \"...\",\n  \"music_prompt\": \"...\",\n  \"video_mode\": \"single_frame|start_end|image_to_video\",\n  \"report_for_manager\": \"Короткий отчёт для агента 1\"\n}\n\nТолько JSON, без markdown."
+        }
+      },
+      "id": "d0b10860-c52f-4922-9841-9dfe62bf947a",
+      "name": "AGENT 2 | Script Planner",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -280,
+        120
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a2b84efe-2161-4a9c-a6a4-0f7ed8a29e21",
+              "name": "response",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a417cfe4-f673-4e6b-b839-653f7ca14a0f",
+      "name": "Success",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        20,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cb553805-c58b-41ca-8de1-a841f7c6ddf2",
+              "name": "response",
+              "value": "Агент 2 временно недоступен. Попробуйте повторить запрос по сценарию.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e0d3f9a1-c1bc-4e1b-8384-6df7b6726f10",
+      "name": "Try Again",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        20,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "AGENT 2 | Script Planner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral (OpenAI Compat)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AGENT 2 | Script Planner",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AGENT 2 | Script Planner": {
+      "main": [
+        [
+          {
+            "node": "Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Try Again",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  }
+}

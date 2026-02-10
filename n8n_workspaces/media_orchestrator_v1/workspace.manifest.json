@@ -1,0 +1,70 @@
+{
+  "workspace_name": "media_orchestrator_v1",
+  "workspace_title": "N8N Media Orchestrator (4 Agents)",
+  "version": "1.0.0",
+  "created_at": "2026-02-10",
+  "description": "Telegram-driven media production workspace: Agent 1 orchestrator + Agent 2 planning + Agent 3 image generation + Agent 4 video generation.",
+  "n8n_min_version": "2.6.4",
+  "workflows": [
+    {
+      "key": "agent_1_master",
+      "source_file": "workflows/portable_no_credentials/C8Wmmjuv5hC425PM.portable.json",
+      "original_id": "C8Wmmjuv5hC425PM",
+      "depends_on": [
+        "agent_2_planner",
+        "agent_3_image",
+        "agent_4_video"
+      ],
+      "activate_after_import": true
+    },
+    {
+      "key": "agent_2_planner",
+      "source_file": "workflows/portable_no_credentials/KeKhk230Zy3Iz0a4.portable.json",
+      "original_id": "KeKhk230Zy3Iz0a4",
+      "depends_on": [],
+      "activate_after_import": false
+    },
+    {
+      "key": "agent_3_image",
+      "source_file": "workflows/portable_no_credentials/KFWMYCaEpWAdVIn3.portable.json",
+      "original_id": "KFWMYCaEpWAdVIn3",
+      "depends_on": [],
+      "activate_after_import": false
+    },
+    {
+      "key": "agent_4_video",
+      "source_file": "workflows/portable_no_credentials/DUJBo0tvHA5qIafi.portable.json",
+      "original_id": "DUJBo0tvHA5qIafi",
+      "depends_on": [],
+      "activate_after_import": false
+    }
+  ],
+  "import_order": [
+    "agent_2_planner",
+    "agent_3_image",
+    "agent_4_video",
+    "agent_1_master"
+  ],
+  "required_credentials": [
+    {
+      "type": "telegramApi",
+      "purpose": "Telegram Trigger + Telegram Reply in Agent 1"
+    },
+    {
+      "type": "openAiApi",
+      "purpose": "Mistral OpenAI-compatible model in Agents 1,2,4"
+    }
+  ],
+  "placeholders_to_replace": [
+    {
+      "token": "REPLACE_TAVILY_API_KEY",
+      "workflow": "agent_1_master",
+      "node": "Tavily Search"
+    },
+    {
+      "token": "REPLACE_KLING_API_KEY",
+      "workflow": "agent_4_video",
+      "node": "KLING | Create Video, KLING | Check Status"
+    }
+  ]
+}

@@ -1,0 +1,489 @@
+{
+  "name": "MEDIA_AGENT_1 | Master Orchestrator TG (draft)",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "3b7570aa-0239-4f73-a891-d68ab3df03da",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -640,
+        224
+      ],
+      "webhookId": "11765d1c-73a2-4b14-8ce9-bb31dbbb403e"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.message.voice.file_id }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Voice"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.message.text }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Text"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2b6cf8e4-58cc-4cae-8d12-c255a99722f6",
+      "name": "Switch Input",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -400,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a24a48c8-0321-4f16-a350-c9c3612af2a6",
+              "name": "output",
+              "value": "Голосовые пока отключены. Напишите текстом, и я проведу процесс по шагам с подтверждением на каждом этапе.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ee3fdb63-4f62-4f05-acf6-f8a8be7db5a7",
+      "name": "Set Voice Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -128,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7c0888d8-f3df-4e6b-8192-b1f45f9f2050",
+              "name": "text",
+              "value": "={{ $json.message.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "00d4fc62-be95-44c0-a68f-20f8f0c8a920",
+      "name": "Set Text",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -128,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "options": {
+          "systemMessage": "Ты Агент 1 (главный менеджер проекта). Ты общаешься с пользователем в живом диалоге и управляешь агентами 2/3/4.\n\nЦели:\n- полный контроль пользователя на каждом шаге;\n- последовательная работа: сначала план/промпты -> фото -> подтверждение -> видео -> отчёт;\n- краткие отчёты после каждого шага.\n\nДоступные внутренние агенты:\n- scriptPlannerAgent (Агент 2): анализ и промпты.\n- nanoBananaAgent (Агент 3): генерация фото и старт-кадра.\n- klingVideoAgent (Агент 4): генерация видео / статус задачи.\n- Tavily Search: веб-поиск при явном запросе на поиск фактов.\n\nСтрогий протокол:\n1) Если новый проект или бриф неполный: задай 1-3 коротких уточнения.\n2) Когда данных достаточно, вызови scriptPlannerAgent.\n3) После ответа от scriptPlannerAgent отправь пользователю мини-отчёт и image_prompt.\n4) Запроси подтверждение: \"ПОДТВЕРЖДАЮ ФОТО\".\n5) Только после явного подтверждения \"ПОДТВЕРЖДАЮ ФОТО\" вызывай nanoBananaAgent.\n6) После генерации фото отправь результат и запроси \"ПОДТВЕРЖДАЮ ВИДЕО\".\n7) Только после явного подтверждения \"ПОДТВЕРЖДАЮ ВИДЕО\" вызывай klingVideoAgent.\n8) После шага видео отправь отчёт: status/task_id/video_url и следующий шаг.\n\nКритично:\n- ТЫ НЕ ДОЛЖЕН писать, что у тебя нет инструментов, нет подписки, нет возможности создавать изображения.\n- ТЫ НЕ ДОЛЖЕН выдумывать ограничения платформы.\n- Если tool временно вернул ошибку, покажи коротко ошибку и сразу предложи повтор шага.\n- Если пользователь просит \"просто любую картинку\", используй fallback-подход: короткий универсальный image_prompt и продолжай по протоколу подтверждений.\n\nФормат ответа:\n- Русский язык.\n- 4-12 строк.\n- Кратко и управляемо."
+        }
+      },
+      "id": "7eb2cd53-8d07-4820-888d-fde40f7e3ee4",
+      "name": "AGENT 1 | Manager",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        192,
+        224
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "mistral-small",
+          "mode": "list",
+          "cachedResultName": "mistral-small"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -208,
+        560
+      ],
+      "id": "1ccf5302-853a-4939-a109-c7ea833b5cc0",
+      "name": "Mistral (OpenAI Compat)"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Telegram Trigger').item.json.message.chat.id + '-v2' }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -64,
+        560
+      ],
+      "id": "8cd76563-6d39-4f89-b98b-e006851d18af",
+      "name": "Window Buffer Memory"
+    },
+    {
+      "parameters": {
+        "name": "scriptPlannerAgent",
+        "description": "Agent 2. Analyze scenario and build sequential prompts for image/start frame/end frame/video/music. Use for planning stage.",
+        "workflowId": {
+          "__rl": true,
+          "value": "KeKhk230Zy3Iz0a4",
+          "mode": "list",
+          "cachedResultName": "MEDIA_AGENT_2 | Script Planner (draft)"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        576,
+        560
+      ],
+      "id": "f8a7f59a-2ba8-4e94-b5b3-f646c9cf9fe2",
+      "name": "Agent 2 | Planner"
+    },
+    {
+      "parameters": {
+        "name": "nanoBananaAgent",
+        "description": "Agent 3. Generate image/start frame in Nano Banana. Call only after explicit user confirmation: ПОДТВЕРЖДАЮ ФОТО.",
+        "workflowId": {
+          "__rl": true,
+          "value": "KFWMYCaEpWAdVIn3",
+          "mode": "list",
+          "cachedResultName": "MEDIA_AGENT_3 | Nano Banana Image (draft)"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        416,
+        560
+      ],
+      "id": "b48c4a4d-1985-4c19-a1f4-21bc3705594c",
+      "name": "Agent 3 | Nano Banana"
+    },
+    {
+      "parameters": {
+        "name": "klingVideoAgent",
+        "description": "Agent 4. Generate video or check status in Kling. Call only after explicit user confirmation: ПОДТВЕРЖДАЮ ВИДЕО.",
+        "workflowId": {
+          "__rl": true,
+          "value": "DUJBo0tvHA5qIafi",
+          "mode": "list",
+          "cachedResultName": "MEDIA_AGENT_4 | Kling Video (draft)"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        272,
+        560
+      ],
+      "id": "d8aaf480-196a-4f5c-822f-7a03c64ca8e8",
+      "name": "Agent 4 | Kling"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Web search when user explicitly asks to find/check information on the internet.",
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"api_key\": \"REPLACE_TAVILY_API_KEY\",\n  \"query\": \"{searchTerm}\",\n  \"search_depth\": \"basic\",\n  \"include_answer\": true,\n  \"topic\": \"general\",\n  \"max_results\": 5\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "searchTerm",
+              "description": "Internet search query",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        128,
+        560
+      ],
+      "id": "2ba299f2-e89f-49d9-b87e-c13f6ff7e6f6",
+      "name": "Tavily Search"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9aa78d1e-e847-4a28-a7f6-04c2a8115f80",
+              "name": "output",
+              "value": "Техническая ошибка в агенте. Процесс не потерян. Напишите: 'продолжить с последнего шага'.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "de9c55fa-7d25-4ee4-8809-d37f9ab0ef72",
+      "name": "Set Error Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        464,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "15d5afff-6f7d-4481-9f89-f32a9ad5f117",
+      "name": "Telegram Reply",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        704,
+        224
+      ],
+      "webhookId": "6bde4e69-0f1d-4c63-a6d2-3909afa56806"
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Switch Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Input": {
+      "main": [
+        [
+          {
+            "node": "Set Voice Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Voice Reply": {
+      "main": [
+        [
+          {
+            "node": "Telegram Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Text": {
+      "main": [
+        [
+          {
+            "node": "AGENT 1 | Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral (OpenAI Compat)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AGENT 1 | Manager",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AGENT 1 | Manager",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent 2 | Planner": {
+      "ai_tool": [
+        [
+          {
+            "node": "AGENT 1 | Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent 3 | Nano Banana": {
+      "ai_tool": [
+        [
+          {
+            "node": "AGENT 1 | Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent 4 | Kling": {
+      "ai_tool": [
+        [
+          {
+            "node": "AGENT 1 | Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tavily Search": {
+      "ai_tool": [
+        [
+          {
+            "node": "AGENT 1 | Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AGENT 1 | Manager": {
+      "main": [
+        [
+          {
+            "node": "Telegram Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Error Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Error Reply": {
+      "main": [
+        [
+          {
+            "node": "Telegram Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "tokens": [
+    {
+      "name": "REPLACE_KLING_API_KEY",
+      "required": true,
+      "replace_in": [
+        "workflows/portable_no_credentials/DUJBo0tvHA5qIafi.portable.json",
+        "workflows/portable/DUJBo0tvHA5qIafi.portable.json",
+        "workflows/raw/DUJBo0tvHA5qIafi.json"
+      ]
+    },
+    {
+      "name": "REPLACE_TAVILY_API_KEY",
+      "required": false,
+      "replace_in": [
+        "workflows/portable_no_credentials/C8Wmmjuv5hC425PM.portable.json",
+        "workflows/portable/C8Wmmjuv5hC425PM.portable.json",
+        "workflows/raw/C8Wmmjuv5hC425PM.json"
+      ]
+    }
+  ]
+}

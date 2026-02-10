@@ -1,0 +1,93 @@
+{
+  "name": "MEDIA_AGENT_3 | Nano Banana Image (draft)",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "f29cc73f-4abd-4a2d-89a3-4cd0e4ef7f5a",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -520,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0b0c9f5e-2cc8-41de-8a0d-3c6f08f84e4f",
+              "name": "image_prompt",
+              "value": "={{ $json.query || $json.image_prompt || 'cinematic frame, high quality, detailed, 4k' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4d451d46-b683-4b2e-a0c6-1bdac3ef6b9a",
+      "name": "Prepare Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -280,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "95ddd958-efdb-4b0c-bf1f-3ecf5198f88e",
+              "name": "response",
+              "value": "={{ JSON.stringify({ status: 'ok', image_url: 'https://image.pollinations.ai/prompt/' + encodeURIComponent($json.image_prompt) + '?width=1024&height=1024&model=flux&nologo=true', provider_task_id: '', report_for_manager: 'Агент 3 подготовил URL генерации изображения (Pollinations) и передал агенту 1.', raw_summary: { provider: 'pollinations', mode: 'url', prompt: $json.image_prompt } }) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4f4b3db8-6a7d-4104-aa4a-a23fdd0d9d70",
+      "name": "Build Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -20,
+        160
+      ]
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Prepare Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Prompt": {
+      "main": [
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  }
+}

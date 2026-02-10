@@ -1,0 +1,257 @@
+{
+  "name": "MEDIA_AGENT_4 | Kling Video (draft)",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "cd34c39e-f0b5-43cb-bc4d-5055258d2f33",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -700,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "mistral-small",
+          "mode": "list",
+          "cachedResultName": "mistral-small"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -700,
+        380
+      ],
+      "id": "89dc0d01-4fd0-43a2-8aa2-00bc7efcab60",
+      "name": "Mistral (OpenAI Compat)",
+      "credentials": {
+        "openAiApi": {
+          "id": "YI8Aw7A808POIRQz",
+          "name": "Mistral via OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.query }}",
+        "options": {
+          "systemMessage": "Ты Агент 4: генерация видео в Kling.\n\nРежимы:\n- Если запрос про создание видео: вызови инструмент KLING | Create Video.\n- Если запрос содержит task_id и просьбу проверить статус: вызови KLING | Check Status.\n\nВерни строго JSON:\n{\n  \"status\": \"ok|processing|error\",\n  \"task_id\": \"...\",\n  \"video_url\": \"...\",\n  \"report_for_manager\": \"краткий отчёт\",\n  \"raw\": {}\n}\n\nТолько JSON, без markdown."
+        }
+      },
+      "id": "be79eb99-f08f-46eb-915d-3fefcc21215b",
+      "name": "AGENT 4 | Kling",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -420,
+        160
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Create video from image URL in Kling.",
+        "method": "POST",
+        "url": "https://api.klingai.com/v1/videos/image2video",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "Bearer REPLACE_KLING_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "valueProvider": "fieldValue",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"prompt\": \"{videoPrompt}\",\n  \"image_url\": \"{imageUrl}\",\n  \"duration\": 5\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "videoPrompt",
+              "description": "Video prompt",
+              "type": "string"
+            },
+            {
+              "name": "imageUrl",
+              "description": "Source image URL",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -160,
+        320
+      ],
+      "id": "a4aeecfe-313a-4965-988d-7f28073063fd",
+      "name": "KLING | Create Video"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Check status by Kling task ID.",
+        "method": "GET",
+        "url": "https://api.klingai.com/v1/videos/{taskId}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "Bearer REPLACE_KLING_API_KEY"
+            }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "taskId",
+              "description": "Kling task ID",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -160,
+        460
+      ],
+      "id": "626a9bbd-f0c4-4a2c-a639-f0e6ea98c5e7",
+      "name": "KLING | Check Status"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a3f726ec-3824-494d-9d64-1ad55d09a5d5",
+              "name": "response",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7ee688ac-cf14-4d64-bf0c-e193f91532b5",
+      "name": "Success",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        100,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f18a6e8a-f3dd-427f-9249-0e8c91df1d75",
+              "name": "response",
+              "value": "{\"status\":\"error\",\"report_for_manager\":\"Агент 4 не смог выполнить задачу видео\"}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "52271d32-57c2-4070-b59d-c0d38b2a5ce1",
+      "name": "Try Again",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        100,
+        240
+      ]
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "AGENT 4 | Kling",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral (OpenAI Compat)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AGENT 4 | Kling",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "KLING | Create Video": {
+      "ai_tool": [
+        [
+          {
+            "node": "AGENT 4 | Kling",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "KLING | Check Status": {
+      "ai_tool": [
+        [
+          {
+            "node": "AGENT 4 | Kling",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AGENT 4 | Kling": {
+      "main": [
+        [
+          {
+            "node": "Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Try Again",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  }
+}

@@ -1,0 +1,282 @@
+{
+  "updatedAt": "2026-02-10T06:01:40.658Z",
+  "createdAt": "2026-02-10T04:49:13.492Z",
+  "id": "KFWMYCaEpWAdVIn3",
+  "name": "MEDIA_AGENT_3 | Nano Banana Image (draft)",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "f29cc73f-4abd-4a2d-89a3-4cd0e4ef7f5a",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -520,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0b0c9f5e-2cc8-41de-8a0d-3c6f08f84e4f",
+              "name": "image_prompt",
+              "value": "={{ $json.query || $json.image_prompt || 'cinematic frame, high quality, detailed, 4k' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4d451d46-b683-4b2e-a0c6-1bdac3ef6b9a",
+      "name": "Prepare Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -280,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "95ddd958-efdb-4b0c-bf1f-3ecf5198f88e",
+              "name": "response",
+              "value": "={{ JSON.stringify({ status: 'ok', image_url: 'https://image.pollinations.ai/prompt/' + encodeURIComponent($json.image_prompt) + '?width=1024&height=1024&model=flux&nologo=true', provider_task_id: '', report_for_manager: 'Агент 3 подготовил URL генерации изображения (Pollinations) и передал агенту 1.', raw_summary: { provider: 'pollinations', mode: 'url', prompt: $json.image_prompt } }) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4f4b3db8-6a7d-4104-aa4a-a23fdd0d9d70",
+      "name": "Build Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -20,
+        160
+      ]
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Prepare Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Prompt": {
+      "main": [
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "c41f6424-ad67-4bef-bcf6-a49a905b7f87",
+  "activeVersionId": "c41f6424-ad67-4bef-bcf6-a49a905b7f87",
+  "versionCounter": 8,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-02-10T04:49:13.493Z",
+      "createdAt": "2026-02-10T04:49:13.493Z",
+      "role": "workflow:owner",
+      "workflowId": "KFWMYCaEpWAdVIn3",
+      "projectId": "PoVFjFvyj9uLZeWK",
+      "project": {
+        "updatedAt": "2026-02-06T14:21:49.983Z",
+        "createdAt": "2026-02-06T14:15:22.652Z",
+        "id": "PoVFjFvyj9uLZeWK",
+        "name": "Максим Михайлов <max.corp.org@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "862f49a6-a4d3-494b-9c9b-6c6ffba68472",
+        "projectRelations": [
+          {
+            "updatedAt": "2026-02-06T14:15:22.652Z",
+            "createdAt": "2026-02-06T14:15:22.652Z",
+            "userId": "862f49a6-a4d3-494b-9c9b-6c6ffba68472",
+            "projectId": "PoVFjFvyj9uLZeWK",
+            "user": {
+              "updatedAt": "2026-02-10T02:41:16.000Z",
+              "createdAt": "2026-02-06T14:15:22.136Z",
+              "id": "862f49a6-a4d3-494b-9c9b-6c6ffba68472",
+              "email": "max.corp.org@gmail.com",
+              "firstName": "Максим",
+              "lastName": "Михайлов",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2026-02-06T14:24:27.359Z",
+                "personalization_survey_n8n_version": "2.6.4",
+                "companySize": "<20",
+                "companyType": "systems-integrator",
+                "automationGoalSm": [
+                  "customer-communication",
+                  "lead-generation",
+                  "ad-campaign",
+                  "data-syncing",
+                  "reporting",
+                  "actions"
+                ],
+                "role": "sales-and-marketing",
+                "reportedSource": "friend"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "bfNbTwtyXNSFzMc2",
+                "userActivatedAt": 1770566535600
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-02-09",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-02-10T05:52:33.254Z",
+    "createdAt": "2026-02-10T05:52:33.254Z",
+    "versionId": "c41f6424-ad67-4bef-bcf6-a49a905b7f87",
+    "workflowId": "KFWMYCaEpWAdVIn3",
+    "nodes": [
+      {
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "id": "f29cc73f-4abd-4a2d-89a3-4cd0e4ef7f5a",
+        "name": "When Executed by Another Workflow",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          -520,
+          160
+        ]
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "0b0c9f5e-2cc8-41de-8a0d-3c6f08f84e4f",
+                "name": "image_prompt",
+                "value": "={{ $json.query || $json.image_prompt || 'cinematic frame, high quality, detailed, 4k' }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "4d451d46-b683-4b2e-a0c6-1bdac3ef6b9a",
+        "name": "Prepare Prompt",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -280,
+          160
+        ]
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "95ddd958-efdb-4b0c-bf1f-3ecf5198f88e",
+                "name": "response",
+                "value": "={{ JSON.stringify({ status: 'ok', image_url: 'https://image.pollinations.ai/prompt/' + encodeURIComponent($json.image_prompt) + '?width=1024&height=1024&model=flux&nologo=true', provider_task_id: '', report_for_manager: 'Агент 3 подготовил URL генерации изображения (Pollinations) и передал агенту 1.', raw_summary: { provider: 'pollinations', mode: 'url', prompt: $json.image_prompt } }) }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "4f4b3db8-6a7d-4104-aa4a-a23fdd0d9d70",
+        "name": "Build Response",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -20,
+          160
+        ]
+      }
+    ],
+    "connections": {
+      "When Executed by Another Workflow": {
+        "main": [
+          [
+            {
+              "node": "Prepare Prompt",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Prompt": {
+        "main": [
+          [
+            {
+              "node": "Build Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Максим Михайлов",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-02-10T06:01:08.185Z",
+        "id": 15,
+        "workflowId": "KFWMYCaEpWAdVIn3",
+        "versionId": "c41f6424-ad67-4bef-bcf6-a49a905b7f87",
+        "event": "activated",
+        "userId": "862f49a6-a4d3-494b-9c9b-6c6ffba68472"
+      },
+      {
+        "createdAt": "2026-02-10T06:01:40.708Z",
+        "id": 18,
+        "workflowId": "KFWMYCaEpWAdVIn3",
+        "versionId": "c41f6424-ad67-4bef-bcf6-a49a905b7f87",
+        "event": "activated",
+        "userId": "862f49a6-a4d3-494b-9c9b-6c6ffba68472"
+      }
+    ]
+  }
+}
