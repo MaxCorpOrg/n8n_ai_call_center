@@ -119,7 +119,7 @@
             {
               "id": "7c0888d8-f3df-4e6b-8192-b1f45f9f2050",
               "name": "text",
-              "value": "={{ $json.message.text }}",
+              "value": "={{ (() => {\n  const t = $json.message?.text || '';\n  const low = t.toLowerCase().trim();\n\n  const isGreeting = /^(привет|хай|hello|hi|здарова|добрый|start|старт)\\b/i.test(low);\n\n  const flowCmd = /\\/engine\\s*(flow|gemini)/i.test(t)\n    || low.includes('flow')\n    || low.includes('флоу')\n    || low.includes('на флоу')\n    || low.includes('через flow')\n    || low.includes('через гугл')\n    || low.includes('через google')\n    || low.includes('через gemini')\n    || low.includes('на гемини')\n    || low.includes('сделай на флоу')\n    || low.includes('используй flow')\n    || low.includes('используй флоу');\n\n  const pollinationsCmd = /\\/engine\\s*pollinations/i.test(t)\n    || low.includes('pollinations')\n    || low.includes('полинейшнс')\n    || low.includes('пуллинейшнс')\n    || low.includes('на pollinations')\n    || low.includes('через pollinations');\n\n  const regenerateCmd =\n    low.includes('не нравится')\n    || low.includes('не понрав')\n    || low.includes('переделай')\n    || low.includes('сделай другую')\n    || low.includes('другую фот')\n    || low.includes('ещё вариант')\n    || low.includes('еще вариант')\n    || low.includes('другой вариант')\n    || low.includes('не то')\n    || low.includes('сделай иначе')\n    || low.includes('заново давай');\n\n  const autopilotCmd =\n    low.includes('сделай сам')\n    || low.includes('на твой вкус')\n    || low.includes('без заморочек')\n    || low.includes('не заморачива')\n    || low.includes('как лучше')\n    || low.includes('сам выбери');\n\n  if (!isGreeting && !flowCmd && !pollinationsCmd && !regenerateCmd && !autopilotCmd) return t;\n\n  const lines = [];\n\n  if (isGreeting) {\n    lines.push(\n      'WIZARD_FORCE: начни простой мастер-диалог с выбора движка.',\n      'Спроси коротко: 1) Flow 2) Pollinations.'\n    );\n  }\n\n  if (autopilotCmd) {\n    lines.push(\n      'AUTOPILOT_FORCE: пользователь просит не заморачиваться.',\n      'Применяй дефолты и задай только 1 короткий вопрос по сцене/стилю.'\n    );\n  }\n\n  if (flowCmd) {\n    lines.push(\n      'FLOW_FORCE: пользователь выбрал движок GEMINI/FLOW.',\n      'ОБЯЗАТЕЛЬНО вызови tool geminiNanoBananaAgent в этом ответе.',\n      'Запрещено писать, что gemini вернул ошибку, пока tool не вызван реально.',\n      'Если текущий ввод короткий, возьми последний image_prompt из памяти чата.'\n    );\n  }\n\n  if (pollinationsCmd) {\n    lines.push(\n      'POLLINATIONS_FORCE: пользователь выбрал движок POLLINATIONS.',\n      'ОБЯЗАТЕЛЬНО вызови tool nanoBananaAgent в этом ответе.',\n      'Если текущий ввод короткий, возьми последний image_prompt из памяти чата.'\n    );\n  }\n\n  if (regenerateCmd) {\n    lines.push(\n      'REGENERATE_FORCE: пользователь просит новую версию фото.',\n      'Используй последний подтверждённый контекст, добавь правки из текущего сообщения и запусти генерацию снова.',\n      'Не начинай полный опрос заново, если контекст уже есть.'\n    );\n  }\n\n  lines.push('', 'Текущий ввод пользователя:', t);\n  return lines.join('\\n');\n})(); }}\n",
               "type": "string"
             }
           ]
@@ -140,7 +140,7 @@
         "promptType": "define",
         "text": "={{ $json.text }}",
         "options": {
-          "systemMessage": "Ты Агент 1 (главный менеджер проекта). Ты общаешься с пользователем в живом диалоге и управляешь агентами 2/3/4.\n\nЦели:\n- полный контроль пользователя на каждом шаге;\n- последовательная работа: сначала план/промпты -> фото -> подтверждение -> видео -> отчёт;\n- краткие отчёты после каждого шага.\n\nДоступные внутренние агенты:\n- scriptPlannerAgent (Агент 2): анализ и промпты.\n- nanoBananaAgent (Агент 3): генерация фото и старт-кадра.\n- klingVideoAgent (Агент 4): генерация видео / статус задачи.\n- Tavily Search: веб-поиск при явном запросе на поиск фактов.\n\nСтрогий протокол:\n1) Если новый проект или бриф неполный: задай 1-3 коротких уточнения.\n2) Когда данных достаточно, вызови scriptPlannerAgent.\n3) После ответа от scriptPlannerAgent отправь пользователю мини-отчёт и image_prompt.\n4) Запроси подтверждение: \"ПОДТВЕРЖДАЮ ФОТО\".\n5) Только после явного подтверждения \"ПОДТВЕРЖДАЮ ФОТО\" вызывай nanoBananaAgent.\n6) После генерации фото отправь результат и запроси \"ПОДТВЕРЖДАЮ ВИДЕО\".\n7) Только после явного подтверждения \"ПОДТВЕРЖДАЮ ВИДЕО\" вызывай klingVideoAgent.\n8) После шага видео отправь отчёт: status/task_id/video_url и следующий шаг.\n\nКритично:\n- ТЫ НЕ ДОЛЖЕН писать, что у тебя нет инструментов, нет подписки, нет возможности создавать изображения.\n- ТЫ НЕ ДОЛЖЕН выдумывать ограничения платформы.\n- Если tool временно вернул ошибку, покажи коротко ошибку и сразу предложи повтор шага.\n- Если пользователь просит \"просто любую картинку\", используй fallback-подход: короткий универсальный image_prompt и продолжай по протоколу подтверждений.\n\nФормат ответа:\n- Русский язык.\n- 4-12 строк.\n- Кратко и управляемо."
+          "systemMessage": "Ты Агент 1 (оркестратор). Твоя задача — вести простой диалог и запускать правильные инструменты по шагам.\n\nКлючевое правило архитектуры:\n- Сначала всегда вызывай intentRouterTool с текущим сообщением пользователя.\n- На основе route/next_action из роутера выбирай следующий инструмент.\n- Не держи всю логику в голове: роутер определяет направление, ты исполняешь шаг.\n\nДоступные инструменты:\n- intentRouterTool: классификация intent и route.\n- scriptPlannerAgent: формирование/улучшение промпта.\n- nanoBananaAgent: генерация фото через Pollinations.\n- geminiNanoBananaAgent: генерация фото через Flow/Gemini.\n- klingVideoAgent: генерация и проверка видео.\n- Tavily Search: веб-поиск при явном запросе.\n\nБазовый сценарий:\n1) greeting/ask_engine -> предложи выбор: 1) Flow 2) Pollinations.\n2) engine_select -> подтверди выбор движка и спроси следующий шаг (что создать).\n3) image_request/collect_or_plan -> собери недостающие параметры (по 1 вопросу), затем вызови scriptPlannerAgent и покажи image_prompt.\n4) после готового промпта попроси: \"ПОДТВЕРЖДАЮ ФОТО\".\n5) confirm_photo/generate_photo -> вызови image-агента по выбранному движку.\n6) regenerate/generate_photo_again -> перегенерируй фото по текущему контексту с правками из последнего сообщения.\n7) после фото попроси: \"ПОДТВЕРЖДАЮ ВИДЕО\".\n8) confirm_video/generate_video -> вызови klingVideoAgent.\n\nПравила качества:\n- Обычный человеческий диалог на русском, коротко.\n- Если пользователь пишет \"сделай сам/без заморочек\" — используй дефолты (Flow, Nano Banana Pro, 1K, png, 1 фото).\n- Если инструмент вернул ошибку, кратко объясни и предложи следующий безопасный шаг (например, /engine pollinations).\n- Никогда не говори, что у тебя нет инструментов/возможностей.\n- Не заявляй об ошибке инструмента без фактического вызова этого инструмента.\n\nFallback/Error handling:\n- Если intentRouterTool недоступен или вернул мусор, задай один уточняющий вопрос: \"Что делаем: выбрать движок, создать фото или сделать видео?\"\n- Если image-движок упал, предложи переключение движка и повтор шага.\n\nФормат ответа:\n- Русский язык.\n- 3-8 коротких строк.\n\n\nОбработка маркеров из входа (Set Text):\n- WIZARD_FORCE: начни с простого вопроса выбора движка (Flow/Pollinations).\n- AUTOPILOT_FORCE: примени дефолты и задай один вопрос по сцене/стилю.\n- FLOW_FORCE: при выполнении фото-шага используй geminiNanoBananaAgent.\n- POLLINATIONS_FORCE: при выполнении фото-шага используй nanoBananaAgent.\n- REGENERATE_FORCE: немедленно запусти перегенерацию фото по текущему контексту.\n"
         }
       },
       "id": "7eb2cd53-8d07-4820-888d-fde40f7e3ee4",
@@ -181,7 +181,7 @@
     {
       "parameters": {
         "sessionIdType": "customKey",
-        "sessionKey": "={{ $('Telegram Trigger').item.json.message.chat.id + '-v2' }}"
+        "sessionKey": "={{ $('Telegram Trigger').item.json.message.chat.id + '-v5' }}"
       },
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.3,
@@ -349,6 +349,62 @@
           "name": "Telegram Bot MMS_MMM"
         }
       }
+    },
+    {
+      "parameters": {
+        "name": "geminiNanoBananaAgent",
+        "description": "Agent 5. Generate image via Gemini Nano Banana. Use when user selected /engine gemini.",
+        "workflowId": {
+          "__rl": true,
+          "value": "LG1KGfhnNCICjNra",
+          "mode": "list",
+          "cachedResultName": "MEDIA_AGENT_5 | Gemini Nano Banana Image (draft)"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        704,
+        560
+      ],
+      "id": "b4b6cca7-611f-48f5-a375-031f0ad62b23",
+      "name": "Agent 5 | Gemini Nano Banana"
+    },
+    {
+      "parameters": {
+        "name": "intentRouterTool",
+        "description": "Router module. Classify incoming text intent and return route/next_action/reply_hint via Switch-based workflow.",
+        "workflowId": {
+          "__rl": true,
+          "value": "ABnHZb9Ee2YOtfr2",
+          "mode": "list",
+          "cachedResultName": "MEDIA_AGENT_ROUTER | Intent Router (draft)"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "intent-router-tool-node",
+      "name": "Intent Router | Tool",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        580,
+        520
+      ]
     }
   ],
   "connections": {
@@ -493,6 +549,28 @@
           {
             "node": "Telegram Reply",
             "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent 5 | Gemini Nano Banana": {
+      "ai_tool": [
+        [
+          {
+            "node": "AGENT 1 | Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Intent Router | Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AGENT 1 | Manager",
+            "type": "ai_tool",
             "index": 0
           }
         ]

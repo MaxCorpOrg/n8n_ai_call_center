@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-call_center}
+      POSTGRES_USER: ${POSTGRES_USER:-call_center}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: ${GENERIC_TIMEZONE:-Europe/Moscow}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-call_center} -d ${POSTGRES_DB:-call_center}"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d:ro
+
+volumes:
+  postgres_data:

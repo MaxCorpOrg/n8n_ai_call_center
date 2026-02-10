@@ -17,6 +17,15 @@
         "workflows/portable/C8Wmmjuv5hC425PM.portable.json",
         "workflows/raw/C8Wmmjuv5hC425PM.json"
       ]
+    },
+    {
+      "name": "REPLACE_GEMINI_API_KEY",
+      "required": false,
+      "replace_in": [
+        "workflows/portable_no_credentials/LG1KGfhnNCICjNra.portable.json",
+        "workflows/portable/LG1KGfhnNCICjNra.portable.json",
+        "workflows/raw/LG1KGfhnNCICjNra.json"
+      ]
     }
   ]
 }

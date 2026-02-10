@@ -25,28 +25,34 @@ api() {
   fi
 }
 
-# 1) Import agent 2/3/4
 A2_FILE="$ROOT_DIR/workflows/portable_no_credentials/KeKhk230Zy3Iz0a4.portable.json"
 A3_FILE="$ROOT_DIR/workflows/portable_no_credentials/KFWMYCaEpWAdVIn3.portable.json"
 A4_FILE="$ROOT_DIR/workflows/portable_no_credentials/DUJBo0tvHA5qIafi.portable.json"
+A5_FILE="$ROOT_DIR/workflows/portable_no_credentials/LG1KGfhnNCICjNra.portable.json"
+R_FILE="$ROOT_DIR/workflows/portable_no_credentials/ABnHZb9Ee2YOtfr2.portable.json"
 M_FILE="$ROOT_DIR/workflows/portable_no_credentials/C8Wmmjuv5hC425PM.portable.json"
 
 A2_ID="$(api POST /api/v1/workflows "$A2_FILE" | jq -r '.id')"
 A3_ID="$(api POST /api/v1/workflows "$A3_FILE" | jq -r '.id')"
 A4_ID="$(api POST /api/v1/workflows "$A4_FILE" | jq -r '.id')"
+A5_ID="$(api POST /api/v1/workflows "$A5_FILE" | jq -r '.id')"
+R_ID="$(api POST /api/v1/workflows "$R_FILE" | jq -r '.id')"
 
-echo "Imported: agent2=$A2_ID agent3=$A3_ID agent4=$A4_ID"
+echo "Imported: router=$R_ID agent2=$A2_ID agent3=$A3_ID agent4=$A4_ID agent5=$A5_ID"
 
-# 2) Patch master toolWorkflow refs to new IDs
 TMP_MASTER="$(mktemp)"
 jq \
   --arg a2 "$A2_ID" \
   --arg a3 "$A3_ID" \
   --arg a4 "$A4_ID" \
+  --arg a5 "$A5_ID" \
+  --arg r "$R_ID" \
   '.nodes |= map(
-    if .name=="Agent 2 | Planner" then .parameters.workflowId.value=$a2
+    if .name=="Intent Router | Tool" then .parameters.workflowId.value=$r
+    elif .name=="Agent 2 | Planner" then .parameters.workflowId.value=$a2
     elif .name=="Agent 3 | Nano Banana" then .parameters.workflowId.value=$a3
     elif .name=="Agent 4 | Kling" then .parameters.workflowId.value=$a4
+    elif .name=="Agent 5 | Gemini Nano Banana" then .parameters.workflowId.value=$a5
     else . end
   )' "$M_FILE" > "$TMP_MASTER"
 
@@ -55,7 +61,6 @@ rm -f "$TMP_MASTER"
 
 echo "Imported master=$M_ID"
 
-# 3) Optional activate master
 if [[ "${ACTIVATE_MASTER:-true}" == "true" ]]; then
   api POST "/api/v1/workflows/${M_ID}/activate" >/dev/null
   echo "Master activated: $M_ID"
@@ -64,4 +69,4 @@ fi
 echo "DONE"
 echo "Next:"
 echo "1) Assign credentials in n8n UI (Telegram + OpenAI-compatible)"
-echo "2) Replace placeholders REPLACE_KLING_API_KEY and REPLACE_TAVILY_API_KEY"
+echo "2) Replace placeholders REPLACE_KLING_API_KEY / REPLACE_TAVILY_API_KEY / REPLACE_GEMINI_API_KEY"

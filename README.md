@@ -34,6 +34,14 @@
 - Подробный регламент:
   - `docs/N8N_WATCHLIST_RU.md`
 
+## Voice Call Center (RU)
+- Быстрый старт для исходящих звонков по РФ + запись результатов в PostgreSQL:
+  - `docs/VOICE_CALL_CENTER_RU.md`
+- Дополнительный compose override с Postgres:
+  - `docker-compose.callcenter.yml`
+- SQL-схема:
+  - `sql/001_call_center.sql`
+
 ## GitHub Actions Deploy
 Для workflow `.github/workflows/deploy.yml` должны быть настроены:
 - `secrets.SERVER_SSH_KEY` (или `secrets.DEPLOY_SSH_KEY`) — приватный SSH-ключ пользователя `aicore`.

@@ -265,7 +265,7 @@
   "pinData": null,
   "versionId": "57e07fc9-b7ef-47fc-a30f-240c20fc1069",
   "activeVersionId": "57e07fc9-b7ef-47fc-a30f-240c20fc1069",
-  "versionCounter": 6,
+  "versionCounter": 8,
   "triggerCount": 0,
   "shared": [
     {
@@ -600,6 +600,14 @@
       {
         "createdAt": "2026-02-10T06:01:42.351Z",
         "id": 19,
+        "workflowId": "DUJBo0tvHA5qIafi",
+        "versionId": "57e07fc9-b7ef-47fc-a30f-240c20fc1069",
+        "event": "activated",
+        "userId": "862f49a6-a4d3-494b-9c9b-6c6ffba68472"
+      },
+      {
+        "createdAt": "2026-02-10T08:06:25.685Z",
+        "id": 25,
         "workflowId": "DUJBo0tvHA5qIafi",
         "versionId": "57e07fc9-b7ef-47fc-a30f-240c20fc1069",
         "event": "activated",

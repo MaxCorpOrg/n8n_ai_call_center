@@ -1,0 +1,662 @@
+{
+  "name": "MEDIA_AGENT_ROUTER | Intent Router (draft)",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "router-trigger",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -840,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json || {};\nconst text = String(input.query || input.text || input.message || '').trim();\nconst low = text.toLowerCase();\n\nconst hasAny = (arr) => arr.some((s) => low.includes(s));\n\nconst isGreeting = !text || /^(\\/start|start|старт|привет|хай|hello|hi|здарова|добрый)/i.test(low);\nconst isEngineCmd = /\\/engine\\s*(flow|gemini|pollinations)/i.test(text) || hasAny([\n  'на флоу', 'через flow', 'через гугл', 'через google', 'через gemini', 'на гемини',\n  'через pollinations', 'на pollinations', 'на полинейшнс', 'pollinations'\n]);\nconst isConfig = /\\/flowcfg\\b/i.test(text) || hasAny([\n  'model:', 'модель:', 'aspect ratio', 'соотношение', 'output resolution', 'разрешение',\n  'output format', 'формат', 'person generation', 'персонажи', 'люди'\n]);\nconst isRegen = hasAny([\n  'не нравится', 'не понрав', 'переделай', 'сделай другую', 'другую фот',\n  'ещё вариант', 'еще вариант', 'другой вариант', 'не то', 'сделай иначе', 'заново давай'\n]);\nconst isConfirmVideo = hasAny(['подтверждаю видео', 'делай видео', 'запускай видео', 'генерируй видео']);\nconst isConfirmPhoto = hasAny(['подтверждаю фото', 'делай фото', 'генерируй фото']);\nconst isImageRequest = hasAny(['фото', 'картин', 'изображ', 'аватар', 'сделай', 'создай', 'нарисуй']);\n\nlet intent = 'other';\nif (isGreeting) intent = 'greeting';\nelse if (isEngineCmd) intent = 'engine_select';\nelse if (isConfig) intent = 'config_update';\nelse if (isRegen) intent = 'regenerate';\nelse if (isConfirmVideo) intent = 'confirm_video';\nelse if (isConfirmPhoto) intent = 'confirm_photo';\nelse if (isImageRequest) intent = 'image_request';\n\nlet engine = String(input.engine || '').toLowerCase();\nif (!engine) {\n  if (/\\/engine\\s*(flow|gemini)/i.test(text) || hasAny(['на флоу', 'через flow', 'через гугл', 'через google', 'через gemini', 'на гемини'])) engine = 'flow';\n  if (/\\/engine\\s*pollinations/i.test(text) || hasAny(['через pollinations', 'на pollinations', 'на полинейшнс', 'pollinations'])) engine = 'pollinations';\n}\n\nconst autopilot = hasAny(['сделай сам', 'без заморочек', 'на твой вкус', 'как лучше', 'сам выбери']);\n\nconst qtyMatch = low.match(/(\\d{1,2})\\s*(фото|картин|изображ)/i);\nconst quantity = qtyMatch ? Number(qtyMatch[1]) : null;\n\nconst out = {\n  intent,\n  text,\n  engine_preference: engine || '',\n  autopilot,\n  quantity,\n  source: 'intent-router-v1'\n};\n\nreturn [{ json: out }];"
+      },
+      "id": "router-intent-parse",
+      "name": "Intent Parse",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -600,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "greeting",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Greeting"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "engine_select",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Engine"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "config_update",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Config"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "confirm_photo",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ConfirmPhoto"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "regenerate",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Regenerate"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "confirm_video",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ConfirmVideo"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "image_request",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ImageRequest"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "router-switch",
+      "name": "Switch Intent",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -360,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "route",
+              "value": "greeting",
+              "type": "string"
+            },
+            {
+              "name": "next_action",
+              "value": "ask_engine",
+              "type": "string"
+            },
+            {
+              "name": "reply_hint",
+              "value": "Привет! Выбери движок: 1) Flow (лучшее качество) 2) Pollinations (быстро).",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "router-route-greeting",
+      "name": "Route Greeting",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -120,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "route",
+              "value": "engine_select",
+              "type": "string"
+            },
+            {
+              "name": "next_action",
+              "value": "collect_brief",
+              "type": "string"
+            },
+            {
+              "name": "normalized_engine",
+              "value": "={{ $json.engine_preference || 'flow' }}",
+              "type": "string"
+            },
+            {
+              "name": "reply_hint",
+              "value": "={{ 'Движок принят: ' + ($json.engine_preference || 'flow') + '. Теперь коротко: что создаём?'}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "router-route-engine",
+      "name": "Route Engine",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -120,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "route",
+              "value": "config_update",
+              "type": "string"
+            },
+            {
+              "name": "next_action",
+              "value": "update_config",
+              "type": "string"
+            },
+            {
+              "name": "reply_hint",
+              "value": "Настройки принял. Продолжаем по шагам и применяем их в следующей генерации.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "router-route-config",
+      "name": "Route Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -120,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "route",
+              "value": "confirm_photo",
+              "type": "string"
+            },
+            {
+              "name": "next_action",
+              "value": "generate_photo",
+              "type": "string"
+            },
+            {
+              "name": "reply_hint",
+              "value": "Подтверждение фото получено. Запускаю генерацию.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "router-route-confirm-photo",
+      "name": "Route Confirm Photo",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -120,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "route",
+              "value": "regenerate",
+              "type": "string"
+            },
+            {
+              "name": "next_action",
+              "value": "generate_photo_again",
+              "type": "string"
+            },
+            {
+              "name": "reply_hint",
+              "value": "Понял, делаем новую версию фото по текущему контексту с учётом правок.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "router-route-regen",
+      "name": "Route Regenerate",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -120,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "route",
+              "value": "confirm_video",
+              "type": "string"
+            },
+            {
+              "name": "next_action",
+              "value": "generate_video",
+              "type": "string"
+            },
+            {
+              "name": "reply_hint",
+              "value": "Подтверждение видео получено. Запускаю видео-этап.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "router-route-confirm-video",
+      "name": "Route Confirm Video",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -120,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "route",
+              "value": "image_request",
+              "type": "string"
+            },
+            {
+              "name": "next_action",
+              "value": "collect_or_plan",
+              "type": "string"
+            },
+            {
+              "name": "reply_hint",
+              "value": "Принял запрос. Сейчас уточним 1-2 параметра и сформируем точный промпт.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "router-route-image-request",
+      "name": "Route Image Request",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -120,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "route",
+              "value": "other",
+              "type": "string"
+            },
+            {
+              "name": "next_action",
+              "value": "clarify",
+              "type": "string"
+            },
+            {
+              "name": "reply_hint",
+              "value": "Уточни, что сейчас делаем: выбрать движок, создать фото или запустить видео?",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "router-route-other",
+      "name": "Route Other",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -120,
+        580
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $input.first().json || {};\nconst out = { ...j };\nout.response = JSON.stringify(out);\nreturn [{ json: out }];"
+      },
+      "id": "router-build-response",
+      "name": "Build Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        180,
+        220
+      ]
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Intent Parse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Intent Parse": {
+      "main": [
+        [
+          {
+            "node": "Switch Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Intent": {
+      "main": [
+        [
+          {
+            "node": "Route Greeting",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route Engine",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route Config",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route Confirm Photo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route Regenerate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route Confirm Video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route Image Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route Other",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Greeting": {
+      "main": [
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Engine": {
+      "main": [
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Config": {
+      "main": [
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Confirm Photo": {
+      "main": [
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Regenerate": {
+      "main": [
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Confirm Video": {
+      "main": [
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Image Request": {
+      "main": [
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Other": {
+      "main": [
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  }
+}
