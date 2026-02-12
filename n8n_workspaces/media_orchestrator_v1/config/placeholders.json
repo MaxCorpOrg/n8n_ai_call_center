@@ -29,6 +29,7 @@
     }
   ],
   "notes": [
-    "KB Sync Agent does not use in-file placeholders. Configure KB_GITHUB_TOKEN env in n8n runtime."
+    "KB Sync Agent does not use in-file placeholders. Configure KB_GITHUB_TOKEN env in n8n runtime.",
+    "Memory Neuro Agent does not use in-file placeholders. Configure MEMORY_GITHUB_TOKEN (and optional MEMORY_CONNECTOR_* URLs) in n8n runtime."
   ]
 }

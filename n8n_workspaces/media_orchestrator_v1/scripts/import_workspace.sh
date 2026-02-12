@@ -31,6 +31,7 @@ A4_FILE="$ROOT_DIR/workflows/portable_no_credentials/DUJBo0tvHA5qIafi.portable.j
 A5_FILE="$ROOT_DIR/workflows/portable_no_credentials/LG1KGfhnNCICjNra.portable.json"
 R_FILE="$ROOT_DIR/workflows/portable_no_credentials/ABnHZb9Ee2YOtfr2.portable.json"
 KB_FILE="$ROOT_DIR/workflows/portable_no_credentials/K5es5hBE05LEeB1j.portable.json"
+MEM_FILE="$ROOT_DIR/workflows/portable_no_credentials/kcH2rlqr8aZoOPiO.portable.json"
 M_FILE="$ROOT_DIR/workflows/portable_no_credentials/C8Wmmjuv5hC425PM.portable.json"
 
 A2_ID="$(api POST /api/v1/workflows "$A2_FILE" | jq -r '.id')"
@@ -39,8 +40,9 @@ A4_ID="$(api POST /api/v1/workflows "$A4_FILE" | jq -r '.id')"
 A5_ID="$(api POST /api/v1/workflows "$A5_FILE" | jq -r '.id')"
 R_ID="$(api POST /api/v1/workflows "$R_FILE" | jq -r '.id')"
 KB_ID="$(api POST /api/v1/workflows "$KB_FILE" | jq -r '.id')"
+MEM_ID="$(api POST /api/v1/workflows "$MEM_FILE" | jq -r '.id')"
 
-echo "Imported: router=$R_ID agent2=$A2_ID agent3=$A3_ID agent4=$A4_ID agent5=$A5_ID kb_sync=$KB_ID"
+echo "Imported: router=$R_ID agent2=$A2_ID agent3=$A3_ID agent4=$A4_ID agent5=$A5_ID kb_sync=$KB_ID memory=$MEM_ID"
 
 TMP_MASTER="$(mktemp)"
 jq \
@@ -48,6 +50,7 @@ jq \
   --arg a3 "$A3_ID" \
   --arg a4 "$A4_ID" \
   --arg a5 "$A5_ID" \
+  --arg mem "$MEM_ID" \
   --arg r "$R_ID" \
   '.nodes |= map(
     if .name=="Intent Router | Tool" then .parameters.workflowId.value=$r
@@ -55,6 +58,7 @@ jq \
     elif .name=="Agent 3 | Nano Banana" then .parameters.workflowId.value=$a3
     elif .name=="Agent 4 | Kling" then .parameters.workflowId.value=$a4
     elif .name=="Agent 5 | Gemini Nano Banana" then .parameters.workflowId.value=$a5
+    elif .name=="Memory Neuro Agent" then .parameters.workflowId.value=$mem
     else . end
   )' "$M_FILE" > "$TMP_MASTER"
 
@@ -73,8 +77,14 @@ if [[ "${ACTIVATE_KB_SYNC:-false}" == "true" ]]; then
   echo "KB Sync activated: $KB_ID"
 fi
 
+if [[ "${ACTIVATE_MEMORY_AGENT:-false}" == "true" ]]; then
+  api POST "/api/v1/workflows/${MEM_ID}/activate" >/dev/null
+  echo "Memory agent activated: $MEM_ID"
+fi
+
 echo "DONE"
 echo "Next:"
 echo "1) Assign credentials in n8n UI (Telegram + OpenAI-compatible)"
 echo "2) Replace placeholders REPLACE_KLING_API_KEY / REPLACE_TAVILY_API_KEY / REPLACE_GEMINI_API_KEY"
 echo "3) Set env KB_GITHUB_TOKEN for KB Sync Agent (and optional N8N_PUBLIC_API_KEY)"
+echo "4) Set env MEMORY_GITHUB_TOKEN for Memory Neuro Agent (optional connectors: MEMORY_CONNECTOR_GDRIVE_URL / MEMORY_CONNECTOR_DROPBOX_URL / MEMORY_CONNECTOR_S3_URL)"

@@ -1,0 +1,36 @@
+services:
+  postgres_memory:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_MEMORY_DB:-n8n_memory}
+      POSTGRES_USER: ${POSTGRES_MEMORY_USER:-n8n_memory}
+      POSTGRES_PASSWORD: ${POSTGRES_MEMORY_PASSWORD}
+      TZ: ${GENERIC_TIMEZONE:-Europe/Moscow}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_MEMORY_USER:-n8n_memory} -d ${POSTGRES_MEMORY_DB:-n8n_memory}"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_memory_data:/var/lib/postgresql/data
+      - ./sql/002_agent_memory.sql:/docker-entrypoint-initdb.d/002_agent_memory.sql:ro
+    ports:
+      - "${POSTGRES_MEMORY_PORT:-5432}:5432"
+
+  postgrest:
+    image: postgrest/postgrest:latest
+    restart: always
+    depends_on:
+      postgres_memory:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://${POSTGRES_MEMORY_USER:-n8n_memory}:${POSTGRES_MEMORY_PASSWORD}@postgres_memory:5432/${POSTGRES_MEMORY_DB:-n8n_memory}
+      PGRST_DB_SCHEMAS: ${POSTGREST_DB_SCHEMAS:-public}
+      PGRST_DB_ANON_ROLE: ${POSTGREST_DB_ANON_ROLE:-web_anon}
+      PGRST_OPENAPI_SERVER_PROXY_URI: ${POSTGREST_PUBLIC_URL:-}
+    ports:
+      - "${POSTGREST_PORT:-3000}:3000"
+
+volumes:
+  postgres_memory_data:

@@ -1,9 +1,9 @@
 {
   "workspace_name": "media_orchestrator_v1",
-  "workspace_title": "N8N Media Orchestrator (5 Agents + Router + KB Sync)",
-  "version": "1.3.0",
+  "workspace_title": "N8N Media Orchestrator (5 Agents + Router + KB Sync + Memory)",
+  "version": "1.4.0",
   "created_at": "2026-02-10",
-  "description": "Telegram-driven media production workspace: Agent 1 orchestrator + Switch-based Intent Router + Agent 2 planning + Agent 3 Pollinations image + Agent 5 Gemini/Flow image + Agent 4 Kling video + KB Sync Agent.",
+  "description": "Telegram-driven media production workspace: Agent 1 orchestrator + Switch-based Intent Router + Agent 2 planning + Agent 3 Pollinations image + Agent 5 Gemini/Flow image + Agent 4 Kling video + KB Sync Agent + Memory Neuro Agent.",
   "n8n_min_version": "2.6.4",
   "workflows": [
     {
@@ -16,7 +16,8 @@
         "agent_3_pollinations",
         "agent_4_kling_video",
         "agent_5_gemini",
-        "agent_kb_sync"
+        "agent_kb_sync",
+        "agent_memory_neuro"
       ],
       "activate_after_import": true
     },
@@ -61,6 +62,13 @@
       "original_id": "K5es5hBE05LEeB1j",
       "depends_on": [],
       "activate_after_import": false
+    },
+    {
+      "key": "agent_memory_neuro",
+      "source_file": "workflows/portable_no_credentials/kcH2rlqr8aZoOPiO.portable.json",
+      "original_id": "kcH2rlqr8aZoOPiO",
+      "depends_on": [],
+      "activate_after_import": false
     }
   ],
   "import_order": [
@@ -70,6 +78,7 @@
     "agent_4_kling_video",
     "agent_5_gemini",
     "agent_kb_sync",
+    "agent_memory_neuro",
     "agent_1_master"
   ],
   "required_credentials": [

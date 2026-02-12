@@ -1,1 +1,1575 @@
-{"updatedAt":"2026-02-10T17:42:54.351Z","createdAt":"2026-02-10T04:50:36.513Z","id":"C8Wmmjuv5hC425PM","name":"MEDIA_AGENT_1 | Master Orchestrator TG (draft)","description":null,"active":true,"isArchived":false,"nodes":[{"parameters":{"updates":["message"],"additionalFields":{}},"id":"3b7570aa-0239-4f73-a891-d68ab3df03da","name":"Telegram Trigger","type":"n8n-nodes-base.telegramTrigger","typeVersion":1.1,"position":[-768,400],"webhookId":"11765d1c-73a2-4b14-8ce9-bb31dbbb403e","credentials":{"telegramApi":{"id":"LUUfBd2lLvYLEiG2","name":"Telegram Bot MMS_MMM"}}},{"parameters":{"rules":{"values":[{"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"strict","version":2},"conditions":[{"leftValue":"={{ $json.message.voice.file_id }}","rightValue":"","operator":{"type":"string","operation":"exists","singleValue":true}}],"combinator":"and"},"renameOutput":true,"outputKey":"Voice"},{"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"strict","version":2},"conditions":[{"leftValue":"={{ $json.message.text }}","rightValue":"","operator":{"type":"string","operation":"exists","singleValue":true}}],"combinator":"and"},"renameOutput":true,"outputKey":"Text"}]},"options":{}},"id":"2b6cf8e4-58cc-4cae-8d12-c255a99722f6","name":"Switch Input","type":"n8n-nodes-base.switch","typeVersion":3.2,"position":[-400,96]},{"parameters":{"assignments":{"assignments":[{"id":"a24a48c8-0321-4f16-a350-c9c3612af2a6","name":"output","value":"Голосовые пока отключены. Напишите текстом, и я проведу процесс по шагам с подтверждением на каждом этапе.","type":"string"}]},"options":{}},"id":"ee3fdb63-4f62-4f05-acf6-f8a8be7db5a7","name":"Set Voice Reply","type":"n8n-nodes-base.set","typeVersion":3.4,"position":[-128,48]},{"parameters":{"assignments":{"assignments":[{"id":"7c0888d8-f3df-4e6b-8192-b1f45f9f2050","name":"text","value":"={{ (() => { const t = $json.message?.text || \"\"; const low = t.toLowerCase(); const tags = []; if (/\\/engine\\s*(flow|gemini)|используй флоу|сделай на флоу|через флоу|через flow|через gemini/.test(low)) tags.push(\"FLOW_FORCE\"); if (/\\/engine\\s*pollinations|используй pollinations|через pollinations|на pollinations/.test(low)) tags.push(\"POLLINATIONS_FORCE\"); if (/подтверждаю фото/.test(low)) tags.push(\"CONFIRM_PHOTO_FORCE\"); if (/подтверждаю видео/.test(low)) tags.push(\"CONFIRM_VIDEO_FORCE\"); if (/не нравится|переделай|сделай другую|другой вариант|заново/.test(low)) tags.push(\"REGENERATE_FORCE\"); if (/сбрось контекст|начнем заново|начнём заново|reset context/.test(low)) tags.push(\"RESET_CONTEXT_FORCE\"); return tags.length ? (t + \"\\\\n[\" + tags.join(\"|\") + \"]\") : t; })() }}","type":"string"}]},"options":{}},"id":"00d4fc62-be95-44c0-a68f-20f8f0c8a920","name":"Set Text","type":"n8n-nodes-base.set","typeVersion":3.4,"position":[-128,224]},{"parameters":{"promptType":"define","text":"={{ $json.text }}","options":{"systemMessage":"Ты дружелюбный ИИ-ассистент в Telegram и общаешься с пользователем в свободной форме на русском.\\n\\nГлавное:\\n- Не превращай диалог в жёсткий опрос.\\n- Понимай обычные фразы и сам извлекай параметры (тема, стиль, формат, движок).\\n- Задавай уточнения только если реально не хватает данных для следующего шага.\\n- Если пользователь пишет готовый запрос (например: \"сделай аватарку..., используй флоу\"), сразу переходи к действию без лишних вопросов.\\n\\nИнструменты:\\n- scriptPlannerAgent: собрать/улучшить промпт\\n- geminiNanoBananaAgent: генерация изображения через Flow/Gemini\\n- nanoBananaAgent: генерация через Pollinations\\n- klingVideoAgent: генерация видео\\n- intentRouterTool и Tavily Search при необходимости\\n\\nПравила выполнения:\\n- FLOW_FORCE => используй geminiNanoBananaAgent.\\n- POLLINATIONS_FORCE => используй nanoBananaAgent.\\n- CONFIRM_PHOTO_FORCE => немедленно запускай генерацию фото по текущему контексту.\\n- CONFIRM_VIDEO_FORCE => немедленно запускай генерацию видео.\\n- REGENERATE_FORCE => перегенерируй фото с вариацией без полного опроса.\\n- RESET_CONTEXT_FORCE => явно начни новый сценарий и не опирайся на старый контекст.\\n- Не говори, что у тебя нет инструментов.\\n- При ошибке одного движка предложи альтернативный и продолжи.\\n\\nСтиль ответа:\\n- Коротко, по делу, живой человеческий диалог.\\n- Без канцелярита и повторов одного и того же шага."},"systemMessage":"Ты дружелюбный ИИ-ассистент в Telegram и общаешься с пользователем в свободной форме на русском.\\n\\nГлавное:\\n- Не превращай диалог в жёсткий опрос.\\n- Понимай обычные фразы и сам извлекай параметры (тема, стиль, формат, движок).\\n- Задавай уточнения только если реально не хватает данных для следующего шага.\\n- Если пользователь пишет готовый запрос (например: \"сделай аватарку..., используй флоу\"), сразу переходи к действию без лишних вопросов.\\n\\nИнструменты:\\n- scriptPlannerAgent: собрать/улучшить промпт\\n- geminiNanoBananaAgent: генерация изображения через Flow/Gemini\\n- nanoBananaAgent: генерация через Pollinations\\n- klingVideoAgent: генерация видео\\n- intentRouterTool и Tavily Search при необходимости\\n\\nПравила выполнения:\\n- FLOW_FORCE => используй geminiNanoBananaAgent.\\n- POLLINATIONS_FORCE => используй nanoBananaAgent.\\n- CONFIRM_PHOTO_FORCE => немедленно запускай генерацию фото по текущему контексту.\\n- CONFIRM_VIDEO_FORCE => немедленно запускай генерацию видео.\\n- REGENERATE_FORCE => перегенерируй фото с вариацией без полного опроса.\\n- RESET_CONTEXT_FORCE => явно начни новый сценарий и не опирайся на старый контекст.\\n- Не говори, что у тебя нет инструментов.\\n- При ошибке одного движка предложи альтернативный и продолжи.\\n\\nСтиль ответа:\\n- Коротко, по делу, живой человеческий диалог.\\n- Без канцелярита и повторов одного и того же шага."},"id":"7eb2cd53-8d07-4820-888d-fde40f7e3ee4","name":"AGENT 1 | Manager","type":"@n8n/n8n-nodes-langchain.agent","typeVersion":1.7,"position":[192,224],"onError":"continueErrorOutput"},{"parameters":{"model":{"__rl":true,"value":"mistral-small","mode":"list","cachedResultName":"mistral-small"},"options":{"timeout":60000,"maxRetries":1}},"type":"@n8n/n8n-nodes-langchain.lmChatOpenAi","typeVersion":1.2,"position":[-208,560],"id":"1ccf5302-853a-4939-a109-c7ea833b5cc0","name":"Mistral (OpenAI Compat)","credentials":{"openAiApi":{"id":"YI8Aw7A808POIRQz","name":"Mistral via OpenAI API"}}},{"parameters":{"sessionIdType":"customKey","sessionKey":"={{ $(\"Telegram Trigger\").item.json.message.chat.id + \"-v8\" }}","contextWindowLength":14},"type":"@n8n/n8n-nodes-langchain.memoryBufferWindow","typeVersion":1.3,"position":[-64,560],"id":"8cd76563-6d39-4f89-b98b-e006851d18af","name":"Window Buffer Memory"},{"parameters":{"name":"scriptPlannerAgent","description":"Agent 2. Analyze scenario and build sequential prompts for image/start frame/end frame/video/music. Use for planning stage.","workflowId":{"__rl":true,"value":"KeKhk230Zy3Iz0a4","mode":"list","cachedResultName":"MEDIA_AGENT_2 | Script Planner (draft)"},"workflowInputs":{"mappingMode":"defineBelow","value":{},"matchingColumns":[],"schema":[],"attemptToConvertTypes":false,"convertFieldsToString":false}},"type":"@n8n/n8n-nodes-langchain.toolWorkflow","typeVersion":2,"position":[576,560],"id":"f8a7f59a-2ba8-4e94-b5b3-f646c9cf9fe2","name":"Agent 2 | Planner"},{"parameters":{"name":"nanoBananaAgent","description":"Agent 3. Generate image/start frame in Nano Banana. Call only after explicit user confirmation: ПОДТВЕРЖДАЮ ФОТО.","workflowId":{"__rl":true,"value":"KFWMYCaEpWAdVIn3","mode":"list","cachedResultName":"MEDIA_AGENT_3 | Nano Banana Image (draft)"},"workflowInputs":{"mappingMode":"defineBelow","value":{},"matchingColumns":[],"schema":[],"attemptToConvertTypes":false,"convertFieldsToString":false}},"type":"@n8n/n8n-nodes-langchain.toolWorkflow","typeVersion":2,"position":[416,560],"id":"b48c4a4d-1985-4c19-a1f4-21bc3705594c","name":"Agent 3 | Nano Banana"},{"parameters":{"name":"klingVideoAgent","description":"Agent 4. Generate video or check status in Kling. Call only after explicit user confirmation: ПОДТВЕРЖДАЮ ВИДЕО.","workflowId":{"__rl":true,"value":"DUJBo0tvHA5qIafi","mode":"list","cachedResultName":"MEDIA_AGENT_4 | Kling Video (draft)"},"workflowInputs":{"mappingMode":"defineBelow","value":{},"matchingColumns":[],"schema":[],"attemptToConvertTypes":false,"convertFieldsToString":false}},"type":"@n8n/n8n-nodes-langchain.toolWorkflow","typeVersion":2,"position":[272,560],"id":"d8aaf480-196a-4f5c-822f-7a03c64ca8e8","name":"Agent 4 | Kling"},{"parameters":{"toolDescription":"Web search when user explicitly asks to find/check information on the internet.","method":"POST","url":"https://api.tavily.com/search","sendBody":true,"specifyBody":"json","jsonBody":"{\n  \"api_key\": \"REPLACE_TAVILY_API_KEY\",\n  \"query\": \"{searchTerm}\",\n  \"search_depth\": \"basic\",\n  \"include_answer\": true,\n  \"topic\": \"general\",\n  \"max_results\": 5\n}","placeholderDefinitions":{"values":[{"name":"searchTerm","description":"Internet search query","type":"string"}]}},"type":"@n8n/n8n-nodes-langchain.toolHttpRequest","typeVersion":1.1,"position":[128,560],"id":"2ba299f2-e89f-49d9-b87e-c13f6ff7e6f6","name":"Tavily Search"},{"parameters":{"assignments":{"assignments":[{"id":"9aa78d1e-e847-4a28-a7f6-04c2a8115f80","name":"output","value":"={{ (() => {\\n  const err = String($json.error || \"\");\\n  const t = String($json.text || \"\");\\n  const low = t.toLowerCase();\\n  const isRate = /rate limit|429|quota|too many requests/i.test(err);\\n\\n  if (isRate) {\\n    if (/flow|флоу|gemini|google|гугл/.test(low)) {\\n      return \"Словили лимит модели на этом шаге. Контекст сохранен: выбран Flow. Напиши тему и стиль (одной фразой), и я продолжу.\";\\n    }\\n    if (/pollinations|полин/.test(low)) {\\n      return \"Словили лимит модели. Переключаемся на Pollinations. Напиши тему и стиль, продолжим сразу.\";\\n    }\\n    return \"Временный лимит модели. Подожди 10-20 секунд и напиши: продолжить. Контекст сохранен.\";\\n  }\\n\\n  return \"Временная ошибка агента. Контекст сохранен. Напиши: продолжить.\";\\n})() }}","type":"string"}]},"options":{}},"id":"de9c55fa-7d25-4ee4-8809-d37f9ab0ef72","name":"Set Error Reply","type":"n8n-nodes-base.set","typeVersion":3.4,"position":[464,64]},{"parameters":{"chatId":"={{ $('Telegram Trigger').item.json.message.chat.id }}","text":"={{ $json.output }}","additionalFields":{"appendAttribution":false}},"id":"15d5afff-6f7d-4481-9f89-f32a9ad5f117","name":"Telegram Reply","type":"n8n-nodes-base.telegram","typeVersion":1.2,"position":[704,224],"webhookId":"6bde4e69-0f1d-4c63-a6d2-3909afa56806","credentials":{"telegramApi":{"id":"LUUfBd2lLvYLEiG2","name":"Telegram Bot MMS_MMM"}}},{"parameters":{"name":"geminiNanoBananaAgent","description":"Agent 5. Generate image via Gemini Nano Banana. Use when user selected /engine gemini.","workflowId":{"__rl":true,"value":"LG1KGfhnNCICjNra","mode":"list","cachedResultName":"MEDIA_AGENT_5 | Gemini Nano Banana Image (draft)"},"workflowInputs":{"mappingMode":"defineBelow","value":{},"matchingColumns":[],"schema":[],"attemptToConvertTypes":false,"convertFieldsToString":false}},"type":"@n8n/n8n-nodes-langchain.toolWorkflow","typeVersion":2,"position":[928,560],"id":"b4b6cca7-611f-48f5-a375-031f0ad62b23","name":"Agent 5 | Gemini Nano Banana"},{"parameters":{"name":"intentRouterTool","description":"Router module. Classify incoming text intent and return route/next_action/reply_hint via Switch-based workflow.","workflowId":{"__rl":true,"value":"ABnHZb9Ee2YOtfr2","mode":"list","cachedResultName":"MEDIA_AGENT_ROUTER | Intent Router (draft)"},"workflowInputs":{"mappingMode":"defineBelow","value":{},"matchingColumns":[],"schema":[],"attemptToConvertTypes":false,"convertFieldsToString":false}},"id":"intent-router-tool-node","name":"Intent Router | Tool","type":"@n8n/n8n-nodes-langchain.toolWorkflow","typeVersion":2,"position":[752,560]},{"parameters":{"jsCode":"const input = $input.first().json || {};\nconst ownerIds = ['7326497224'];\n\nconst chatId = String(input?.message?.chat?.id || '');\nconst userId = String(input?.message?.from?.id || '');\n\nconst authorized = ownerIds.includes(chatId) || ownerIds.includes(userId);\n\nreturn [{\n  json: {\n    ...input,\n    auth_status: authorized ? 'allow' : 'deny',\n    auth_meta: {\n      chat_id: chatId,\n      user_id: userId,\n      owner_ids: ownerIds,\n    },\n  },\n}];\n"},"id":"access-control-node","name":"Access Control","type":"n8n-nodes-base.code","typeVersion":2,"position":[-960,160]},{"parameters":{"rules":{"values":[{"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"strict","version":2},"conditions":[{"leftValue":"={{ $json.auth_status }}","rightValue":"allow","operator":{"type":"string","operation":"equals"}}],"combinator":"and"},"renameOutput":true,"outputKey":"Allowed"}]},"options":{"fallbackOutput":"extra"}},"id":"access-switch-node","name":"Access Switch","type":"n8n-nodes-base.switch","typeVersion":3.2,"position":[-736,160]},{"parameters":{"assignments":{"assignments":[{"id":"unauth-output-id","name":"output","value":"Доступ к этому боту ограничен. Обратитесь к владельцу.","type":"string"}]},"options":{}},"id":"unauthorized-reply-node","name":"Set Unauthorized Reply","type":"n8n-nodes-base.set","typeVersion":3.4,"position":[-400,336]}],"connections":{"Telegram Trigger":{"main":[[{"node":"Access Control","type":"main","index":0}]]},"Switch Input":{"main":[[{"node":"Set Voice Reply","type":"main","index":0}],[{"node":"Set Text","type":"main","index":0}]]},"Set Voice Reply":{"main":[[{"node":"Telegram Reply","type":"main","index":0}]]},"Set Text":{"main":[[{"node":"AGENT 1 | Manager","type":"main","index":0}]]},"Mistral (OpenAI Compat)":{"ai_languageModel":[[{"node":"AGENT 1 | Manager","type":"ai_languageModel","index":0}]]},"Window Buffer Memory":{"ai_memory":[[{"node":"AGENT 1 | Manager","type":"ai_memory","index":0}]]},"Agent 2 | Planner":{"ai_tool":[[{"node":"AGENT 1 | Manager","type":"ai_tool","index":0}]]},"Agent 3 | Nano Banana":{"ai_tool":[[{"node":"AGENT 1 | Manager","type":"ai_tool","index":0}]]},"Agent 4 | Kling":{"ai_tool":[[{"node":"AGENT 1 | Manager","type":"ai_tool","index":0}]]},"Tavily Search":{"ai_tool":[[{"node":"AGENT 1 | Manager","type":"ai_tool","index":0}]]},"AGENT 1 | Manager":{"main":[[{"node":"Telegram Reply","type":"main","index":0}],[{"node":"Set Error Reply","type":"main","index":0}]]},"Set Error Reply":{"main":[[{"node":"Telegram Reply","type":"main","index":0}]]},"Agent 5 | Gemini Nano Banana":{"ai_tool":[[{"node":"AGENT 1 | Manager","type":"ai_tool","index":0}]]},"Intent Router | Tool":{"ai_tool":[[{"node":"AGENT 1 | Manager","type":"ai_tool","index":0}]]},"Access Control":{"main":[[{"node":"Access Switch","type":"main","index":0}]]},"Access Switch":{"main":[[{"node":"Switch Input","type":"main","index":0}],[{"node":"Set Unauthorized Reply","type":"main","index":0}]]},"Set Unauthorized Reply":{"main":[[{"node":"Telegram Reply","type":"main","index":0}]]}},"settings":{"executionOrder":"v1","callerPolicy":"workflowsFromSameOwner","availableInMCP":false},"staticData":null,"meta":null,"pinData":{},"versionId":"1cd6fc7b-7296-49d5-a97a-78f0cac5adac","activeVersionId":"1cd6fc7b-7296-49d5-a97a-78f0cac5adac","versionCounter":158,"triggerCount":1,"shared":[{"updatedAt":"2026-02-10T04:50:36.516Z","createdAt":"2026-02-10T04:50:36.516Z","role":"workflow:owner","workflowId":"C8Wmmjuv5hC425PM","projectId":"PoVFjFvyj9uLZeWK","project":{"updatedAt":"2026-02-06T14:21:49.983Z","createdAt":"2026-02-06T14:15:22.652Z","id":"PoVFjFvyj9uLZeWK","name":"Максим Михайлов <max.corp.org@gmail.com>","type":"personal","icon":null,"description":null,"creatorId":"862f49a6-a4d3-494b-9c9b-6c6ffba68472","projectRelations":[{"updatedAt":"2026-02-06T14:15:22.652Z","createdAt":"2026-02-06T14:15:22.652Z","userId":"862f49a6-a4d3-494b-9c9b-6c6ffba68472","projectId":"PoVFjFvyj9uLZeWK","user":{"updatedAt":"2026-02-10T16:29:14.000Z","createdAt":"2026-02-06T14:15:22.136Z","id":"862f49a6-a4d3-494b-9c9b-6c6ffba68472","email":"max.corp.org@gmail.com","firstName":"Максим","lastName":"Михайлов","personalizationAnswers":{"version":"v4","personalization_survey_submitted_at":"2026-02-06T14:24:27.359Z","personalization_survey_n8n_version":"2.6.4","companySize":"<20","companyType":"systems-integrator","automationGoalSm":["customer-communication","lead-generation","ad-campaign","data-syncing","reporting","actions"],"role":"sales-and-marketing","reportedSource":"friend"},"settings":{"userActivated":true,"easyAIWorkflowOnboarded":true,"firstSuccessfulWorkflowId":"bfNbTwtyXNSFzMc2","userActivatedAt":1770566535600},"disabled":false,"mfaEnabled":false,"lastActiveAt":"2026-02-09","isPending":false}}]}}],"tags":[],"activeVersion":{"updatedAt":"2026-02-10T17:42:54.354Z","createdAt":"2026-02-10T17:42:54.354Z","versionId":"1cd6fc7b-7296-49d5-a97a-78f0cac5adac","workflowId":"C8Wmmjuv5hC425PM","nodes":[{"parameters":{"updates":["message"],"additionalFields":{}},"id":"3b7570aa-0239-4f73-a891-d68ab3df03da","name":"Telegram Trigger","type":"n8n-nodes-base.telegramTrigger","typeVersion":1.1,"position":[-768,400],"webhookId":"11765d1c-73a2-4b14-8ce9-bb31dbbb403e","credentials":{"telegramApi":{"id":"LUUfBd2lLvYLEiG2","name":"Telegram Bot MMS_MMM"}}},{"parameters":{"rules":{"values":[{"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"strict","version":2},"conditions":[{"leftValue":"={{ $json.message.voice.file_id }}","rightValue":"","operator":{"type":"string","operation":"exists","singleValue":true}}],"combinator":"and"},"renameOutput":true,"outputKey":"Voice"},{"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"strict","version":2},"conditions":[{"leftValue":"={{ $json.message.text }}","rightValue":"","operator":{"type":"string","operation":"exists","singleValue":true}}],"combinator":"and"},"renameOutput":true,"outputKey":"Text"}]},"options":{}},"id":"2b6cf8e4-58cc-4cae-8d12-c255a99722f6","name":"Switch Input","type":"n8n-nodes-base.switch","typeVersion":3.2,"position":[-400,96]},{"parameters":{"assignments":{"assignments":[{"id":"a24a48c8-0321-4f16-a350-c9c3612af2a6","name":"output","value":"Голосовые пока отключены. Напишите текстом, и я проведу процесс по шагам с подтверждением на каждом этапе.","type":"string"}]},"options":{}},"id":"ee3fdb63-4f62-4f05-acf6-f8a8be7db5a7","name":"Set Voice Reply","type":"n8n-nodes-base.set","typeVersion":3.4,"position":[-128,48]},{"parameters":{"assignments":{"assignments":[{"id":"7c0888d8-f3df-4e6b-8192-b1f45f9f2050","name":"text","value":"={{ (() => { const t = $json.message?.text || \"\"; const low = t.toLowerCase(); const tags = []; if (/\\/engine\\s*(flow|gemini)|используй флоу|сделай на флоу|через флоу|через flow|через gemini/.test(low)) tags.push(\"FLOW_FORCE\"); if (/\\/engine\\s*pollinations|используй pollinations|через pollinations|на pollinations/.test(low)) tags.push(\"POLLINATIONS_FORCE\"); if (/подтверждаю фото/.test(low)) tags.push(\"CONFIRM_PHOTO_FORCE\"); if (/подтверждаю видео/.test(low)) tags.push(\"CONFIRM_VIDEO_FORCE\"); if (/не нравится|переделай|сделай другую|другой вариант|заново/.test(low)) tags.push(\"REGENERATE_FORCE\"); if (/сбрось контекст|начнем заново|начнём заново|reset context/.test(low)) tags.push(\"RESET_CONTEXT_FORCE\"); return tags.length ? (t + \"\\\\n[\" + tags.join(\"|\") + \"]\") : t; })() }}","type":"string"}]},"options":{}},"id":"00d4fc62-be95-44c0-a68f-20f8f0c8a920","name":"Set Text","type":"n8n-nodes-base.set","typeVersion":3.4,"position":[-128,224]},{"parameters":{"promptType":"define","text":"={{ $json.text }}","options":{"systemMessage":"Ты дружелюбный ИИ-ассистент в Telegram и общаешься с пользователем в свободной форме на русском.\\n\\nГлавное:\\n- Не превращай диалог в жёсткий опрос.\\n- Понимай обычные фразы и сам извлекай параметры (тема, стиль, формат, движок).\\n- Задавай уточнения только если реально не хватает данных для следующего шага.\\n- Если пользователь пишет готовый запрос (например: \"сделай аватарку..., используй флоу\"), сразу переходи к действию без лишних вопросов.\\n\\nИнструменты:\\n- scriptPlannerAgent: собрать/улучшить промпт\\n- geminiNanoBananaAgent: генерация изображения через Flow/Gemini\\n- nanoBananaAgent: генерация через Pollinations\\n- klingVideoAgent: генерация видео\\n- intentRouterTool и Tavily Search при необходимости\\n\\nПравила выполнения:\\n- FLOW_FORCE => используй geminiNanoBananaAgent.\\n- POLLINATIONS_FORCE => используй nanoBananaAgent.\\n- CONFIRM_PHOTO_FORCE => немедленно запускай генерацию фото по текущему контексту.\\n- CONFIRM_VIDEO_FORCE => немедленно запускай генерацию видео.\\n- REGENERATE_FORCE => перегенерируй фото с вариацией без полного опроса.\\n- RESET_CONTEXT_FORCE => явно начни новый сценарий и не опирайся на старый контекст.\\n- Не говори, что у тебя нет инструментов.\\n- При ошибке одного движка предложи альтернативный и продолжи.\\n\\nСтиль ответа:\\n- Коротко, по делу, живой человеческий диалог.\\n- Без канцелярита и повторов одного и того же шага."},"systemMessage":"Ты дружелюбный ИИ-ассистент в Telegram и общаешься с пользователем в свободной форме на русском.\\n\\nГлавное:\\n- Не превращай диалог в жёсткий опрос.\\n- Понимай обычные фразы и сам извлекай параметры (тема, стиль, формат, движок).\\n- Задавай уточнения только если реально не хватает данных для следующего шага.\\n- Если пользователь пишет готовый запрос (например: \"сделай аватарку..., используй флоу\"), сразу переходи к действию без лишних вопросов.\\n\\nИнструменты:\\n- scriptPlannerAgent: собрать/улучшить промпт\\n- geminiNanoBananaAgent: генерация изображения через Flow/Gemini\\n- nanoBananaAgent: генерация через Pollinations\\n- klingVideoAgent: генерация видео\\n- intentRouterTool и Tavily Search при необходимости\\n\\nПравила выполнения:\\n- FLOW_FORCE => используй geminiNanoBananaAgent.\\n- POLLINATIONS_FORCE => используй nanoBananaAgent.\\n- CONFIRM_PHOTO_FORCE => немедленно запускай генерацию фото по текущему контексту.\\n- CONFIRM_VIDEO_FORCE => немедленно запускай генерацию видео.\\n- REGENERATE_FORCE => перегенерируй фото с вариацией без полного опроса.\\n- RESET_CONTEXT_FORCE => явно начни новый сценарий и не опирайся на старый контекст.\\n- Не говори, что у тебя нет инструментов.\\n- При ошибке одного движка предложи альтернативный и продолжи.\\n\\nСтиль ответа:\\n- Коротко, по делу, живой человеческий диалог.\\n- Без канцелярита и повторов одного и того же шага."},"id":"7eb2cd53-8d07-4820-888d-fde40f7e3ee4","name":"AGENT 1 | Manager","type":"@n8n/n8n-nodes-langchain.agent","typeVersion":1.7,"position":[192,224],"onError":"continueErrorOutput"},{"parameters":{"model":{"__rl":true,"value":"mistral-small","mode":"list","cachedResultName":"mistral-small"},"options":{"timeout":60000,"maxRetries":1}},"type":"@n8n/n8n-nodes-langchain.lmChatOpenAi","typeVersion":1.2,"position":[-208,560],"id":"1ccf5302-853a-4939-a109-c7ea833b5cc0","name":"Mistral (OpenAI Compat)","credentials":{"openAiApi":{"id":"YI8Aw7A808POIRQz","name":"Mistral via OpenAI API"}}},{"parameters":{"sessionIdType":"customKey","sessionKey":"={{ $(\"Telegram Trigger\").item.json.message.chat.id + \"-v8\" }}","contextWindowLength":14},"type":"@n8n/n8n-nodes-langchain.memoryBufferWindow","typeVersion":1.3,"position":[-64,560],"id":"8cd76563-6d39-4f89-b98b-e006851d18af","name":"Window Buffer Memory"},{"parameters":{"name":"scriptPlannerAgent","description":"Agent 2. Analyze scenario and build sequential prompts for image/start frame/end frame/video/music. Use for planning stage.","workflowId":{"__rl":true,"value":"KeKhk230Zy3Iz0a4","mode":"list","cachedResultName":"MEDIA_AGENT_2 | Script Planner (draft)"},"workflowInputs":{"mappingMode":"defineBelow","value":{},"matchingColumns":[],"schema":[],"attemptToConvertTypes":false,"convertFieldsToString":false}},"type":"@n8n/n8n-nodes-langchain.toolWorkflow","typeVersion":2,"position":[576,560],"id":"f8a7f59a-2ba8-4e94-b5b3-f646c9cf9fe2","name":"Agent 2 | Planner"},{"parameters":{"name":"nanoBananaAgent","description":"Agent 3. Generate image/start frame in Nano Banana. Call only after explicit user confirmation: ПОДТВЕРЖДАЮ ФОТО.","workflowId":{"__rl":true,"value":"KFWMYCaEpWAdVIn3","mode":"list","cachedResultName":"MEDIA_AGENT_3 | Nano Banana Image (draft)"},"workflowInputs":{"mappingMode":"defineBelow","value":{},"matchingColumns":[],"schema":[],"attemptToConvertTypes":false,"convertFieldsToString":false}},"type":"@n8n/n8n-nodes-langchain.toolWorkflow","typeVersion":2,"position":[416,560],"id":"b48c4a4d-1985-4c19-a1f4-21bc3705594c","name":"Agent 3 | Nano Banana"},{"parameters":{"name":"klingVideoAgent","description":"Agent 4. Generate video or check status in Kling. Call only after explicit user confirmation: ПОДТВЕРЖДАЮ ВИДЕО.","workflowId":{"__rl":true,"value":"DUJBo0tvHA5qIafi","mode":"list","cachedResultName":"MEDIA_AGENT_4 | Kling Video (draft)"},"workflowInputs":{"mappingMode":"defineBelow","value":{},"matchingColumns":[],"schema":[],"attemptToConvertTypes":false,"convertFieldsToString":false}},"type":"@n8n/n8n-nodes-langchain.toolWorkflow","typeVersion":2,"position":[272,560],"id":"d8aaf480-196a-4f5c-822f-7a03c64ca8e8","name":"Agent 4 | Kling"},{"parameters":{"toolDescription":"Web search when user explicitly asks to find/check information on the internet.","method":"POST","url":"https://api.tavily.com/search","sendBody":true,"specifyBody":"json","jsonBody":"{\n  \"api_key\": \"REPLACE_TAVILY_API_KEY\",\n  \"query\": \"{searchTerm}\",\n  \"search_depth\": \"basic\",\n  \"include_answer\": true,\n  \"topic\": \"general\",\n  \"max_results\": 5\n}","placeholderDefinitions":{"values":[{"name":"searchTerm","description":"Internet search query","type":"string"}]}},"type":"@n8n/n8n-nodes-langchain.toolHttpRequest","typeVersion":1.1,"position":[128,560],"id":"2ba299f2-e89f-49d9-b87e-c13f6ff7e6f6","name":"Tavily Search"},{"parameters":{"assignments":{"assignments":[{"id":"9aa78d1e-e847-4a28-a7f6-04c2a8115f80","name":"output","value":"={{ (() => {\\n  const err = String($json.error || \"\");\\n  const t = String($json.text || \"\");\\n  const low = t.toLowerCase();\\n  const isRate = /rate limit|429|quota|too many requests/i.test(err);\\n\\n  if (isRate) {\\n    if (/flow|флоу|gemini|google|гугл/.test(low)) {\\n      return \"Словили лимит модели на этом шаге. Контекст сохранен: выбран Flow. Напиши тему и стиль (одной фразой), и я продолжу.\";\\n    }\\n    if (/pollinations|полин/.test(low)) {\\n      return \"Словили лимит модели. Переключаемся на Pollinations. Напиши тему и стиль, продолжим сразу.\";\\n    }\\n    return \"Временный лимит модели. Подожди 10-20 секунд и напиши: продолжить. Контекст сохранен.\";\\n  }\\n\\n  return \"Временная ошибка агента. Контекст сохранен. Напиши: продолжить.\";\\n})() }}","type":"string"}]},"options":{}},"id":"de9c55fa-7d25-4ee4-8809-d37f9ab0ef72","name":"Set Error Reply","type":"n8n-nodes-base.set","typeVersion":3.4,"position":[464,64]},{"parameters":{"chatId":"={{ $('Telegram Trigger').item.json.message.chat.id }}","text":"={{ $json.output }}","additionalFields":{"appendAttribution":false}},"id":"15d5afff-6f7d-4481-9f89-f32a9ad5f117","name":"Telegram Reply","type":"n8n-nodes-base.telegram","typeVersion":1.2,"position":[704,224],"webhookId":"6bde4e69-0f1d-4c63-a6d2-3909afa56806","credentials":{"telegramApi":{"id":"LUUfBd2lLvYLEiG2","name":"Telegram Bot MMS_MMM"}}},{"parameters":{"name":"geminiNanoBananaAgent","description":"Agent 5. Generate image via Gemini Nano Banana. Use when user selected /engine gemini.","workflowId":{"__rl":true,"value":"LG1KGfhnNCICjNra","mode":"list","cachedResultName":"MEDIA_AGENT_5 | Gemini Nano Banana Image (draft)"},"workflowInputs":{"mappingMode":"defineBelow","value":{},"matchingColumns":[],"schema":[],"attemptToConvertTypes":false,"convertFieldsToString":false}},"type":"@n8n/n8n-nodes-langchain.toolWorkflow","typeVersion":2,"position":[928,560],"id":"b4b6cca7-611f-48f5-a375-031f0ad62b23","name":"Agent 5 | Gemini Nano Banana"},{"parameters":{"name":"intentRouterTool","description":"Router module. Classify incoming text intent and return route/next_action/reply_hint via Switch-based workflow.","workflowId":{"__rl":true,"value":"ABnHZb9Ee2YOtfr2","mode":"list","cachedResultName":"MEDIA_AGENT_ROUTER | Intent Router (draft)"},"workflowInputs":{"mappingMode":"defineBelow","value":{},"matchingColumns":[],"schema":[],"attemptToConvertTypes":false,"convertFieldsToString":false}},"id":"intent-router-tool-node","name":"Intent Router | Tool","type":"@n8n/n8n-nodes-langchain.toolWorkflow","typeVersion":2,"position":[752,560]},{"parameters":{"jsCode":"const input = $input.first().json || {};\nconst ownerIds = ['7326497224'];\n\nconst chatId = String(input?.message?.chat?.id || '');\nconst userId = String(input?.message?.from?.id || '');\n\nconst authorized = ownerIds.includes(chatId) || ownerIds.includes(userId);\n\nreturn [{\n  json: {\n    ...input,\n    auth_status: authorized ? 'allow' : 'deny',\n    auth_meta: {\n      chat_id: chatId,\n      user_id: userId,\n      owner_ids: ownerIds,\n    },\n  },\n}];\n"},"id":"access-control-node","name":"Access Control","type":"n8n-nodes-base.code","typeVersion":2,"position":[-960,160]},{"parameters":{"rules":{"values":[{"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"strict","version":2},"conditions":[{"leftValue":"={{ $json.auth_status }}","rightValue":"allow","operator":{"type":"string","operation":"equals"}}],"combinator":"and"},"renameOutput":true,"outputKey":"Allowed"}]},"options":{"fallbackOutput":"extra"}},"id":"access-switch-node","name":"Access Switch","type":"n8n-nodes-base.switch","typeVersion":3.2,"position":[-736,160]},{"parameters":{"assignments":{"assignments":[{"id":"unauth-output-id","name":"output","value":"Доступ к этому боту ограничен. Обратитесь к владельцу.","type":"string"}]},"options":{}},"id":"unauthorized-reply-node","name":"Set Unauthorized Reply","type":"n8n-nodes-base.set","typeVersion":3.4,"position":[-400,336]}],"connections":{"Telegram Trigger":{"main":[[{"node":"Access Control","type":"main","index":0}]]},"Switch Input":{"main":[[{"node":"Set Voice Reply","type":"main","index":0}],[{"node":"Set Text","type":"main","index":0}]]},"Set Voice Reply":{"main":[[{"node":"Telegram Reply","type":"main","index":0}]]},"Set Text":{"main":[[{"node":"AGENT 1 | Manager","type":"main","index":0}]]},"Mistral (OpenAI Compat)":{"ai_languageModel":[[{"node":"AGENT 1 | Manager","type":"ai_languageModel","index":0}]]},"Window Buffer Memory":{"ai_memory":[[{"node":"AGENT 1 | Manager","type":"ai_memory","index":0}]]},"Agent 2 | Planner":{"ai_tool":[[{"node":"AGENT 1 | Manager","type":"ai_tool","index":0}]]},"Agent 3 | Nano Banana":{"ai_tool":[[{"node":"AGENT 1 | Manager","type":"ai_tool","index":0}]]},"Agent 4 | Kling":{"ai_tool":[[{"node":"AGENT 1 | Manager","type":"ai_tool","index":0}]]},"Tavily Search":{"ai_tool":[[{"node":"AGENT 1 | Manager","type":"ai_tool","index":0}]]},"AGENT 1 | Manager":{"main":[[{"node":"Telegram Reply","type":"main","index":0}],[{"node":"Set Error Reply","type":"main","index":0}]]},"Set Error Reply":{"main":[[{"node":"Telegram Reply","type":"main","index":0}]]},"Agent 5 | Gemini Nano Banana":{"ai_tool":[[{"node":"AGENT 1 | Manager","type":"ai_tool","index":0}]]},"Intent Router | Tool":{"ai_tool":[[{"node":"AGENT 1 | Manager","type":"ai_tool","index":0}]]},"Access Control":{"main":[[{"node":"Access Switch","type":"main","index":0}]]},"Access Switch":{"main":[[{"node":"Switch Input","type":"main","index":0}],[{"node":"Set Unauthorized Reply","type":"main","index":0}]]},"Set Unauthorized Reply":{"main":[[{"node":"Telegram Reply","type":"main","index":0}]]}},"authors":"Максим Михайлов","name":null,"description":null,"autosaved":false,"workflowPublishHistory":[{"createdAt":"2026-02-10T17:42:55.196Z","id":117,"workflowId":"C8Wmmjuv5hC425PM","versionId":"1cd6fc7b-7296-49d5-a97a-78f0cac5adac","event":"activated","userId":"862f49a6-a4d3-494b-9c9b-6c6ffba68472"}]}}
+{
+  "updatedAt": "2026-02-11T13:14:02.129Z",
+  "createdAt": "2026-02-10T04:50:36.513Z",
+  "id": "C8Wmmjuv5hC425PM",
+  "name": "MEDIA_AGENT_1 | Master Orchestrator TG (draft)",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "3b7570aa-0239-4f73-a891-d68ab3df03da",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1380,
+        220
+      ],
+      "webhookId": "11765d1c-73a2-4b14-8ce9-bb31dbbb403e",
+      "credentials": {
+        "telegramApi": {
+          "id": "LUUfBd2lLvYLEiG2",
+          "name": "Telegram Bot MMS_MMM"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.message.voice.file_id }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Voice"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.message.text }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Text"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2b6cf8e4-58cc-4cae-8d12-c255a99722f6",
+      "name": "Switch Input",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -780,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a24a48c8-0321-4f16-a350-c9c3612af2a6",
+              "name": "output",
+              "value": "Голосовые пока отключены. Напишите текстом, и я проведу процесс по шагам с подтверждением на каждом этапе.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ee3fdb63-4f62-4f05-acf6-f8a8be7db5a7",
+      "name": "Set Voice Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -560,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7c0888d8-f3df-4e6b-8192-b1f45f9f2050",
+              "name": "text",
+              "value": "={{ (() => {\n  const t = $json.message?.text || \"\";\n  const low = t.toLowerCase();\n  const tags = [];\n\n  const flowRequested = /\\/engine\\s*(flow|gemini)|используй\\s*(flow|флоу|gemini|гугл|google)|сделай\\s+на\\s*(flow|флоу)|через\\s*(flow|флоу|gemini|гугл|google)|на\\s*флоу/.test(low);\n  const pollinationsRequested = /\\/engine\\s*pollinations|используй\\s*pollinations|через\\s*pollinations|на\\s*pollinations/.test(low);\n  const directImageRequest = /(сделай|создай|сгенерируй|нарисуй|подготовь)\\s+.*(фото|картин|изображ|аватар)/.test(low);\n  const directVideoRequest = /(сделай|создай|сгенерируй|запусти)\\s+.*(видео|ролик)/.test(low);\n\n  if (flowRequested) {\n    tags.push(\"FLOW_FORCE\");\n    tags.push(\"ENGINE_LOCK_FLOW\");\n  }\n  if (pollinationsRequested) {\n    tags.push(\"POLLINATIONS_FORCE\");\n    tags.push(\"ENGINE_LOCK_POLLINATIONS\");\n  }\n\n  if (directImageRequest && !pollinationsRequested && !flowRequested) {\n    tags.push(\"FLOW_FORCE\");\n    tags.push(\"ENGINE_LOCK_FLOW\");\n  }\n\n  if (/подтверждаю фото/.test(low) || directImageRequest) tags.push(\"CONFIRM_PHOTO_FORCE\");\n  if (/подтверждаю видео/.test(low) || directVideoRequest) tags.push(\"CONFIRM_VIDEO_FORCE\");\n  if (/не нравится|переделай|сделай другую|другой вариант|заново/.test(low)) tags.push(\"REGENERATE_FORCE\");\n  if (/сбрось контекст|начнем заново|начнём заново|reset context/.test(low)) tags.push(\"RESET_CONTEXT_FORCE\");\n  if (/продолжить|continue/.test(low)) tags.push(\"CONTINUE_FORCE\");\n\n  tags.push(\"NO_REFUSAL_MODE\");\n\n  return tags.length ? (t + \"\\n[\" + [...new Set(tags)].join(\"|\") + \"]\") : t;\n})() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "00d4fc62-be95-44c0-a68f-20f8f0c8a920",
+      "name": "Set Text",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -580,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.routed_text || $json.text }}",
+        "options": {
+          "systemMessage": "Ты AGENT 1 (свободный AI-ассистент с tools) в Telegram.\n\nРежим работы: свободный диалог + быстрый результат.\n\nГлавные правила:\n- Не зацикливайся и не повторяй один и тот же вопрос.\n- Если пользователь дал даже короткую идею (например: \"цветы\", \"открытка\", \"ленточки\"), считай это валидным запросом на фото.\n- В таких случаях сам дострой промпт и запускай генерацию, не требуя длинного брифа.\n- Уточняющие вопросы — максимум 1 короткий и только если без него нельзя запустить.\n\nПо фото:\n- Запросы на фото/аватар/картинку/открытку/дизайн запускай сразу.\n- Если пользователь не указал движок, по умолчанию используй Flow.\n- Если пользователь явно указал движок, уважай выбор.\n\nПо видео:\n- Если запрос про видео, веди к видео-этапу и запускай после подтверждения.\n\nАнти-отказ:\n- Никогда не отвечай: «не могу помочь», «нет инструментов», «запрос не подходит».\n- Если текущий путь не сработал, предложи рабочую альтернативу и продолжай без потери контекста.\n\nИнструменты:\n- FLOW_FORCE или ENGINE_LOCK_FLOW => geminiNanoBananaAgent\n- POLLINATIONS_FORCE или ENGINE_LOCK_POLLINATIONS => nanoBananaAgent\n- Видео => klingVideoAgent\n- Память => memoryNeuroAgent\n\nСтиль:\n- Коротко, по делу, человечески.\n- Всегда завершай ответ следующим действием."
+        },
+        "systemMessage": "Ты AGENT 1 (свободный AI-ассистент с tools) в Telegram.\n\nРежим работы: свободный диалог + быстрый результат.\n\nГлавные правила:\n- Не зацикливайся и не повторяй один и тот же вопрос.\n- Если пользователь дал даже короткую идею (например: \"цветы\", \"открытка\", \"ленточки\"), считай это валидным запросом на фото.\n- В таких случаях сам дострой промпт и запускай генерацию, не требуя длинного брифа.\n- Уточняющие вопросы — максимум 1 короткий и только если без него нельзя запустить.\n\nПо фото:\n- Запросы на фото/аватар/картинку/открытку/дизайн запускай сразу.\n- Если пользователь не указал движок, по умолчанию используй Flow.\n- Если пользователь явно указал движок, уважай выбор.\n\nПо видео:\n- Если запрос про видео, веди к видео-этапу и запускай после подтверждения.\n\nАнти-отказ:\n- Никогда не отвечай: «не могу помочь», «нет инструментов», «запрос не подходит».\n- Если текущий путь не сработал, предложи рабочую альтернативу и продолжай без потери контекста.\n\nИнструменты:\n- FLOW_FORCE или ENGINE_LOCK_FLOW => geminiNanoBananaAgent\n- POLLINATIONS_FORCE или ENGINE_LOCK_POLLINATIONS => nanoBananaAgent\n- Видео => klingVideoAgent\n- Память => memoryNeuroAgent\n\nСтиль:\n- Коротко, по делу, человечески.\n- Всегда завершай ответ следующим действием."
+      },
+      "id": "7eb2cd53-8d07-4820-888d-fde40f7e3ee4",
+      "name": "AGENT 1 | Manager",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -120,
+        260
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "mistral-small",
+          "mode": "list",
+          "cachedResultName": "mistral-small"
+        },
+        "options": {
+          "timeout": 60000,
+          "maxRetries": 1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -120,
+        520
+      ],
+      "id": "1ccf5302-853a-4939-a109-c7ea833b5cc0",
+      "name": "Mistral (OpenAI Compat)",
+      "credentials": {
+        "openAiApi": {
+          "id": "YI8Aw7A808POIRQz",
+          "name": "Mistral via OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "scriptPlannerAgent",
+        "description": "Agent 2. Analyze scenario and build sequential prompts for image/start frame/end frame/video/music. Use for planning stage.",
+        "workflowId": {
+          "__rl": true,
+          "value": "KeKhk230Zy3Iz0a4",
+          "mode": "list",
+          "cachedResultName": "MEDIA_AGENT_2 | Script Planner (draft)"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        960,
+        520
+      ],
+      "id": "f8a7f59a-2ba8-4e94-b5b3-f646c9cf9fe2",
+      "name": "Agent 2 | Planner"
+    },
+    {
+      "parameters": {
+        "name": "nanoBananaAgent",
+        "description": "Agent 3. Generate image/start frame via Pollinations. Use on POLLINATIONS_FORCE or when Flow fails. Direct imperative user requests for photo are valid confirmation.",
+        "workflowId": {
+          "__rl": true,
+          "value": "KFWMYCaEpWAdVIn3",
+          "mode": "list",
+          "cachedResultName": "MEDIA_AGENT_3 | Nano Banana Image (draft)"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        740,
+        520
+      ],
+      "id": "b48c4a4d-1985-4c19-a1f4-21bc3705594c",
+      "name": "Agent 3 | Nano Banana"
+    },
+    {
+      "parameters": {
+        "name": "klingVideoAgent",
+        "description": "Agent 4. Generate video or check status in Kling. Call only after explicit user confirmation: ПОДТВЕРЖДАЮ ВИДЕО.",
+        "workflowId": {
+          "__rl": true,
+          "value": "DUJBo0tvHA5qIafi",
+          "mode": "list",
+          "cachedResultName": "MEDIA_AGENT_4 | Kling Video (draft)"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        520,
+        520
+      ],
+      "id": "d8aaf480-196a-4f5c-822f-7a03c64ca8e8",
+      "name": "Agent 4 | Kling"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Web search when user explicitly asks to find/check information on the internet.",
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"api_key\": \"REPLACE_TAVILY_API_KEY\",\n  \"query\": \"{searchTerm}\",\n  \"search_depth\": \"basic\",\n  \"include_answer\": true,\n  \"topic\": \"general\",\n  \"max_results\": 5\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "searchTerm",
+              "description": "Internet search query",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        300,
+        520
+      ],
+      "id": "2ba299f2-e89f-49d9-b87e-c13f6ff7e6f6",
+      "name": "Tavily Search"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9aa78d1e-e847-4a28-a7f6-04c2a8115f80",
+              "name": "output",
+              "value": "={{ (() => {\\n  const err = String($json.error || \"\");\\n  const t = String($json.text || \"\");\\n  const low = t.toLowerCase();\\n  const isRate = /rate limit|429|quota|too many requests/i.test(err);\\n\\n  if (isRate) {\\n    if (/flow|флоу|gemini|google|гугл/.test(low)) {\\n      return \"Словили лимит модели на этом шаге. Контекст сохранен: выбран Flow. Напиши тему и стиль (одной фразой), и я продолжу.\";\\n    }\\n    if (/pollinations|полин/.test(low)) {\\n      return \"Словили лимит модели. Переключаемся на Pollinations. Напиши тему и стиль, продолжим сразу.\";\\n    }\\n    return \"Временный лимит модели. Подожди 10-20 секунд и напиши: продолжить. Контекст сохранен.\";\\n  }\\n\\n  return \"Временная ошибка агента. Контекст сохранен. Напиши: продолжить.\";\\n})() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "de9c55fa-7d25-4ee4-8809-d37f9ab0ef72",
+      "name": "Set Error Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        120,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "15d5afff-6f7d-4481-9f89-f32a9ad5f117",
+      "name": "Telegram Reply",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        360,
+        260
+      ],
+      "webhookId": "6bde4e69-0f1d-4c63-a6d2-3909afa56806",
+      "credentials": {
+        "telegramApi": {
+          "id": "LUUfBd2lLvYLEiG2",
+          "name": "Telegram Bot MMS_MMM"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "geminiNanoBananaAgent",
+        "description": "Agent 5. Generate image via Flow/Gemini. Use on FLOW_FORCE/ENGINE_LOCK_FLOW and direct user request for Flow generation.",
+        "workflowId": {
+          "__rl": true,
+          "value": "LG1KGfhnNCICjNra",
+          "mode": "list",
+          "cachedResultName": "MEDIA_AGENT_5 | Gemini Nano Banana Image (draft)"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        1180,
+        520
+      ],
+      "id": "b4b6cca7-611f-48f5-a375-031f0ad62b23",
+      "name": "Agent 5 | Gemini Nano Banana"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json || {};\nconst ownerIds = ['7326497224'];\n\nconst chatId = String(input?.message?.chat?.id || '');\nconst userId = String(input?.message?.from?.id || '');\n\nconst authorized = ownerIds.includes(chatId) || ownerIds.includes(userId);\n\nreturn [{\n  json: {\n    ...input,\n    auth_status: authorized ? 'allow' : 'deny',\n    auth_meta: {\n      chat_id: chatId,\n      user_id: userId,\n      owner_ids: ownerIds,\n    },\n  },\n}];\n"
+      },
+      "id": "access-control-node",
+      "name": "Access Control",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1180,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.auth_status }}",
+                    "rightValue": "allow",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Allowed"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "access-switch-node",
+      "name": "Access Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -980,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "unauth-output-id",
+              "name": "output",
+              "value": "Доступ к этому боту ограничен. Обратитесь к владельцу.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "unauthorized-reply-node",
+      "name": "Set Unauthorized Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -760,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "name": "memoryNeuroAgent",
+        "description": "Memory agent. Manage long-term markdown memory in GitHub repo: upsert/search/list/archive/compact/sync.",
+        "workflowId": {
+          "__rl": true,
+          "value": "kcH2rlqr8aZoOPiO",
+          "mode": "list",
+          "cachedResultName": "MEMORY_NEURO_AGENT | GitHub Markdown Memory (draft)"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "memory-neuro-tool-node",
+      "name": "Memory Neuro Agent",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $input.first().json || {};\nconst original = String(j.output || j.text || '').trim();\nconst srcText = String(j.text || '').replace(/\\n\\[[^\\]]+\\]\\s*$/,'').trim();\n\nconst refusalRe = /(извините\\s*,?\\s*но.*не могу|не могу помочь|не могу выполнить|нет доступа к (необходимым )?инструментам|контент не подходит|запрос не может быть выполнен)/i;\nconst loopRe = /(уточни,? что сейчас делаем|мы создаем фото\\.?\\s*что должно быть на фото\\??|что должно быть на фото\\??|выбери цель: фото или видео)/i;\n\nif (refusalRe.test(original)) {\n  const fallback = [\n    'Сделаем. Помогу переформулировать запрос так, чтобы картинка точно получилась.',\n    'Напиши в одной фразе: объект + стиль + настроение + формат (например: \"аватар бота, киберпанк, неоновый, 1:1 png\").',\n    'Если хочешь, сразу запущу через Flow. Если не получится, аккуратно переключу на Pollinations без потери контекста.'\n  ].join(' ');\n\n  return [{\n    json: {\n      ...j,\n      output: fallback,\n      guardrail_refusal_rewritten: true,\n      original_output: original,\n    },\n  }];\n}\n\nif (loopRe.test(original)) {\n  const subject = srcText || 'твою идею';\n  const fallback = 'Принял. Делаю сразу по запросу: \"' + subject + '\". Запускаю генерацию фото через Flow. Если хочешь другой движок, напиши: /engine pollinations.';\n  return [{\n    json: {\n      ...j,\n      output: fallback,\n      guardrail_loop_rewritten: true,\n      original_output: original,\n    },\n  }];\n}\n\nreturn [{ json: j }];"
+      },
+      "id": "reply-guardrail-node",
+      "name": "Reply Guardrail",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        120,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json || {};\nconst text = String(input.query || input.text || input.message || '').trim();\nconst low = text.toLowerCase();\n\nconst hasAny = (arr) => arr.some((s) => low.includes(s));\n\nconst isGreeting = !text || /^(\\/start|start|старт|привет|хай|hello|hi|здарова|добрый)/i.test(low);\nconst isEngineCmd = /\\/engine\\s*(flow|gemini|pollinations)/i.test(text) || hasAny([\n  'движок', 'engine', 'на флоу', 'через flow', 'через флоу', 'через гугл', 'через google', 'через gemini',\n  'через pollinations', 'на pollinations', 'pollinations',\n]);\nconst isConfig = /\\/flowcfg\\b/i.test(text) || hasAny([\n  'model:', 'модель:', 'aspect ratio', 'соотношение', 'output resolution', 'разрешение',\n  'output format', 'формат', 'person generation', 'персонажи', 'люди',\n]);\nconst isRegen = hasAny(['не нравится', 'переделай', 'другой вариант', 'заново']);\nconst isConfirmVideo = hasAny(['подтверждаю видео', 'делай видео', 'генерируй видео']);\nconst isConfirmPhoto = hasAny(['подтверждаю фото', 'делай фото', 'генерируй фото']);\nconst isImageRequest = hasAny(['фото', 'картин', 'изображ', 'аватар', 'открытк', 'постер', 'иллюстрац', 'сделай', 'создай', 'нарисуй']);\n\nlet intent = 'free_message';\nif (isGreeting) intent = 'greeting';\nelse if (isEngineCmd) intent = 'engine_select';\nelse if (isConfig) intent = 'config_update';\nelse if (isRegen) intent = 'regenerate';\nelse if (isConfirmVideo) intent = 'confirm_video';\nelse if (isConfirmPhoto) intent = 'confirm_photo';\nelse if (isImageRequest) intent = 'image_request';\n\nlet engine = String(input.engine || '').toLowerCase();\nif (!engine) {\n  if (/\\/engine\\s*(flow|gemini)/i.test(text) || hasAny(['используй flow', 'используй флоу', 'используй gemini', 'движок флоу', 'flow', 'флоу'])) engine = 'flow';\n  if (/\\/engine\\s*pollinations/i.test(text) || hasAny(['движок pollinations', 'pollinations'])) engine = 'pollinations';\n}\n\nconst mode = ['image_request', 'confirm_photo', 'regenerate', 'confirm_video'].includes(intent)\n  ? 'generation'\n  : 'dialog';\n\nconst hint = mode === 'generation'\n  ? 'Пользователь ожидает действие, не застревай в опросе.'\n  : 'Свободный диалог, при необходимости 1 короткий уточняющий вопрос.';\n\nconst routedText = text + '\\n[INTENT:' + intent + '|ENGINE_PREF:' + (engine || 'auto') + '|MODE:' + mode + ']' + '\\nROUTER_HINT: ' + hint;\n\nreturn [{\n  json: {\n    ...input,\n    intent,\n    engine_preference: engine || '',\n    mode,\n    routed_text: routedText,\n    source: 'intent-router-linear-v1',\n  },\n}];"
+      },
+      "id": "router-intent-parse-merged",
+      "name": "Router | Intent Parse",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -360,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "tableName": "agent_memory",
+        "contextWindowLength": 20
+      },
+      "id": "90bc3f97-3ef6-4ed4-861e-2207e1c57a35",
+      "name": "Postgres Chat Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        -32,
+        560
+      ]
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Access Control",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Input": {
+      "main": [
+        [
+          {
+            "node": "Set Voice Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Voice Reply": {
+      "main": [
+        [
+          {
+            "node": "Telegram Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Text": {
+      "main": [
+        [
+          {
+            "node": "Router | Intent Parse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral (OpenAI Compat)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AGENT 1 | Manager",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent 2 | Planner": {
+      "ai_tool": [
+        [
+          {
+            "node": "AGENT 1 | Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent 3 | Nano Banana": {
+      "ai_tool": [
+        [
+          {
+            "node": "AGENT 1 | Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent 4 | Kling": {
+      "ai_tool": [
+        [
+          {
+            "node": "AGENT 1 | Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tavily Search": {
+      "ai_tool": [
+        [
+          {
+            "node": "AGENT 1 | Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AGENT 1 | Manager": {
+      "main": [
+        [
+          {
+            "node": "Reply Guardrail",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Error Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Error Reply": {
+      "main": [
+        [
+          {
+            "node": "Telegram Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent 5 | Gemini Nano Banana": {
+      "ai_tool": [
+        [
+          {
+            "node": "AGENT 1 | Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Access Control": {
+      "main": [
+        [
+          {
+            "node": "Access Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Access Switch": {
+      "main": [
+        [
+          {
+            "node": "Switch Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Unauthorized Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Unauthorized Reply": {
+      "main": [
+        [
+          {
+            "node": "Telegram Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory Neuro Agent": {
+      "ai_tool": [
+        [
+          {
+            "node": "AGENT 1 | Manager",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply Guardrail": {
+      "main": [
+        [
+          {
+            "node": "Telegram Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router | Intent Parse": {
+      "main": [
+        [
+          {
+            "node": "AGENT 1 | Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AGENT 1 | Manager",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "bb0b41b8-924c-44f1-a6b5-8cf2fcfd5a77",
+  "activeVersionId": "bb0b41b8-924c-44f1-a6b5-8cf2fcfd5a77",
+  "versionCounter": 161,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-02-10T04:50:36.516Z",
+      "createdAt": "2026-02-10T04:50:36.516Z",
+      "role": "workflow:owner",
+      "workflowId": "C8Wmmjuv5hC425PM",
+      "projectId": "PoVFjFvyj9uLZeWK",
+      "project": {
+        "updatedAt": "2026-02-06T14:21:49.983Z",
+        "createdAt": "2026-02-06T14:15:22.652Z",
+        "id": "PoVFjFvyj9uLZeWK",
+        "name": "Максим Михайлов <max.corp.org@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "862f49a6-a4d3-494b-9c9b-6c6ffba68472",
+        "projectRelations": [
+          {
+            "updatedAt": "2026-02-06T14:15:22.652Z",
+            "createdAt": "2026-02-06T14:15:22.652Z",
+            "userId": "862f49a6-a4d3-494b-9c9b-6c6ffba68472",
+            "projectId": "PoVFjFvyj9uLZeWK",
+            "user": {
+              "updatedAt": "2026-02-11T12:47:38.000Z",
+              "createdAt": "2026-02-06T14:15:22.136Z",
+              "id": "862f49a6-a4d3-494b-9c9b-6c6ffba68472",
+              "email": "max.corp.org@gmail.com",
+              "firstName": "Максим",
+              "lastName": "Михайлов",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2026-02-06T14:24:27.359Z",
+                "personalization_survey_n8n_version": "2.6.4",
+                "companySize": "<20",
+                "companyType": "systems-integrator",
+                "automationGoalSm": [
+                  "customer-communication",
+                  "lead-generation",
+                  "ad-campaign",
+                  "data-syncing",
+                  "reporting",
+                  "actions"
+                ],
+                "role": "sales-and-marketing",
+                "reportedSource": "friend"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "bfNbTwtyXNSFzMc2",
+                "userActivatedAt": 1770566535600
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-02-10",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-02-11T13:14:02.132Z",
+    "createdAt": "2026-02-11T13:14:02.132Z",
+    "versionId": "bb0b41b8-924c-44f1-a6b5-8cf2fcfd5a77",
+    "workflowId": "C8Wmmjuv5hC425PM",
+    "nodes": [
+      {
+        "parameters": {
+          "updates": [
+            "message"
+          ],
+          "additionalFields": {}
+        },
+        "id": "3b7570aa-0239-4f73-a891-d68ab3df03da",
+        "name": "Telegram Trigger",
+        "type": "n8n-nodes-base.telegramTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          -1380,
+          220
+        ],
+        "webhookId": "11765d1c-73a2-4b14-8ce9-bb31dbbb403e",
+        "credentials": {
+          "telegramApi": {
+            "id": "LUUfBd2lLvYLEiG2",
+            "name": "Telegram Bot MMS_MMM"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.message.voice.file_id }}",
+                      "rightValue": "",
+                      "operator": {
+                        "type": "string",
+                        "operation": "exists",
+                        "singleValue": true
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "Voice"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.message.text }}",
+                      "rightValue": "",
+                      "operator": {
+                        "type": "string",
+                        "operation": "exists",
+                        "singleValue": true
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "Text"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "2b6cf8e4-58cc-4cae-8d12-c255a99722f6",
+        "name": "Switch Input",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          -780,
+          220
+        ]
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "a24a48c8-0321-4f16-a350-c9c3612af2a6",
+                "name": "output",
+                "value": "Голосовые пока отключены. Напишите текстом, и я проведу процесс по шагам с подтверждением на каждом этапе.",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "ee3fdb63-4f62-4f05-acf6-f8a8be7db5a7",
+        "name": "Set Voice Reply",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -560,
+          120
+        ]
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "7c0888d8-f3df-4e6b-8192-b1f45f9f2050",
+                "name": "text",
+                "value": "={{ (() => {\n  const t = $json.message?.text || \"\";\n  const low = t.toLowerCase();\n  const tags = [];\n\n  const flowRequested = /\\/engine\\s*(flow|gemini)|используй\\s*(flow|флоу|gemini|гугл|google)|сделай\\s+на\\s*(flow|флоу)|через\\s*(flow|флоу|gemini|гугл|google)|на\\s*флоу/.test(low);\n  const pollinationsRequested = /\\/engine\\s*pollinations|используй\\s*pollinations|через\\s*pollinations|на\\s*pollinations/.test(low);\n  const directImageRequest = /(сделай|создай|сгенерируй|нарисуй|подготовь)\\s+.*(фото|картин|изображ|аватар)/.test(low);\n  const directVideoRequest = /(сделай|создай|сгенерируй|запусти)\\s+.*(видео|ролик)/.test(low);\n\n  if (flowRequested) {\n    tags.push(\"FLOW_FORCE\");\n    tags.push(\"ENGINE_LOCK_FLOW\");\n  }\n  if (pollinationsRequested) {\n    tags.push(\"POLLINATIONS_FORCE\");\n    tags.push(\"ENGINE_LOCK_POLLINATIONS\");\n  }\n\n  if (directImageRequest && !pollinationsRequested && !flowRequested) {\n    tags.push(\"FLOW_FORCE\");\n    tags.push(\"ENGINE_LOCK_FLOW\");\n  }\n\n  if (/подтверждаю фото/.test(low) || directImageRequest) tags.push(\"CONFIRM_PHOTO_FORCE\");\n  if (/подтверждаю видео/.test(low) || directVideoRequest) tags.push(\"CONFIRM_VIDEO_FORCE\");\n  if (/не нравится|переделай|сделай другую|другой вариант|заново/.test(low)) tags.push(\"REGENERATE_FORCE\");\n  if (/сбрось контекст|начнем заново|начнём заново|reset context/.test(low)) tags.push(\"RESET_CONTEXT_FORCE\");\n  if (/продолжить|continue/.test(low)) tags.push(\"CONTINUE_FORCE\");\n\n  tags.push(\"NO_REFUSAL_MODE\");\n\n  return tags.length ? (t + \"\\n[\" + [...new Set(tags)].join(\"|\") + \"]\") : t;\n})() }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "00d4fc62-be95-44c0-a68f-20f8f0c8a920",
+        "name": "Set Text",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -580,
+          260
+        ]
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $json.routed_text || $json.text }}",
+          "options": {
+            "systemMessage": "Ты AGENT 1 (свободный AI-ассистент с tools) в Telegram.\n\nРежим работы: свободный диалог + быстрый результат.\n\nГлавные правила:\n- Не зацикливайся и не повторяй один и тот же вопрос.\n- Если пользователь дал даже короткую идею (например: \"цветы\", \"открытка\", \"ленточки\"), считай это валидным запросом на фото.\n- В таких случаях сам дострой промпт и запускай генерацию, не требуя длинного брифа.\n- Уточняющие вопросы — максимум 1 короткий и только если без него нельзя запустить.\n\nПо фото:\n- Запросы на фото/аватар/картинку/открытку/дизайн запускай сразу.\n- Если пользователь не указал движок, по умолчанию используй Flow.\n- Если пользователь явно указал движок, уважай выбор.\n\nПо видео:\n- Если запрос про видео, веди к видео-этапу и запускай после подтверждения.\n\nАнти-отказ:\n- Никогда не отвечай: «не могу помочь», «нет инструментов», «запрос не подходит».\n- Если текущий путь не сработал, предложи рабочую альтернативу и продолжай без потери контекста.\n\nИнструменты:\n- FLOW_FORCE или ENGINE_LOCK_FLOW => geminiNanoBananaAgent\n- POLLINATIONS_FORCE или ENGINE_LOCK_POLLINATIONS => nanoBananaAgent\n- Видео => klingVideoAgent\n- Память => memoryNeuroAgent\n\nСтиль:\n- Коротко, по делу, человечески.\n- Всегда завершай ответ следующим действием."
+          },
+          "systemMessage": "Ты AGENT 1 (свободный AI-ассистент с tools) в Telegram.\n\nРежим работы: свободный диалог + быстрый результат.\n\nГлавные правила:\n- Не зацикливайся и не повторяй один и тот же вопрос.\n- Если пользователь дал даже короткую идею (например: \"цветы\", \"открытка\", \"ленточки\"), считай это валидным запросом на фото.\n- В таких случаях сам дострой промпт и запускай генерацию, не требуя длинного брифа.\n- Уточняющие вопросы — максимум 1 короткий и только если без него нельзя запустить.\n\nПо фото:\n- Запросы на фото/аватар/картинку/открытку/дизайн запускай сразу.\n- Если пользователь не указал движок, по умолчанию используй Flow.\n- Если пользователь явно указал движок, уважай выбор.\n\nПо видео:\n- Если запрос про видео, веди к видео-этапу и запускай после подтверждения.\n\nАнти-отказ:\n- Никогда не отвечай: «не могу помочь», «нет инструментов», «запрос не подходит».\n- Если текущий путь не сработал, предложи рабочую альтернативу и продолжай без потери контекста.\n\nИнструменты:\n- FLOW_FORCE или ENGINE_LOCK_FLOW => geminiNanoBananaAgent\n- POLLINATIONS_FORCE или ENGINE_LOCK_POLLINATIONS => nanoBananaAgent\n- Видео => klingVideoAgent\n- Память => memoryNeuroAgent\n\nСтиль:\n- Коротко, по делу, человечески.\n- Всегда завершай ответ следующим действием."
+        },
+        "id": "7eb2cd53-8d07-4820-888d-fde40f7e3ee4",
+        "name": "AGENT 1 | Manager",
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 1.7,
+        "position": [
+          -120,
+          260
+        ],
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "value": "mistral-small",
+            "mode": "list",
+            "cachedResultName": "mistral-small"
+          },
+          "options": {
+            "timeout": 60000,
+            "maxRetries": 1
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.2,
+        "position": [
+          -120,
+          520
+        ],
+        "id": "1ccf5302-853a-4939-a109-c7ea833b5cc0",
+        "name": "Mistral (OpenAI Compat)",
+        "credentials": {
+          "openAiApi": {
+            "id": "YI8Aw7A808POIRQz",
+            "name": "Mistral via OpenAI API"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "name": "scriptPlannerAgent",
+          "description": "Agent 2. Analyze scenario and build sequential prompts for image/start frame/end frame/video/music. Use for planning stage.",
+          "workflowId": {
+            "__rl": true,
+            "value": "KeKhk230Zy3Iz0a4",
+            "mode": "list",
+            "cachedResultName": "MEDIA_AGENT_2 | Script Planner (draft)"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {},
+            "matchingColumns": [],
+            "schema": [],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+        "typeVersion": 2,
+        "position": [
+          960,
+          520
+        ],
+        "id": "f8a7f59a-2ba8-4e94-b5b3-f646c9cf9fe2",
+        "name": "Agent 2 | Planner"
+      },
+      {
+        "parameters": {
+          "name": "nanoBananaAgent",
+          "description": "Agent 3. Generate image/start frame via Pollinations. Use on POLLINATIONS_FORCE or when Flow fails. Direct imperative user requests for photo are valid confirmation.",
+          "workflowId": {
+            "__rl": true,
+            "value": "KFWMYCaEpWAdVIn3",
+            "mode": "list",
+            "cachedResultName": "MEDIA_AGENT_3 | Nano Banana Image (draft)"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {},
+            "matchingColumns": [],
+            "schema": [],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+        "typeVersion": 2,
+        "position": [
+          740,
+          520
+        ],
+        "id": "b48c4a4d-1985-4c19-a1f4-21bc3705594c",
+        "name": "Agent 3 | Nano Banana"
+      },
+      {
+        "parameters": {
+          "name": "klingVideoAgent",
+          "description": "Agent 4. Generate video or check status in Kling. Call only after explicit user confirmation: ПОДТВЕРЖДАЮ ВИДЕО.",
+          "workflowId": {
+            "__rl": true,
+            "value": "DUJBo0tvHA5qIafi",
+            "mode": "list",
+            "cachedResultName": "MEDIA_AGENT_4 | Kling Video (draft)"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {},
+            "matchingColumns": [],
+            "schema": [],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+        "typeVersion": 2,
+        "position": [
+          520,
+          520
+        ],
+        "id": "d8aaf480-196a-4f5c-822f-7a03c64ca8e8",
+        "name": "Agent 4 | Kling"
+      },
+      {
+        "parameters": {
+          "toolDescription": "Web search when user explicitly asks to find/check information on the internet.",
+          "method": "POST",
+          "url": "https://api.tavily.com/search",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "{\n  \"api_key\": \"REPLACE_TAVILY_API_KEY\",\n  \"query\": \"{searchTerm}\",\n  \"search_depth\": \"basic\",\n  \"include_answer\": true,\n  \"topic\": \"general\",\n  \"max_results\": 5\n}",
+          "placeholderDefinitions": {
+            "values": [
+              {
+                "name": "searchTerm",
+                "description": "Internet search query",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+        "typeVersion": 1.1,
+        "position": [
+          300,
+          520
+        ],
+        "id": "2ba299f2-e89f-49d9-b87e-c13f6ff7e6f6",
+        "name": "Tavily Search"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "9aa78d1e-e847-4a28-a7f6-04c2a8115f80",
+                "name": "output",
+                "value": "={{ (() => {\\n  const err = String($json.error || \"\");\\n  const t = String($json.text || \"\");\\n  const low = t.toLowerCase();\\n  const isRate = /rate limit|429|quota|too many requests/i.test(err);\\n\\n  if (isRate) {\\n    if (/flow|флоу|gemini|google|гугл/.test(low)) {\\n      return \"Словили лимит модели на этом шаге. Контекст сохранен: выбран Flow. Напиши тему и стиль (одной фразой), и я продолжу.\";\\n    }\\n    if (/pollinations|полин/.test(low)) {\\n      return \"Словили лимит модели. Переключаемся на Pollinations. Напиши тему и стиль, продолжим сразу.\";\\n    }\\n    return \"Временный лимит модели. Подожди 10-20 секунд и напиши: продолжить. Контекст сохранен.\";\\n  }\\n\\n  return \"Временная ошибка агента. Контекст сохранен. Напиши: продолжить.\";\\n})() }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "de9c55fa-7d25-4ee4-8809-d37f9ab0ef72",
+        "name": "Set Error Reply",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          120,
+          120
+        ]
+      },
+      {
+        "parameters": {
+          "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+          "text": "={{ $json.output }}",
+          "additionalFields": {
+            "appendAttribution": false
+          }
+        },
+        "id": "15d5afff-6f7d-4481-9f89-f32a9ad5f117",
+        "name": "Telegram Reply",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          360,
+          260
+        ],
+        "webhookId": "6bde4e69-0f1d-4c63-a6d2-3909afa56806",
+        "credentials": {
+          "telegramApi": {
+            "id": "LUUfBd2lLvYLEiG2",
+            "name": "Telegram Bot MMS_MMM"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "name": "geminiNanoBananaAgent",
+          "description": "Agent 5. Generate image via Flow/Gemini. Use on FLOW_FORCE/ENGINE_LOCK_FLOW and direct user request for Flow generation.",
+          "workflowId": {
+            "__rl": true,
+            "value": "LG1KGfhnNCICjNra",
+            "mode": "list",
+            "cachedResultName": "MEDIA_AGENT_5 | Gemini Nano Banana Image (draft)"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {},
+            "matchingColumns": [],
+            "schema": [],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+        "typeVersion": 2,
+        "position": [
+          1180,
+          520
+        ],
+        "id": "b4b6cca7-611f-48f5-a375-031f0ad62b23",
+        "name": "Agent 5 | Gemini Nano Banana"
+      },
+      {
+        "parameters": {
+          "jsCode": "const input = $input.first().json || {};\nconst ownerIds = ['7326497224'];\n\nconst chatId = String(input?.message?.chat?.id || '');\nconst userId = String(input?.message?.from?.id || '');\n\nconst authorized = ownerIds.includes(chatId) || ownerIds.includes(userId);\n\nreturn [{\n  json: {\n    ...input,\n    auth_status: authorized ? 'allow' : 'deny',\n    auth_meta: {\n      chat_id: chatId,\n      user_id: userId,\n      owner_ids: ownerIds,\n    },\n  },\n}];\n"
+        },
+        "id": "access-control-node",
+        "name": "Access Control",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -1180,
+          220
+        ]
+      },
+      {
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.auth_status }}",
+                      "rightValue": "allow",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "Allowed"
+              }
+            ]
+          },
+          "options": {
+            "fallbackOutput": "extra"
+          }
+        },
+        "id": "access-switch-node",
+        "name": "Access Switch",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          -980,
+          220
+        ]
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "unauth-output-id",
+                "name": "output",
+                "value": "Доступ к этому боту ограничен. Обратитесь к владельцу.",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "unauthorized-reply-node",
+        "name": "Set Unauthorized Reply",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -760,
+          380
+        ]
+      },
+      {
+        "parameters": {
+          "name": "memoryNeuroAgent",
+          "description": "Memory agent. Manage long-term markdown memory in GitHub repo: upsert/search/list/archive/compact/sync.",
+          "workflowId": {
+            "__rl": true,
+            "value": "kcH2rlqr8aZoOPiO",
+            "mode": "list",
+            "cachedResultName": "MEMORY_NEURO_AGENT | GitHub Markdown Memory (draft)"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {},
+            "matchingColumns": [],
+            "schema": [],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          }
+        },
+        "id": "memory-neuro-tool-node",
+        "name": "Memory Neuro Agent",
+        "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+        "typeVersion": 2,
+        "position": [
+          1400,
+          520
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const j = $input.first().json || {};\nconst original = String(j.output || j.text || '').trim();\nconst srcText = String(j.text || '').replace(/\\n\\[[^\\]]+\\]\\s*$/,'').trim();\n\nconst refusalRe = /(извините\\s*,?\\s*но.*не могу|не могу помочь|не могу выполнить|нет доступа к (необходимым )?инструментам|контент не подходит|запрос не может быть выполнен)/i;\nconst loopRe = /(уточни,? что сейчас делаем|мы создаем фото\\.?\\s*что должно быть на фото\\??|что должно быть на фото\\??|выбери цель: фото или видео)/i;\n\nif (refusalRe.test(original)) {\n  const fallback = [\n    'Сделаем. Помогу переформулировать запрос так, чтобы картинка точно получилась.',\n    'Напиши в одной фразе: объект + стиль + настроение + формат (например: \"аватар бота, киберпанк, неоновый, 1:1 png\").',\n    'Если хочешь, сразу запущу через Flow. Если не получится, аккуратно переключу на Pollinations без потери контекста.'\n  ].join(' ');\n\n  return [{\n    json: {\n      ...j,\n      output: fallback,\n      guardrail_refusal_rewritten: true,\n      original_output: original,\n    },\n  }];\n}\n\nif (loopRe.test(original)) {\n  const subject = srcText || 'твою идею';\n  const fallback = 'Принял. Делаю сразу по запросу: \"' + subject + '\". Запускаю генерацию фото через Flow. Если хочешь другой движок, напиши: /engine pollinations.';\n  return [{\n    json: {\n      ...j,\n      output: fallback,\n      guardrail_loop_rewritten: true,\n      original_output: original,\n    },\n  }];\n}\n\nreturn [{ json: j }];"
+        },
+        "id": "reply-guardrail-node",
+        "name": "Reply Guardrail",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          120,
+          260
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const input = $input.first().json || {};\nconst text = String(input.query || input.text || input.message || '').trim();\nconst low = text.toLowerCase();\n\nconst hasAny = (arr) => arr.some((s) => low.includes(s));\n\nconst isGreeting = !text || /^(\\/start|start|старт|привет|хай|hello|hi|здарова|добрый)/i.test(low);\nconst isEngineCmd = /\\/engine\\s*(flow|gemini|pollinations)/i.test(text) || hasAny([\n  'движок', 'engine', 'на флоу', 'через flow', 'через флоу', 'через гугл', 'через google', 'через gemini',\n  'через pollinations', 'на pollinations', 'pollinations',\n]);\nconst isConfig = /\\/flowcfg\\b/i.test(text) || hasAny([\n  'model:', 'модель:', 'aspect ratio', 'соотношение', 'output resolution', 'разрешение',\n  'output format', 'формат', 'person generation', 'персонажи', 'люди',\n]);\nconst isRegen = hasAny(['не нравится', 'переделай', 'другой вариант', 'заново']);\nconst isConfirmVideo = hasAny(['подтверждаю видео', 'делай видео', 'генерируй видео']);\nconst isConfirmPhoto = hasAny(['подтверждаю фото', 'делай фото', 'генерируй фото']);\nconst isImageRequest = hasAny(['фото', 'картин', 'изображ', 'аватар', 'открытк', 'постер', 'иллюстрац', 'сделай', 'создай', 'нарисуй']);\n\nlet intent = 'free_message';\nif (isGreeting) intent = 'greeting';\nelse if (isEngineCmd) intent = 'engine_select';\nelse if (isConfig) intent = 'config_update';\nelse if (isRegen) intent = 'regenerate';\nelse if (isConfirmVideo) intent = 'confirm_video';\nelse if (isConfirmPhoto) intent = 'confirm_photo';\nelse if (isImageRequest) intent = 'image_request';\n\nlet engine = String(input.engine || '').toLowerCase();\nif (!engine) {\n  if (/\\/engine\\s*(flow|gemini)/i.test(text) || hasAny(['используй flow', 'используй флоу', 'используй gemini', 'движок флоу', 'flow', 'флоу'])) engine = 'flow';\n  if (/\\/engine\\s*pollinations/i.test(text) || hasAny(['движок pollinations', 'pollinations'])) engine = 'pollinations';\n}\n\nconst mode = ['image_request', 'confirm_photo', 'regenerate', 'confirm_video'].includes(intent)\n  ? 'generation'\n  : 'dialog';\n\nconst hint = mode === 'generation'\n  ? 'Пользователь ожидает действие, не застревай в опросе.'\n  : 'Свободный диалог, при необходимости 1 короткий уточняющий вопрос.';\n\nconst routedText = text + '\\n[INTENT:' + intent + '|ENGINE_PREF:' + (engine || 'auto') + '|MODE:' + mode + ']' + '\\nROUTER_HINT: ' + hint;\n\nreturn [{\n  json: {\n    ...input,\n    intent,\n    engine_preference: engine || '',\n    mode,\n    routed_text: routedText,\n    source: 'intent-router-linear-v1',\n  },\n}];"
+        },
+        "id": "router-intent-parse-merged",
+        "name": "Router | Intent Parse",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -360,
+          260
+        ]
+      }
+    ],
+    "connections": {
+      "Telegram Trigger": {
+        "main": [
+          [
+            {
+              "node": "Access Control",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Switch Input": {
+        "main": [
+          [
+            {
+              "node": "Set Voice Reply",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Set Text",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Set Voice Reply": {
+        "main": [
+          [
+            {
+              "node": "Telegram Reply",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Set Text": {
+        "main": [
+          [
+            {
+              "node": "Router | Intent Parse",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Mistral (OpenAI Compat)": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "AGENT 1 | Manager",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Agent 2 | Planner": {
+        "ai_tool": [
+          [
+            {
+              "node": "AGENT 1 | Manager",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Agent 3 | Nano Banana": {
+        "ai_tool": [
+          [
+            {
+              "node": "AGENT 1 | Manager",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Agent 4 | Kling": {
+        "ai_tool": [
+          [
+            {
+              "node": "AGENT 1 | Manager",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Tavily Search": {
+        "ai_tool": [
+          [
+            {
+              "node": "AGENT 1 | Manager",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "AGENT 1 | Manager": {
+        "main": [
+          [
+            {
+              "node": "Reply Guardrail",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Set Error Reply",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Set Error Reply": {
+        "main": [
+          [
+            {
+              "node": "Telegram Reply",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Agent 5 | Gemini Nano Banana": {
+        "ai_tool": [
+          [
+            {
+              "node": "AGENT 1 | Manager",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Access Control": {
+        "main": [
+          [
+            {
+              "node": "Access Switch",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Access Switch": {
+        "main": [
+          [
+            {
+              "node": "Switch Input",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Set Unauthorized Reply",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Set Unauthorized Reply": {
+        "main": [
+          [
+            {
+              "node": "Telegram Reply",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Memory Neuro Agent": {
+        "ai_tool": [
+          [
+            {
+              "node": "AGENT 1 | Manager",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Reply Guardrail": {
+        "main": [
+          [
+            {
+              "node": "Telegram Reply",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Router | Intent Parse": {
+        "main": [
+          [
+            {
+              "node": "AGENT 1 | Manager",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Максим Михайлов",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-02-11T13:14:02.997Z",
+        "id": 119,
+        "workflowId": "C8Wmmjuv5hC425PM",
+        "versionId": "bb0b41b8-924c-44f1-a6b5-8cf2fcfd5a77",
+        "event": "activated",
+        "userId": "862f49a6-a4d3-494b-9c9b-6c6ffba68472"
+      }
+    ]
+  }
+}

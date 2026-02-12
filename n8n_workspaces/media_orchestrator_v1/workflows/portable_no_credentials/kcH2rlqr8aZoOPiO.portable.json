@@ -1,0 +1,634 @@
+{
+  "name": "MEMORY_NEURO_AGENT | GitHub Markdown Memory (draft)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "mem-manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1440,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "5 3 * * *"
+            }
+          ]
+        }
+      },
+      "id": "mem-schedule-daily",
+      "name": "Schedule Daily Sync",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1440,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "15 4 * * 0"
+            }
+          ]
+        }
+      },
+      "id": "mem-schedule-weekly",
+      "name": "Schedule Weekly Archive",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1440,
+        420
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "mem-exec-trigger",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1440,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "action",
+              "value": "sync",
+              "type": "string"
+            },
+            {
+              "name": "trigger_source",
+              "value": "manual",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "mem-set-manual",
+      "name": "Set Manual Defaults",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1200,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "action",
+              "value": "sync",
+              "type": "string"
+            },
+            {
+              "name": "trigger_source",
+              "value": "schedule_daily",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "mem-set-daily",
+      "name": "Set Daily Action",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1200,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "action",
+              "value": "archive_weekly",
+              "type": "string"
+            },
+            {
+              "name": "trigger_source",
+              "value": "schedule_weekly",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "mem-set-weekly",
+      "name": "Set Weekly Action",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1200,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "action",
+              "value": "={{ $json.action || $json.mode || \"sync\" }}",
+              "type": "string"
+            },
+            {
+              "name": "trigger_source",
+              "value": "={{ $json.trigger_source || \"tool\" }}",
+              "type": "string"
+            },
+            {
+              "name": "storage_backend",
+              "value": "={{ ($json.storage_backend || $json.backend || \"github\").toLowerCase() }}",
+              "type": "string"
+            },
+            {
+              "name": "github_api",
+              "value": "https://api.github.com",
+              "type": "string"
+            },
+            {
+              "name": "github_owner",
+              "value": "={{ $json.github_owner || \"MaxCorpOrg\" }}",
+              "type": "string"
+            },
+            {
+              "name": "github_repo",
+              "value": "={{ $json.github_repo || \"memory\" }}",
+              "type": "string"
+            },
+            {
+              "name": "github_branch",
+              "value": "={{ $json.github_branch || \"main\" }}",
+              "type": "string"
+            },
+            {
+              "name": "memory_base_path",
+              "value": "={{ $json.memory_base_path || \"memory\" }}",
+              "type": "string"
+            },
+            {
+              "name": "memory_archive_path",
+              "value": "={{ $json.memory_archive_path || \"_archive\" }}",
+              "type": "string"
+            },
+            {
+              "name": "memory_heartbeat_path",
+              "value": "={{ $json.memory_heartbeat_path || \"_system/heartbeat.md\" }}",
+              "type": "string"
+            },
+            {
+              "name": "memory_key",
+              "value": "={{ $json.memory_key || $json.key || \"\" }}",
+              "type": "string"
+            },
+            {
+              "name": "path",
+              "value": "={{ $json.path || \"\" }}",
+              "type": "string"
+            },
+            {
+              "name": "content",
+              "value": "={{ $json.content || $json.text || \"\" }}",
+              "type": "string"
+            },
+            {
+              "name": "query",
+              "value": "={{ $json.query || \"\" }}",
+              "type": "string"
+            },
+            {
+              "name": "from_date",
+              "value": "={{ $json.from_date || \"\" }}",
+              "type": "string"
+            },
+            {
+              "name": "to_date",
+              "value": "={{ $json.to_date || \"\" }}",
+              "type": "string"
+            },
+            {
+              "name": "max_results",
+              "value": "={{ $json.max_results || 20 }}",
+              "type": "number"
+            },
+            {
+              "name": "max_scan_files",
+              "value": "={{ $json.max_scan_files || 30 }}",
+              "type": "number"
+            },
+            {
+              "name": "max_archive_files",
+              "value": "={{ $json.max_archive_files || 15 }}",
+              "type": "number"
+            },
+            {
+              "name": "max_compact_files",
+              "value": "={{ $json.max_compact_files || 10 }}",
+              "type": "number"
+            },
+            {
+              "name": "max_repo_bytes",
+              "value": "={{ $json.max_repo_bytes || 5242880 }}",
+              "type": "number"
+            },
+            {
+              "name": "max_file_bytes",
+              "value": "={{ $json.max_file_bytes || 180000 }}",
+              "type": "number"
+            },
+            {
+              "name": "keep_recent_lines",
+              "value": "={{ $json.keep_recent_lines || 220 }}",
+              "type": "number"
+            },
+            {
+              "name": "stale_days",
+              "value": "={{ $json.stale_days || 2 }}",
+              "type": "number"
+            },
+            {
+              "name": "github_token",
+              "value": "={{ $env.MEMORY_GITHUB_TOKEN || \"\" }}",
+              "type": "string"
+            },
+            {
+              "name": "connector_gdrive_url",
+              "value": "={{ $env.MEMORY_CONNECTOR_GDRIVE_URL || \"\" }}",
+              "type": "string"
+            },
+            {
+              "name": "connector_dropbox_url",
+              "value": "={{ $env.MEMORY_CONNECTOR_DROPBOX_URL || \"\" }}",
+              "type": "string"
+            },
+            {
+              "name": "connector_s3_url",
+              "value": "={{ $env.MEMORY_CONNECTOR_S3_URL || \"\" }}",
+              "type": "string"
+            },
+            {
+              "name": "connector_auth_token",
+              "value": "={{ $env.MEMORY_CONNECTOR_AUTH_TOKEN || \"\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "mem-set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -920,
+        330
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $input.first().json || {};\n\nfunction toStr(v) {\n  return typeof v === 'string' ? v.trim() : '';\n}\n\nfunction slugify(input) {\n  return String(input || '')\n    .trim()\n    .toLowerCase()\n    .replace(/[\\\\\\s]+/g, '-')\n    .replace(/[^a-z0-9а-яё._-]/gi, '-')\n    .replace(/-+/g, '-')\n    .replace(/^[-._]+|[-._]+$/g, '')\n    .slice(0, 80);\n}\n\nfunction normalizeBackend(rawBackend, text) {\n  const raw = String(rawBackend || '').toLowerCase();\n  const low = String(text || '').toLowerCase();\n\n  if (raw.includes('gdrive') || raw.includes('google')) return 'gdrive';\n  if (raw.includes('dropbox')) return 'dropbox';\n  if (raw.includes('s3') || raw.includes('minio')) return 's3';\n  if (raw.includes('git')) return 'github';\n\n  if (/(google drive|gdrive|гугл драйв)/i.test(low)) return 'gdrive';\n  if (/(dropbox|дропбокс)/i.test(low)) return 'dropbox';\n  if (/(s3|minio)/i.test(low)) return 's3';\n\n  return 'github';\n}\n\nconst actionAliases = {\n  upsert: ['upsert', 'write', 'append', 'save', 'remember', 'store', 'запомни', 'сохрани', 'запиши', 'добавь в память'],\n  search: ['search', 'find', 'lookup', 'поиск', 'найди', 'вспомни', 'что помнишь'],\n  get_file: ['get_file', 'read', 'open', 'прочитай', 'покажи файл'],\n  list_files: ['list_files', 'list', 'files', 'список файлов', 'покажи файлы'],\n  archive_weekly: ['archive_weekly', 'archive', 'weekly archive', 'архив', 'заархивируй'],\n  compact: ['compact', 'compress', 'shrink', 'сожми', 'уплотни', 'очисти старое'],\n  sync: ['sync', 'health_check', 'heartbeat', 'синхронизируй', 'проверь память', 'пинг памяти'],\n};\n\nfunction normalizeAction(raw) {\n  const source = String(raw || '').toLowerCase().trim();\n  if (!source) return '';\n\n  for (const [name, aliases] of Object.entries(actionAliases)) {\n    if (name === source || aliases.includes(source)) return name;\n  }\n\n  if (source.includes('archive')) return 'archive_weekly';\n  if (source.includes('list')) return 'list_files';\n  if (source.includes('read') || source.includes('file')) return 'get_file';\n  if (source.includes('search') || source.includes('find')) return 'search';\n  if (source.includes('compact') || source.includes('compress')) return 'compact';\n  if (source.includes('sync') || source.includes('health')) return 'sync';\n  if (source.includes('write') || source.includes('save') || source.includes('append')) return 'upsert';\n\n  return '';\n}\n\nfunction inferAction(text, hasContent) {\n  const low = String(text || '').toLowerCase();\n\n  if (/(архив|archive)/i.test(low)) return 'archive_weekly';\n  if (/(сожми|уплотни|compact|compress)/i.test(low)) return 'compact';\n  if (/(список файлов|list files|list memory files)/i.test(low)) return 'list_files';\n  if (/(прочитай|read file|get file|покажи файл)/i.test(low)) return 'get_file';\n  if (/(найди|поиск|search|find|вспомни)/i.test(low)) return 'search';\n  if (/(синх|heartbeat|health check|проверь память)/i.test(low)) return 'sync';\n  if (/(запомни|сохрани|запиши|remember|save to memory|append)/i.test(low)) return 'upsert';\n\n  if (hasContent) return 'upsert';\n  return 'sync';\n}\n\nfunction extractKeyFromPath(path) {\n  const p = String(path || '').trim();\n  if (!p) return '';\n  const file = p.split('/').pop() || '';\n  return slugify(file.replace(/\\.md$/i, ''));\n}\n\nfunction extractKeyFromText(text) {\n  const low = String(text || '').trim();\n  if (!low) return '';\n\n  const m1 = low.match(/(?:тема|ключ|раздел|topic|key)\\s*[:=]\\s*([a-zа-яё0-9 _.-]{2,80})/i);\n  if (m1 && m1[1]) return slugify(m1[1]);\n\n  const m2 = low.match(/#([a-zа-яё0-9_-]{2,50})/i);\n  if (m2 && m2[1]) return slugify(m2[1]);\n\n  return '';\n}\n\nconst textParts = [\n  cfg.user_message,\n  cfg.message,\n  cfg.command,\n  cfg.prompt,\n  cfg.query,\n  cfg.content,\n  cfg.text,\n  cfg.note,\n].map(toStr).filter(Boolean);\n\nconst joinedText = textParts.join('\\n').trim();\nconst explicitAction = normalizeAction(cfg.action || cfg.mode);\nconst hasContent = Boolean(toStr(cfg.content) || toStr(cfg.text) || toStr(cfg.note));\nlet action = explicitAction || inferAction(joinedText, hasContent);\n\nconst rawContent = toStr(cfg.content) || toStr(cfg.text) || toStr(cfg.note);\nlet content = rawContent;\nlet query = toStr(cfg.query);\n\nif (action === 'upsert' && !content && joinedText) {\n  content = joinedText;\n}\n\nif (action === 'search' && !query) {\n  query = joinedText || content;\n}\n\nconst smallTalk = /^(привет|hello|hi|ok|ау|test|тест)\\W*$/i.test(content || joinedText);\nconst warnings = [];\nif (!explicitAction && action === 'upsert' && smallTalk) {\n  action = 'sync';\n  warnings.push('small_talk_detected');\n}\nif (action === 'upsert' && (content || '').length < 12) {\n  warnings.push('short_content');\n}\nif (action === 'search' && !query) {\n  warnings.push('empty_query');\n}\n\nconst backend = normalizeBackend(cfg.storage_backend || cfg.backend, joinedText);\nconst memoryKey = slugify(toStr(cfg.memory_key) || toStr(cfg.key) || extractKeyFromPath(cfg.path) || extractKeyFromText(joinedText) || 'general');\n\nconst priorityMap = {\n  archive_weekly: 'high',\n  compact: 'high',\n  sync: 'normal',\n  upsert: 'normal',\n  search: 'normal',\n  get_file: 'normal',\n  list_files: 'low',\n};\n\nconst confidence = explicitAction ? 0.95 : (warnings.length ? 0.68 : 0.82);\n\nconst existingMeta = (cfg.meta && typeof cfg.meta === 'object') ? cfg.meta : {};\nconst brainMeta = {\n  version: '1.0.0',\n  inferred: !explicitAction,\n  confidence,\n  priority: priorityMap[action] || 'normal',\n  trigger_source: cfg.trigger_source || 'tool',\n  warnings,\n};\n\nreturn [{\n  json: {\n    ...cfg,\n    action,\n    storage_backend: backend,\n    memory_key: memoryKey,\n    content,\n    query,\n    brain: {\n      action,\n      storage_backend: backend,\n      confidence,\n      priority: priorityMap[action] || 'normal',\n      warnings,\n      source_preview: joinedText.slice(0, 220),\n    },\n    meta: {\n      ...existingMeta,\n      brain: {\n        ...(existingMeta.brain || {}),\n        ...brainMeta,\n      },\n    },\n  },\n}];"
+      },
+      "id": "mem-brain",
+      "name": "Memory Brain",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -800,
+        330
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $input.first().json || {};\nconst backend = String(cfg.storage_backend || 'github').toLowerCase();\nconst missing = [];\n\nif (backend === 'github') {\n  const token = String(cfg.github_token || '').trim();\n  if (!token || token.length < 20 || token.includes('REPLACE_')) {\n    missing.push('MEMORY_GITHUB_TOKEN');\n  }\n}\n\nif (backend === 'gdrive' && !String(cfg.connector_gdrive_url || '').trim()) {\n  missing.push('MEMORY_CONNECTOR_GDRIVE_URL');\n}\nif (backend === 'dropbox' && !String(cfg.connector_dropbox_url || '').trim()) {\n  missing.push('MEMORY_CONNECTOR_DROPBOX_URL');\n}\nif (backend === 's3' && !String(cfg.connector_s3_url || '').trim()) {\n  missing.push('MEMORY_CONNECTOR_S3_URL');\n}\n\nconst validateStatus = missing.length ? 'error' : 'ok';\nconst output = validateStatus === 'ok'\n  ? `MEMORY_AGENT: конфиг валиден, backend=${backend}, action=${cfg.action || 'sync'}.`\n  : `MEMORY_AGENT: отсутствуют настройки: ${missing.join(', ')}.`;\n\nreturn [{\n  json: {\n    ...cfg,\n    storage_backend: backend,\n    validate_status: validateStatus,\n    output,\n    missing,\n  },\n}];\n"
+      },
+      "id": "mem-validate",
+      "name": "Validate Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -680,
+        330
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.validate_status }}",
+                    "rightValue": "ok",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "OK"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "mem-switch-validate",
+      "name": "Switch Validate",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -440,
+        330
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.storage_backend }}",
+                    "rightValue": "github",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GitHub"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "mem-switch-backend",
+      "name": "Switch Backend",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -200,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $input.first().json || {};\n\nconst action = String(cfg.action || 'sync').toLowerCase();\nconst owner = String(cfg.github_owner || 'MaxCorpOrg');\nconst repo = String(cfg.github_repo || 'memory');\nconst branch = String(cfg.github_branch || 'main');\nconst basePath = String(cfg.memory_base_path || 'memory').replace(/(^\\/+|\\/+$/g, ''));\nconst archiveRoot = String(cfg.memory_archive_path || '_archive').replace(/(^\\/+|\\/+$/g, ''));\nconst heartbeatRel = String(cfg.memory_heartbeat_path || '_system/heartbeat.md').replace(/^\\/+/, '');\nconst ghApi = String(cfg.github_api || 'https://api.github.com');\nconst githubToken = String(cfg.github_token || '');\n\nconst maxRepoBytes = Number(cfg.max_repo_bytes || 5 * 1024 * 1024);\nconst maxFileBytes = Number(cfg.max_file_bytes || 180000);\nconst keepRecentLines = Number(cfg.keep_recent_lines || 220);\nconst maxScanFiles = Number(cfg.max_scan_files || 30);\nconst maxResults = Number(cfg.max_results || 20);\nconst maxCompactFiles = Number(cfg.max_compact_files || 10);\nconst maxArchiveFiles = Number(cfg.max_archive_files || 15);\n\nfunction nowIso() {\n  return new Date().toISOString();\n}\n\nfunction datePart(iso) {\n  return String(iso || nowIso()).slice(0, 10);\n}\n\nfunction getWeekId(d = new Date()) {\n  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));\n  const dayNum = date.getUTCDay() || 7;\n  date.setUTCDate(date.getUTCDate() + 4 - dayNum);\n  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));\n  const weekNo = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);\n  return `${date.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;\n}\n\nfunction sanitizePathPart(input) {\n  return String(input || 'memory')\n    .trim()\n    .replace(/[\\\\\\s]+/g, '-')\n    .replace(/[^a-zA-Z0-9._/-]/g, '-')\n    .replace(/-+/g, '-')\n    .replace(/^[-/.]+|[-/.]+$/g, '')\n    .slice(0, 180) || 'memory';\n}\n\nfunction buildMemoryPath() {\n  if (cfg.path) {\n    return sanitizePathPart(String(cfg.path)).replace(/^\\/+/, '');\n  }\n  const key = sanitizePathPart(cfg.memory_key || cfg.key || cfg.topic || 'general');\n  return `${basePath}/${key}.md`;\n}\n\nfunction makeSnippet(lines, index, radius = 2) {\n  const start = Math.max(0, index - radius);\n  const end = Math.min(lines.length, index + radius + 1);\n  return lines.slice(start, end).join('\\n');\n}\n\nfunction parseDate(v) {\n  const t = String(v || '').trim();\n  if (!t) return null;\n  const d = new Date(t);\n  return Number.isNaN(d.getTime()) ? null : d;\n}\n\nfunction inRange(d, from, to) {\n  if (!d) return true;\n  if (from && d < from) return false;\n  if (to && d > to) return false;\n  return true;\n}\n\nconst ghHeaders = {\n  Authorization: `Bearer ${githubToken}`,\n  Accept: 'application/vnd.github+json',\n  'User-Agent': 'memory-neuro-agent',\n};\n\nconst repoBase = `${ghApi}/repos/${owner}/${repo}`;\n\nasync function ghGet(url) {\n  return await this.helpers.httpRequest({\n    method: 'GET',\n    url,\n    headers: ghHeaders,\n    json: true,\n    timeout: 60000,\n  });\n}\n\nasync function getContent(path) {\n  const cleanPath = String(path || '').replace(/^\\/+/, '');\n  try {\n    const data = await ghGet(`${repoBase}/contents/${encodeURIComponent(cleanPath)}?ref=${encodeURIComponent(branch)}`);\n    const text = Buffer.from(String(data.content || '').replace(/\\n/g, ''), 'base64').toString('utf8');\n    return { exists: true, sha: data.sha, text, size: data.size || text.length, path: cleanPath };\n  } catch (e) {\n    const code = e?.statusCode || e?.response?.statusCode || e?.response?.body?.status;\n    if (code === 404) {\n      return { exists: false, sha: null, text: '', size: 0, path: cleanPath };\n    }\n    throw e;\n  }\n}\n\nasync function putContent(path, text, message, sha = null) {\n  const cleanPath = String(path || '').replace(/^\\/+/, '');\n  const body = {\n    message,\n    content: Buffer.from(String(text || ''), 'utf8').toString('base64'),\n    branch,\n  };\n  if (sha) body.sha = sha;\n\n  return await this.helpers.httpRequest({\n    method: 'PUT',\n    url: `${repoBase}/contents/${encodeURIComponent(cleanPath)}`,\n    headers: {\n      ...ghHeaders,\n      'Content-Type': 'application/json',\n    },\n    body,\n    json: true,\n    timeout: 60000,\n  });\n}\n\nasync function listTree() {\n  const treeData = await ghGet(`${repoBase}/git/trees/${encodeURIComponent(branch)}?recursive=1`);\n  return (treeData.tree || []).filter((item) => item.type === 'blob');\n}\n\nfunction filterMemoryMd(tree) {\n  const base = `${basePath}/`;\n  const archivePrefix = `${basePath}/${archiveRoot}/`;\n  return tree\n    .filter((f) => f.path && f.path.endsWith('.md'))\n    .filter((f) => f.path.startsWith(base))\n    .filter((f) => !f.path.startsWith(archivePrefix));\n}\n\nfunction buildEntry(content, meta = null) {\n  const now = nowIso();\n  const metaLine = meta && Object.keys(meta).length\n    ? `- meta: ${JSON.stringify(meta)}`\n    : null;\n  const lines = [\n    `## ${now}`,\n    metaLine,\n    String(content || '').trim(),\n    '',\n  ].filter(Boolean);\n  return lines.join('\\n');\n}\n\ntry {\n  if (!githubToken) {\n    return [{\n      json: {\n        ...cfg,\n        status: 'error',\n        output: 'MEMORY_AGENT: отсутствует MEMORY_GITHUB_TOKEN.',\n      },\n    }];\n  }\n\n  const startedAt = nowIso();\n\n  if (action === 'upsert' || action === 'write' || action === 'append') {\n    const path = buildMemoryPath();\n    const content = String(cfg.content || cfg.text || cfg.note || '').trim();\n    if (!content) {\n      return [{ json: { ...cfg, status: 'error', output: 'MEMORY_AGENT: для upsert нужен content/text.' } }];\n    }\n\n    const current = await getContent.call(this, path);\n    const title = `# Memory: ${path.split('/').pop().replace(/\\.md$/, '')}`;\n    const meta = cfg.meta && typeof cfg.meta === 'object' ? cfg.meta : null;\n    const entry = buildEntry(content, meta);\n\n    const nextText = current.exists\n      ? `${String(current.text || '').replace(/\\s+$/, '')}\\n\\n${entry}\\n`\n      : `${title}\\n\\n${entry}\\n`;\n\n    const res = await putContent.call(this, path, nextText, `feat(memory): upsert ${path}`, current.sha);\n    return [{\n      json: {\n        ...cfg,\n        status: 'ok',\n        action: 'upsert',\n        memory_path: path,\n        commit_sha: res?.commit?.sha || '',\n        output: `MEMORY_AGENT: запись обновлена (${path}).`,\n      },\n    }];\n  }\n\n  if (action === 'get_file' || action === 'read') {\n    const path = buildMemoryPath();\n    const file = await getContent.call(this, path);\n    if (!file.exists) {\n      return [{ json: { ...cfg, status: 'error', action: 'get_file', output: `MEMORY_AGENT: файл не найден (${path}).` } }];\n    }\n    const maxChars = Number(cfg.max_chars || 12000);\n    const text = String(file.text || '');\n    return [{\n      json: {\n        ...cfg,\n        status: 'ok',\n        action: 'get_file',\n        memory_path: path,\n        content: text.length > maxChars ? `${text.slice(0, maxChars)}\\n\\n...[truncated]` : text,\n        output: `MEMORY_AGENT: файл прочитан (${path}).`,\n      },\n    }];\n  }\n\n  if (action === 'list_files') {\n    const tree = await listTree.call(this);\n    const files = filterMemoryMd(tree)\n      .sort((a, b) => (b.size || 0) - (a.size || 0))\n      .slice(0, maxScanFiles)\n      .map((f) => ({ path: f.path, size: f.size || 0 }));\n\n    return [{\n      json: {\n        ...cfg,\n        status: 'ok',\n        action: 'list_files',\n        files,\n        output: `MEMORY_AGENT: найдено файлов ${files.length}.`,\n      },\n    }];\n  }\n\n  if (action === 'search' || action === 'find') {\n    const query = String(cfg.query || cfg.key || '').trim().toLowerCase();\n    const keyFilter = String(cfg.memory_key || cfg.key_filter || '').trim().toLowerCase();\n    const fromDate = parseDate(cfg.from_date);\n    const toDate = parseDate(cfg.to_date);\n\n    const tree = await listTree.call(this);\n    const files = filterMemoryMd(tree).slice(0, maxScanFiles);\n\n    const results = [];\n\n    for (const file of files) {\n      const content = await getContent.call(this, file.path);\n      const lines = String(content.text || '').split(/\\r?\\n/);\n\n      let currentSectionDate = null;\n      for (let i = 0; i < lines.length; i += 1) {\n        const line = lines[i];\n        const sectionMatch = line.match(/^##\\s+(.+)$/);\n        if (sectionMatch) {\n          currentSectionDate = parseDate(sectionMatch[1]);\n          continue;\n        }\n\n        const lowLine = line.toLowerCase();\n        const queryMatch = query ? lowLine.includes(query) : true;\n        const keyMatch = keyFilter ? file.path.toLowerCase().includes(keyFilter) || lowLine.includes(keyFilter) : true;\n        const dateMatch = inRange(currentSectionDate, fromDate, toDate);\n\n        if (queryMatch && keyMatch && dateMatch) {\n          results.push({\n            path: file.path,\n            date: currentSectionDate ? currentSectionDate.toISOString() : '',\n            snippet: makeSnippet(lines, i, 2),\n          });\n          if (results.length >= maxResults) break;\n        }\n      }\n\n      if (results.length >= maxResults) break;\n    }\n\n    return [{\n      json: {\n        ...cfg,\n        status: 'ok',\n        action: 'search',\n        matches: results.length,\n        results,\n        output: `MEMORY_AGENT: найдено совпадений ${results.length}.`,\n      },\n    }];\n  }\n\n  if (action === 'archive_weekly') {\n    const tree = await listTree.call(this);\n    const files = filterMemoryMd(tree).slice(0, maxArchiveFiles);\n    const weekId = getWeekId(new Date());\n\n    const archived = [];\n    for (const file of files) {\n      const content = await getContent.call(this, file.path);\n      if (!content.exists) continue;\n      const rel = file.path.slice(`${basePath}/`.length);\n      const archivePath = `${basePath}/${archiveRoot}/weekly/${weekId}/${rel}`;\n      const archiveBody = [\n        `# Weekly Archive Snapshot`,\n        `- source: ${file.path}`,\n        `- archived_at: ${startedAt}`,\n        '',\n        content.text,\n      ].join('\\n');\n\n      await putContent.call(this, archivePath, archiveBody, `chore(memory): weekly archive ${rel}`);\n      archived.push({ source: file.path, archive: archivePath });\n    }\n\n    return [{\n      json: {\n        ...cfg,\n        status: 'ok',\n        action: 'archive_weekly',\n        archived_count: archived.length,\n        archived,\n        output: `MEMORY_AGENT: weekly archive готов, файлов: ${archived.length}.`,\n      },\n    }];\n  }\n\n  if (action === 'compact' || action === 'sync' || action === 'health_check') {\n    const tree = await listTree.call(this);\n    const files = filterMemoryMd(tree);\n    const totalBytes = files.reduce((acc, f) => acc + Number(f.size || 0), 0);\n    const oversized = files.filter((f) => Number(f.size || 0) > maxFileBytes);\n\n    const compacted = [];\n    if (action === 'compact' || action === 'sync') {\n      for (const file of oversized.slice(0, maxCompactFiles)) {\n        const content = await getContent.call(this, file.path);\n        if (!content.exists) continue;\n        const lines = String(content.text || '').split(/\\r?\\n/);\n        if (lines.length <= keepRecentLines + 20) continue;\n\n        const keep = lines.slice(-keepRecentLines).join('\\n');\n        const moved = lines.slice(0, -keepRecentLines).join('\\n');\n        const movedCount = Math.max(0, lines.length - keepRecentLines);\n        const archPath = `${basePath}/${archiveRoot}/compacted/${datePart(startedAt)}/${file.path.slice(`${basePath}/`.length)}`;\n\n        const archiveBody = [\n          '# Compacted Segment',\n          `- source: ${file.path}`,\n          `- compacted_at: ${startedAt}`,\n          `- moved_lines: ${movedCount}`,\n          '',\n          moved,\n        ].join('\\n');\n\n        await putContent.call(this, archPath, archiveBody, `chore(memory): compact archive ${file.path}`);\n\n        const compactBody = [\n          '# Compacted Memory File',\n          `- compacted_at: ${startedAt}`,\n          `- archive_path: ${archPath}`,\n          `- kept_lines: ${keepRecentLines}`,\n          '',\n          keep,\n          '',\n        ].join('\\n');\n\n        await putContent.call(this, file.path, compactBody, `chore(memory): compact ${file.path}`, content.sha);\n        compacted.push({ path: file.path, archive: archPath, moved_lines: movedCount });\n      }\n    }\n\n    const hbPath = `${basePath}/${heartbeatRel}`;\n    const hbOld = await getContent.call(this, hbPath);\n    const prevSyncMatch = String(hbOld.text || '').match(/last_sync:\\s*(.+)$/m);\n    const prevSync = prevSyncMatch ? parseDate(prevSyncMatch[1]) : null;\n    const staleDays = Number(cfg.stale_days || 2);\n    const staleBeforeSync = prevSync\n      ? ((Date.now() - prevSync.getTime()) / 86400000) > staleDays\n      : true;\n\n    if (action === 'sync' || action === 'health_check') {\n      const hb = [\n        '# Memory Agent Heartbeat',\n        `- last_sync: ${startedAt}`,\n        `- repo: ${owner}/${repo}`,\n        `- branch: ${branch}`,\n        `- base_path: ${basePath}`,\n        `- total_files: ${files.length}`,\n        `- total_bytes: ${totalBytes}`,\n        `- max_repo_bytes: ${maxRepoBytes}`,\n        `- oversized_files: ${oversized.length}`,\n        `- compacted_now: ${compacted.length}`,\n        `- stale_before_sync: ${staleBeforeSync}`,\n        '',\n      ].join('\\n');\n\n      await putContent.call(this, hbPath, hb, 'chore(memory): heartbeat sync', hbOld.sha);\n    }\n\n    const exceeded = totalBytes > maxRepoBytes || oversized.length > 0;\n    return [{\n      json: {\n        ...cfg,\n        status: 'ok',\n        action,\n        total_files: files.length,\n        total_bytes: totalBytes,\n        exceeded,\n        oversized_count: oversized.length,\n        compacted_count: compacted.length,\n        compacted,\n        stale_before_sync: staleBeforeSync,\n        output: `MEMORY_AGENT: ${action} выполнен. files=${files.length}, bytes=${totalBytes}, compacted=${compacted.length}.`,\n      },\n    }];\n  }\n\n  return [{\n    json: {\n      ...cfg,\n      status: 'error',\n      output: `MEMORY_AGENT: неизвестное action=${action}. Поддержка: upsert, get_file, list_files, search, archive_weekly, compact, sync, health_check.`,\n    },\n  }];\n} catch (e) {\n  return [{\n    json: {\n      ...cfg,\n      status: 'error',\n      action,\n      error: e.message || String(e),\n      output: `MEMORY_AGENT: ошибка GitHub-движка: ${e.message || 'unknown'}`,\n    },\n  }];\n}\n"
+      },
+      "id": "mem-github-engine",
+      "name": "GitHub Memory Engine",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        60,
+        170
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $input.first().json || {};\nconst backend = String(cfg.storage_backend || '').toLowerCase();\n\nconst urlMap = {\n  gdrive: String(cfg.connector_gdrive_url || ''),\n  dropbox: String(cfg.connector_dropbox_url || ''),\n  s3: String(cfg.connector_s3_url || ''),\n};\n\nconst connectorUrl = urlMap[backend] || '';\n\nif (!connectorUrl) {\n  return [{\n    json: {\n      ...cfg,\n      status: 'error',\n      output: `MEMORY_AGENT: для backend=${backend} не настроен connector URL.`,\n    },\n  }];\n}\n\ntry {\n  const payload = {\n    action: cfg.action || 'sync',\n    memory_key: cfg.memory_key || '',\n    path: cfg.path || '',\n    query: cfg.query || '',\n    from_date: cfg.from_date || '',\n    to_date: cfg.to_date || '',\n    content: cfg.content || cfg.text || '',\n    options: {\n      max_results: cfg.max_results,\n      max_file_bytes: cfg.max_file_bytes,\n      keep_recent_lines: cfg.keep_recent_lines,\n    },\n  };\n\n  const res = await this.helpers.httpRequest({\n    method: 'POST',\n    url: connectorUrl,\n    headers: {\n      'Content-Type': 'application/json',\n      ...(cfg.connector_auth_token ? { Authorization: `Bearer ${cfg.connector_auth_token}` } : {}),\n    },\n    body: payload,\n    json: true,\n    timeout: 60000,\n  });\n\n  return [{\n    json: {\n      ...cfg,\n      status: 'ok',\n      output: `MEMORY_AGENT: connector backend=${backend} отработал успешно.`,\n      connector_response: res,\n    },\n  }];\n} catch (e) {\n  return [{\n    json: {\n      ...cfg,\n      status: 'error',\n      output: `MEMORY_AGENT: ошибка connector backend=${backend}: ${e.message || 'unknown'}`,\n    },\n  }];\n}\n"
+      },
+      "id": "mem-cloud-connector",
+      "name": "Cloud Connector Dispatch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        60,
+        330
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $input.first().json || {};\nreturn [{\n  json: {\n    status: j.status || (j.validate_status === 'error' ? 'error' : 'ok'),\n    action: j.action || 'sync',\n    storage_backend: j.storage_backend || 'github',\n    output: j.output || 'MEMORY_AGENT: выполнено.',\n    brain: j.brain || null,\n    data: {\n      total_files: j.total_files,\n      total_bytes: j.total_bytes,\n      matches: j.matches,\n      archived_count: j.archived_count,\n      compacted_count: j.compacted_count,\n      memory_path: j.memory_path,\n      stale_before_sync: j.stale_before_sync,\n      missing: j.missing,\n      brain_confidence: j.brain?.confidence,\n      brain_priority: j.brain?.priority,\n      brain_warnings: j.brain?.warnings || [],\n    },\n    results: j.results || [],\n    archived: j.archived || [],\n    compacted: j.compacted || [],\n    connector_response: j.connector_response || null,\n  },\n}];"
+      },
+      "id": "mem-build-response",
+      "name": "Build Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        250
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Manual Defaults",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Daily Sync": {
+      "main": [
+        [
+          {
+            "node": "Set Daily Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Weekly Archive": {
+      "main": [
+        [
+          {
+            "node": "Set Weekly Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Manual Defaults": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Daily Action": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Weekly Action": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "Memory Brain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Config": {
+      "main": [
+        [
+          {
+            "node": "Switch Validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Validate": {
+      "main": [
+        [
+          {
+            "node": "Switch Backend",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Backend": {
+      "main": [
+        [
+          {
+            "node": "GitHub Memory Engine",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Cloud Connector Dispatch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GitHub Memory Engine": {
+      "main": [
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cloud Connector Dispatch": {
+      "main": [
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory Brain": {
+      "main": [
+        [
+          {
+            "node": "Validate Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  }
+}
