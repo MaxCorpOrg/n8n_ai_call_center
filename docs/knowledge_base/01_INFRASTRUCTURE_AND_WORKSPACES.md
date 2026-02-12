@@ -4,7 +4,7 @@
 
 | Сервер | IP-адрес | Локация | Назначение | ОС | CPU | RAM | Диск | Статус |
 |---|---|---|---|---|---|---|---|---|
-| ai-core-1 | 147.45.213.87 | TODO | n8n + Traefik + automation | Ubuntu 24.04 | TODO | TODO | TODO | active |
+| ai-core-1 | `147.45.213.87` | TODO | n8n + Traefik + memory stack + automation | Ubuntu 24.04 | TODO | TODO | TODO | active |
 
 Примечание: IP подтверждён в `docker-compose.ip.yml`.
 
@@ -13,15 +13,19 @@
 | Компонент | Значение | Примечание |
 |---|---|---|
 | SSH | `22/tcp` | Только по ключам, user `aicore` |
-| HTTP | `80/tcp` | Traefik / Let's Encrypt |
-| HTTPS | `443/tcp` | Публичный вход в n8n |
-| n8n internal | `5678` | Внутри compose-сети |
-| UFW | enabled | Минимально открытые порты |
+| HTTP | `80/tcp` | Traefik redirect -> HTTPS |
+| HTTPS | `443/tcp` | Публичный вход в n8n и Adminer (через Traefik) |
+| n8n internal | `5678/tcp` | Внутри docker-сети |
+| postgres_memory | `5432/tcp` | Опубликован compose; внешне держать закрытым UFW |
+| postgrest | `3000/tcp` | Опубликован compose; внешне держать закрытым UFW |
+| adminer internal | `8080/tcp` | Внутри контейнера, наружу отдаётся через Traefik 443 |
+| UFW | enabled | Базово открыты `22`, `80`, `443` |
 
 ### Маршрутизация и периметр
-- Edge: `Traefik` (TLS termination).
-- App: `n8n` container.
-- Дополнительно: `postgres` в call-center compose override.
+- Edge: `Traefik` (TLS termination, Let's Encrypt).
+- App: `n8n` container (`docker-compose.https.yml`).
+- Memory layer: `postgres_memory` + `postgrest` (`docker-compose.memory.yml`).
+- DB UI: `adminer` (`docker-compose.adminer.yml`).
 
 ## 3) VPN / DNS (шаблон)
 
@@ -42,12 +46,15 @@ curl -s https://api.ipify.org; echo
 
 | Workspace | Путь | Назначение | Ключевые workflow |
 |---|---|---|---|
-| media_orchestrator_v1 | `n8n_workspaces/media_orchestrator_v1` | Телеграм-оркестратор контента | `C8Wmmjuv5hC425PM`, `ABnHZb9Ee2YOtfr2`, `KeKhk230Zy3Iz0a4`, `LG1KGfhnNCICjNra`, `KFWMYCaEpWAdVIn3`, `DUJBo0tvHA5qIafi` |
+| media_orchestrator_v1 | `n8n_workspaces/media_orchestrator_v1` | Телеграм-оркестратор контента + KB Sync + Memory | `C8Wmmjuv5hC425PM`, `ABnHZb9Ee2YOtfr2`, `KeKhk230Zy3Iz0a4`, `KFWMYCaEpWAdVIn3`, `LG1KGfhnNCICjNra`, `DUJBo0tvHA5qIafi`, `K5es5hBE05LEeB1j`, `kcH2rlqr8aZoOPiO` |
 
-## 5) Облака / контейнеры / VM (шаблон)
+## 5) Контейнеры (оперативный список)
 
-| Тип | Имя | Runtime | Размер | Зона | Ответственный |
-|---|---|---|---|---|---|
-| Container | n8n | Docker | TODO | TODO | TODO |
-| Container | traefik | Docker | TODO | TODO | TODO |
-| Container | postgres (optional) | Docker | TODO | TODO | TODO |
+| Тип | Имя сервиса | Файл | Назначение |
+|---|---|---|---|
+| Container | `traefik` | `docker-compose.https.yml` | TLS, reverse proxy |
+| Container | `n8n` | `docker-compose.https.yml` | Оркестратор workflow |
+| Container | `redis` | `docker-compose.https.yml` | Вспомогательное хранилище |
+| Container | `postgres_memory` | `docker-compose.memory.yml` | Chat memory storage |
+| Container | `postgrest` | `docker-compose.memory.yml` | REST API поверх Postgres |
+| Container | `adminer` | `docker-compose.adminer.yml` | Визуальный UI для SQL |

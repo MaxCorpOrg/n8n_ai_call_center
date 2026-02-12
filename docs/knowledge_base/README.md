@@ -26,10 +26,17 @@ rg -n "media_orchestrator_v1|workflowId|ABnHZb9Ee2YOtfr2" docs/knowledge_base
 
 # По типу ресурса
 rg -n "VPN|backup|restore|alert|critical" docs/knowledge_base
+
+# По памяти и PostgreSQL
+rg -n "postgres_memory|postgrest|agent_memory|Memory Neuro|Postgres Chat Memory" docs/knowledge_base
+
+# По визуальному доступу к БД
+rg -n "Adminer|ADMINER_DOMAIN|ADMINER_BASICAUTH" docs/knowledge_base
 ```
 
 ## Правила обновления
 - После инфраструктурных изменений обновлять минимум: `01`, `02`, `05`, `09`.
+- После изменений memory/adminer обязательно обновлять: `01`, `03`, `05`, `06`, `08`, `09`.
 - После изменений workflow/агентов обновлять: `09` и при необходимости `08`.
 - После инцидента обновлять: `06` + `04` (если менялись алерты).
 

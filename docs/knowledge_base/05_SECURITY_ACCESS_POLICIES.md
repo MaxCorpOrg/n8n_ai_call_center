@@ -12,16 +12,27 @@
 - SSH: root-login выключен, парольная аутентификация выключена.
 - UFW: открыты только `22`, `80`, `443`.
 - Доступ к Telegram-боту ограничен в master workflow по `chat_id/user_id`.
+- `.env.https` и `.env.memory` не коммитятся (`.gitignore`).
+- Adminer публикуется через Traefik + HTTPS + BasicAuth (`ADMINER_BASICAUTH`).
 
 ### Параметры access control (n8n)
 | Workflow | Узел | Политика |
 |---|---|---|
 | `C8Wmmjuv5hC425PM` | `Access Control` + `Access Switch` | Пропуск только owner IDs |
 
+### Внешние точки доступа
+| Точка | Режим | Статус |
+|---|---|---|
+| n8n UI/API | `https://${DOMAIN_NAME}` | public |
+| Adminer UI | `https://${ADMINER_DOMAIN}` (рекомендовано) | protected (BasicAuth) |
+| Postgres `5432` | Только internal/ops | не публиковать в интернет |
+| PostgREST `3000` | Только internal/ops | не публиковать в интернет |
+
 ## 3) Управление секретами
 - Не хранить токены/API-ключи в Markdown.
 - Секреты только в n8n Credentials / `.env` с ограниченными правами.
 - Ротация ключей: минимум раз в 90 дней или после инцидента.
+- После импорта workflow проверить и убрать любые тестовые ключи/плейсхолдеры.
 
 ## 4) Патчи и уязвимости
 - Ежедневный watchlist по GitHub releases/security advisories.
@@ -35,4 +46,7 @@ trivy image docker.n8n.io/n8nio/n8n:2.6.4
 
 # OS package updates
 sudo apt update && sudo apt list --upgradable
+
+# Базовая проверка утечки ключей в repo
+rg -n "AIza|AQ\\.|Bearer\\s+[A-Za-z0-9\\-_]+" n8n_workspaces docs -S
 ```

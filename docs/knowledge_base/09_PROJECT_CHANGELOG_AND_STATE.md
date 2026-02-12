@@ -3,10 +3,46 @@
 ## 1) Актуальное состояние (оперативный снимок)
 - Проект: `n8n_ai_call_center`.
 - Базовая инфраструктура: Ubuntu 24.04 + Docker + Traefik + HTTPS.
+- Memory-слой: `postgres_memory` + `postgrest` + таблица `agent_memory`.
+- DB UI: `adminer` (через Traefik на 443, с BasicAuth).
 - Основной workspace: `media_orchestrator_v1`.
 - Telegram-оркестратор: `C8Wmmjuv5hC425PM`.
 
 ## 2) Последние важные изменения
+
+### 2026-02-12 — Postgres Memory stack + API
+- Добавлены файлы:
+  - `docker-compose.memory.yml`,
+  - `.env.memory.example`,
+  - `sql/002_agent_memory.sql`.
+- Поднят отдельный memory-контур:
+  - `postgres_memory` (`postgres:16-alpine`),
+  - `postgrest` (`postgrest/postgrest:latest`).
+- В SQL-инициализации добавлены:
+  - таблица `agent_memory`,
+  - индексы по `session_id`/`agent_id`,
+  - trigger `updated_at`,
+  - роль `web_anon` для PostgREST.
+
+### 2026-02-12 — Adminer UI через HTTPS (Traefik)
+- Добавлен `docker-compose.adminer.yml`.
+- Добавлены env в `.env.https.example`:
+  - `ADMINER_DOMAIN`,
+  - `ADMINER_BASICAUTH`.
+- Цель: визуальный доступ к PostgreSQL в браузере без работы из CLI.
+
+### 2026-02-12 — Стабилизация Master агента
+- В `C8Wmmjuv5hC425PM`:
+  - убран `Window Buffer Memory`,
+  - добавлен `Postgres Chat Memory` (таблица `agent_memory`, `contextWindowLength=20`),
+  - добавлен встроенный `Router | Intent Parse` перед `AGENT 1 | Manager`,
+  - добавлен `Reply Guardrail` для rewrite отказов и цикловых ответов,
+  - подключён tool `Memory Neuro Agent`,
+  - удалён внешний `Intent Router | Tool` из цепочки мастера.
+- Эффект:
+  - меньше “залипаний” в уточнениях,
+  - устойчивее обработка прямых image/video запросов,
+  - контекст диалога хранится в PostgreSQL.
 
 ### 2026-02-11 — Добавлен Memory Neuro Agent
 - Создан workflow: `kcH2rlqr8aZoOPiO` (`MEMORY_NEURO_AGENT | GitHub Markdown Memory (draft)`).
@@ -20,7 +56,7 @@
   - `MEMORY_CONNECTOR_GDRIVE_URL` / `MEMORY_CONNECTOR_DROPBOX_URL` / `MEMORY_CONNECTOR_S3_URL` (optional),
   - `MEMORY_CONNECTOR_AUTH_TOKEN` (optional).
 
-### 2026-02-11 — Memory Brain (intent/router слой)
+### 2026-02-11 — Memory Brain (intent/router слой в memory workflow)
 - В `kcH2rlqr8aZoOPiO` добавлен узел `Memory Brain` между `Set Config` и `Validate Config`.
 - Что делает:
   - нормализует действие (`upsert/search/get_file/list_files/archive_weekly/compact/sync`);
@@ -39,28 +75,10 @@
   - `KB_GITHUB_TOKEN` (required),
   - `N8N_PUBLIC_API_KEY` (optional, для статистики workflow).
 
-### 2026-02-10 — Рефактор архитектуры агента
-- Добавлен Intent Router workflow: `ABnHZb9Ee2YOtfr2`.
-- В Master подключён `Intent Router | Tool`.
-- Логика маршрутизации вынесена из монолитного промпта в отдельный модуль (Code + Switch).
-
-### 2026-02-12 — Intent Router объединён с Master
-- В `C8Wmmjuv5hC425PM` добавлен встроенный узел `Intent PreRouter (Merged)`.
-- Текущая цепочка обработки текста: `Set Text -> Intent PreRouter (Merged) -> AGENT 1`.
-- Внешний tool-узел `Intent Router | Tool` убран из Master, чтобы маршрутизация выполнялась детерминированно до LLM.
-- Эффект:
-  - стабильная фиксация движка (`FLOW`/`Pollinations`);
-  - меньше циклов уточнения и меньше риска потери выбранного движка;
-  - сохранена анти-отказ логика (`NO_REFUSAL_MODE` + `Reply Guardrail`).
-
-### 2026-02-12 — Master разделён на 2 агента + Switch Intent внутри
-- Полный роутинг-слой (`Router | Intent Parse`, `Router | Switch Intent`, `Router | Route *`) перенесён в `C8Wmmjuv5hC425PM`.
-- Добавлен `AGENT 1A | Dialog` (без tools) для живого общения и уточнений.
-- `AGENT 1 | Manager` стал фактическим `Tool Executor` (этапы генерации через tools).
-- Текущая логика:
-  - `Set Text -> Router | Intent Parse -> Router | Switch Intent`
-  - `Greeting/Engine/Config/Other -> AGENT 1A | Dialog`
-  - `ImageRequest/ConfirmPhoto/Regenerate/ConfirmVideo -> AGENT 1 | Manager`
+### 2026-02-10 — Рефактор архитектуры агента (база для текущего роутинга)
+- Добавлен workflow `ABnHZb9Ee2YOtfr2` (`MEDIA_AGENT_ROUTER | Intent Router (draft)`).
+- Логика интентов вынесена из монолитного промпта в отдельный модуль (Code + Switch).
+- Позже часть логики была встроена обратно в Master (`Router | Intent Parse`) для линейной и детерминированной обработки.
 
 ### 2026-02-10 — Доступ к Telegram-боту ограничен
 - В `C8Wmmjuv5hC425PM` добавлены узлы:
@@ -81,16 +99,19 @@
 ## 3) Последние коммиты (из git log)
 | Commit | Сообщение |
 |---|---|
+| `9e3b8bb` | feat: add postgres memory stack, adminer access, and media-agent stability updates |
+| `49f69ed` | Переведен мастер-агент в свободный режим диалога и усилена устойчивость |
+| `3522fd9` | Добавлен KB Sync Agent и обновлено рабочее пространство медиа-оркестратора |
 | `f13e4a6` | Рефактор n8n-агента: Intent Router, маршрутизация и обновление workspace |
 | `8616d93` | Добавлен переносимый workspace для медиа-оркестратора n8n |
-| `3b35551` | Добавлен watchlist по релизам и уязвимостям n8n |
-| `46d0273` | Усилена продакшн-конфигурация и CI деплой |
 
 ## 4) Текущие риски / TODO
 - [ ] Заполнить реальные характеристики железа сервера.
 - [ ] Зафиксировать финальные каналы алертов и SLA.
 - [ ] Настроить регулярные учебные тесты восстановления backup.
 - [ ] Поддерживать owner ID list в Access Control при смене админов.
+- [ ] Проверить и зачистить workflow JSON от тестовых/временных API-ключей перед внешними публикациями.
+- [ ] Принять финальное решение по внешней доступности `5432/3000` (закрыть UFW или оставить только internal).
 
 ## 5) Шаблон журналирования изменений
 ```md
