@@ -5,6 +5,9 @@
 - приём webhook-событий звонка;
 - запись результатов в PostgreSQL.
 
+Дополнительная документация по реальному SIP-контуру Mango -> Asterisk -> Eleven -> LLM:
+- `docs/call-translation-bridge/README_RU.md`
+
 ## 1) Что уже добавлено в репозиторий
 - `docker-compose.callcenter.yml` — Postgres как отдельный сервис.
 - `.env.callcenter.example` — переменные окружения для телефонии и БД.
