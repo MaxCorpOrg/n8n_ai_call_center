@@ -1,0 +1,509 @@
+{
+  "name": "MANGO | Inbound Route (draft)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mango/events/call",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "25e02394-907c-4448-9175-ee5950edc84b",
+      "name": "Webhook Events Call",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1040,
+        80
+      ],
+      "webhookId": "cf7a0f8d-cb2f-44e2-97d8-4f7250e67f91"
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\n\nconst body = $json.body ?? $json;\nconst rawJson = typeof body.json === 'string' ? body.json : JSON.stringify(body.json ?? {});\n\nlet event = {};\ntry {\n  event = JSON.parse(rawJson);\n} catch (e) {\n  event = {};\n}\n\nconst receivedKey = String(body.vpbx_api_key ?? '');\nconst receivedSign = String(body.sign ?? '');\n\nconst cfgKey = String($env.MANGO_API_KEY ?? '');\nconst cfgSalt = String($env.MANGO_API_SALT ?? '');\nconst routeTo = String($env.MANGO_ROUTE_TO_NUMBER ?? '');\nconst routeOnStatesRaw = String($env.MANGO_ROUTE_ON_STATES ?? 'Appeared');\nconst routeOnStates = routeOnStatesRaw.split(',').map((s) => s.trim()).filter(Boolean);\n\nconst computedSign = cfgSalt\n  ? crypto.createHash('sha256').update(`${receivedKey}${rawJson}${cfgSalt}`).digest('hex')\n  : '';\n\nconst keyOk = !cfgKey || cfgKey === receivedKey;\nconst signOk = !!cfgSalt && computedSign === receivedSign;\n\nconst callId = String(event.call_id ?? '');\nconst state = String(event.call_state ?? '');\nconst stateAllowed = routeOnStates.length === 0 || routeOnStates.includes(state);\n\nconst contextType = String(event.context_type ?? event.call_direction_type ?? '').trim();\nconst callDirection = String(event.call_direction ?? event.direction ?? '').toLowerCase();\nconst location = String(event.location ?? '').toLowerCase();\nconst hasLineNumber = !!String(event.to?.line_number ?? '').trim();\nconst fromExternalNumber = !!String(event.from?.number ?? '').trim();\n\nconst inboundByType = contextType === '1' || contextType.toLowerCase() === 'incoming' || contextType.toLowerCase() === 'inbound';\nconst inboundByDirection = ['incoming', 'inbound'].includes(callDirection);\nconst inboundByShape = location === 'abonent' && hasLineNumber && fromExternalNumber;\nconst isInbound = inboundByType || inboundByDirection || inboundByShape;\n\nconst sourceCommandId = String(event.command_id ?? '');\nconst isApiLoop = !!sourceCommandId;\n\nconst shouldRoute = keyOk && signOk && !!callId && !!routeTo && stateAllowed && isInbound && !isApiLoop;\nconst commandId = `cmd.n8n.route.${Date.now()}.${Math.random().toString(36).slice(2, 8)}`;\n\nconst debugReason = shouldRoute\n  ? 'ok'\n  : !cfgSalt\n    ? 'MANGO_API_SALT is empty'\n    : !signOk\n      ? 'signature mismatch'\n      : !keyOk\n        ? 'vpbx_api_key mismatch'\n        : !callId\n          ? 'call_id empty'\n          : !routeTo\n            ? 'MANGO_ROUTE_TO_NUMBER is empty'\n            : !stateAllowed\n              ? `call_state ${state} not allowed`\n              : !isInbound\n                ? 'not inbound call event'\n                : isApiLoop\n                  ? 'skip api loop event (command_id present)'\n                  : 'filtered';\n\nreturn [{\n  eventType: 'call',\n  receivedKey,\n  rawJson,\n  event,\n  callId,\n  state,\n  routeTo,\n  commandId,\n  keyOk,\n  signOk,\n  isInbound,\n  sourceCommandId,\n  shouldRoute,\n  debugReason\n}];"
+      },
+      "id": "25da7dd7-a814-4952-b814-957e9ef2bc81",
+      "name": "Verify & Normalize Call Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -800,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.shouldRoute ? 'route' : 'skip' }}",
+                    "rightValue": "route",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Route"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.shouldRoute ? 'route' : 'skip' }}",
+                    "rightValue": "skip",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Skip"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ddc116ee-2fbd-4310-81c2-7588251de532",
+      "name": "Route Decision",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -560,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\n\nconst cfgSalt = String($env.MANGO_API_SALT ?? '');\nconst vpbxApiKey = String($json.receivedKey ?? '');\n\nconst routePayload = {\n  command_id: $json.commandId,\n  call_id: $json.callId,\n  to_number: $json.routeTo\n};\n\nconst json = JSON.stringify(routePayload);\nconst sign = crypto.createHash('sha256').update(`${vpbxApiKey}${json}${cfgSalt}`).digest('hex');\n\nreturn [{\n  ...$json,\n  mangoCommandUrl: 'https://app.mango-office.ru/vpbx/commands/route',\n  vpbx_api_key: vpbxApiKey,\n  sign,\n  json\n}];"
+      },
+      "id": "2453a469-2552-4059-b45c-178e4ff1ac6a",
+      "name": "Build Signed Route Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -320,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.mangoCommandUrl }}",
+        "authentication": "none",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "specifyBody": "keypair",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "vpbx_api_key",
+              "value": "={{ $json.vpbx_api_key }}"
+            },
+            {
+              "name": "sign",
+              "value": "={{ $json.sign }}"
+            },
+            {
+              "name": "json",
+              "value": "={{ $json.json }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "5e4a5098-79c3-4a7e-9746-c90a8c5b684f",
+      "name": "Mango Command Route",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -80,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9ff0ea19-a7f1-4ff4-b2ca-b48e8f62e41f",
+              "name": "ok",
+              "value": "true",
+              "type": "boolean"
+            },
+            {
+              "id": "2ce32270-da07-4e71-8f3d-5f93f432b44a",
+              "name": "action",
+              "value": "route_sent",
+              "type": "string"
+            },
+            {
+              "id": "6cf35e7a-af60-4dfa-a8ff-d9dabbd5f184",
+              "name": "call_id",
+              "value": "={{ $('Build Signed Route Command').item.json.callId }}",
+              "type": "string"
+            },
+            {
+              "id": "093f94f0-604f-49e0-8902-4d96e7744c85",
+              "name": "command_id",
+              "value": "={{ $('Build Signed Route Command').item.json.commandId }}",
+              "type": "string"
+            },
+            {
+              "id": "375c1fa8-9482-41ec-8760-1679dfda8990",
+              "name": "to_number",
+              "value": "={{ $('Build Signed Route Command').item.json.routeTo }}",
+              "type": "string"
+            },
+            {
+              "id": "b6e283cc-d983-4af8-83ae-7e8862639305",
+              "name": "note",
+              "value": "Mango route command sent",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "26b1fcfe-68a8-4660-b24d-347a812a55a7",
+      "name": "Set Routed Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        160,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bf3a45f8-6ec8-45ce-b667-c7b8837fc889",
+              "name": "ok",
+              "value": "true",
+              "type": "boolean"
+            },
+            {
+              "id": "dc959516-3f6d-4e01-a6cb-8ce4912f8348",
+              "name": "action",
+              "value": "skipped",
+              "type": "string"
+            },
+            {
+              "id": "f8e9f58a-7f85-4624-ab5f-464110e6a8d0",
+              "name": "reason",
+              "value": "={{ $json.debugReason }}",
+              "type": "string"
+            },
+            {
+              "id": "42120fa8-86e4-4e87-b305-e8f60be3ce4b",
+              "name": "call_id",
+              "value": "={{ $json.callId }}",
+              "type": "string"
+            },
+            {
+              "id": "80e8843d-c1c8-4126-8470-7069de135a1e",
+              "name": "call_state",
+              "value": "={{ $json.state }}",
+              "type": "string"
+            },
+            {
+              "id": "0099ae76-97ab-4f86-a4f9-5af6074f2e74",
+              "name": "sign_ok",
+              "value": "={{ $json.signOk }}",
+              "type": "boolean"
+            },
+            {
+              "id": "490ecf16-2bb3-4ea9-a562-15271fbf762a",
+              "name": "key_ok",
+              "value": "={{ $json.keyOk }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a3ac7e09-3f59-4341-80e2-80d706da7591",
+      "name": "Set Skipped Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -80,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "42c1ac9e-9e0d-4610-b7c3-0d161beaee3e",
+      "name": "Respond Call Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        400,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mango/events/summary",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "94784e69-83a5-4012-8956-1d774aa2cff0",
+      "name": "Webhook Events Summary",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1040,
+        480
+      ],
+      "webhookId": "3e27f3f5-75d5-45f5-aeca-a42d67a8fa50"
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\n\nconst body = $json.body ?? $json;\nconst rawJson = typeof body.json === 'string' ? body.json : JSON.stringify(body.json ?? {});\nlet event = {};\ntry {\n  event = JSON.parse(rawJson);\n} catch (e) {\n  event = {};\n}\n\nconst receivedKey = String(body.vpbx_api_key ?? '');\nconst receivedSign = String(body.sign ?? '');\nconst cfgKey = String($env.MANGO_API_KEY ?? '');\nconst cfgSalt = String($env.MANGO_API_SALT ?? '');\n\nconst computedSign = cfgSalt\n  ? crypto.createHash('sha256').update(`${receivedKey}${rawJson}${cfgSalt}`).digest('hex')\n  : '';\n\nconst keyOk = !cfgKey || cfgKey === receivedKey;\nconst signOk = !!cfgSalt && computedSign === receivedSign;\n\nreturn [{\n  ok: keyOk && signOk,\n  event_type: 'summary',\n  key_ok: keyOk,\n  sign_ok: signOk,\n  call_id: String(event.call_id ?? ''),\n  entry_id: String(event.entry_id ?? ''),\n  call_direction: String(event.call_direction ?? ''),\n  note: (keyOk && signOk) ? 'summary accepted' : 'summary signature/key mismatch'\n}];"
+      },
+      "id": "1a475899-c811-4711-9f06-c4f94ddb7feb",
+      "name": "Verify Summary Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -800,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "0c59c3b7-f728-4f64-b005-cee701beb38b",
+      "name": "Respond Summary Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -560,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mango/events/recording",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "e4f0724d-9bdf-4c1c-844e-0e445c3c0fec",
+      "name": "Webhook Events Recording",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1040,
+        680
+      ],
+      "webhookId": "9b6b7c7f-456c-4f0f-b03f-420713d2f9b0"
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\n\nconst body = $json.body ?? $json;\nconst rawJson = typeof body.json === 'string' ? body.json : JSON.stringify(body.json ?? {});\nlet event = {};\ntry {\n  event = JSON.parse(rawJson);\n} catch (e) {\n  event = {};\n}\n\nconst receivedKey = String(body.vpbx_api_key ?? '');\nconst receivedSign = String(body.sign ?? '');\nconst cfgKey = String($env.MANGO_API_KEY ?? '');\nconst cfgSalt = String($env.MANGO_API_SALT ?? '');\n\nconst computedSign = cfgSalt\n  ? crypto.createHash('sha256').update(`${receivedKey}${rawJson}${cfgSalt}`).digest('hex')\n  : '';\n\nconst keyOk = !cfgKey || cfgKey === receivedKey;\nconst signOk = !!cfgSalt && computedSign === receivedSign;\n\nreturn [{\n  ok: keyOk && signOk,\n  event_type: 'recording',\n  key_ok: keyOk,\n  sign_ok: signOk,\n  call_id: String(event.call_id ?? ''),\n  entry_id: String(event.entry_id ?? ''),\n  recording_id: String(event.recording_id ?? ''),\n  note: (keyOk && signOk) ? 'recording accepted' : 'recording signature/key mismatch'\n}];"
+      },
+      "id": "4df466ef-d023-4213-9a68-a1dec12ed46f",
+      "name": "Verify Recording Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -800,
+        680
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "53418069-a9ea-456a-8788-e7d6419da339",
+      "name": "Respond Recording Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -560,
+        680
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Events Call": {
+      "main": [
+        [
+          {
+            "node": "Verify & Normalize Call Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify & Normalize Call Event": {
+      "main": [
+        [
+          {
+            "node": "Route Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Decision": {
+      "main": [
+        [
+          {
+            "node": "Build Signed Route Command",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Skipped Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Signed Route Command": {
+      "main": [
+        [
+          {
+            "node": "Mango Command Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mango Command Route": {
+      "main": [
+        [
+          {
+            "node": "Set Routed Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Routed Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Call Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Skipped Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Call Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Events Summary": {
+      "main": [
+        [
+          {
+            "node": "Verify Summary Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Summary Event": {
+      "main": [
+        [
+          {
+            "node": "Respond Summary Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Events Recording": {
+      "main": [
+        [
+          {
+            "node": "Verify Recording Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Recording Event": {
+      "main": [
+        [
+          {
+            "node": "Respond Recording Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b6d8cb27-c1ea-4ccc-a103-d52882d5f39a",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
