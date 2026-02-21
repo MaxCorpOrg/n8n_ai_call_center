@@ -111,7 +111,6 @@ RETURNING id;
 ## 8) Минимальный входящий payload для старта звонка
 ```json
 {
-  "external_id": "crm-100045",
   "lead_id": "lead-204",
   "contact_name": "Иван Петров",
   "phone": "+7 (999) 123-45-67",

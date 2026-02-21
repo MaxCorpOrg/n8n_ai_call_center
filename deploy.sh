@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+tool-workflow;MEDIA_AGENT_5 | Gemini Nano Banana Image (draft)
 set -euo pipefail
 
 # Определяем текущую ветку

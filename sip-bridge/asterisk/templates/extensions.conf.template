@@ -1,0 +1,16 @@
+[general]
+static=yes
+writeprotect=no
+
+[from-mango]
+; Mode A (quick start): Mango routes to extension ${BRIDGE_EXT}, bridge forwards to fixed E.164.
+exten => ${BRIDGE_EXT},1,NoOp(Mango->Bridge fixed route to ${TARGET_NUMBER_E164})
+ same => n,Dial(PJSIP/${TARGET_NUMBER_E164}@eleven-out,90)
+ same => n,Hangup()
+
+; Mode B (dynamic): any numeric extension from Mango is treated as target number.
+; If extension has no leading '+', bridge prepends '+'
+exten => _X.,1,NoOp(Mango->Bridge dynamic route EXTEN=${EXTEN})
+ same => n,Set(TARGET=${IF($["${EXTEN:0:1}"="+"]?${EXTEN}:+${EXTEN})})
+ same => n,Dial(PJSIP/${TARGET}@eleven-out,90)
+ same => n,Hangup()
