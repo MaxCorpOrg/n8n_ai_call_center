@@ -51,14 +51,14 @@
 ## 4) Текущий статус
 
 - Endpoint активен и отвечает.
-- Сейчас `source=fallback`, потому что Postgres credential недоступен из n8n runtime (ошибка DNS/host).
-
-Это безопасный режим: звонки не падают, tool возвращает валидную структуру ответа.
+- Runtime-проверка: `source=postgres` (контекст читается из PostgreSQL).
+- Fallback-режим сохранен как защитный механизм: при временной недоступности Postgres endpoint все равно вернет валидный JSON.
 
 ## 5) Что нужно для полноценного режима `source=postgres`
 
-1. Исправить доступность Postgres credential `Postgres Memory Agent (ssl disable v2)` для workflow runtime.
-2. После восстановления подключения tool автоматически начнет отдавать данные из:
+1. Держать поднятыми сервисы `postgres_memory` и `postgrest` в docker compose.
+2. Проверять credential `Postgres Memory Agent (ssl disable v2)` при изменениях инфраструктуры.
+3. Endpoint отдает данные из:
 - `agent_memory` (история),
 - `memory_facts`,
 - `client_source_links`,
