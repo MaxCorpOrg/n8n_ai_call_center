@@ -75,3 +75,18 @@
 Рекомендация:
 - хранить в Eleven только компактное ядро KB,
 - расширенный контекст получать этим tool из нашей инфраструктуры.
+
+## 7) Финальная проверка в проде (чек-лист)
+
+Проверка на дату: `2026-02-25`.
+
+1. В ElevenLabs -> `Conversations` открыть успешный звонок агента `AI_CALL_AGENT_1`.
+2. Во вкладке `Transcription` убедиться, что есть событие:
+   - `Tool succeeded: context_fetch`.
+3. В n8n открыть workflow `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)` -> `Executions`.
+4. Открыть execution, совпадающий по времени со звонком, и проверить в `Tool | Respond`:
+   - `"ok": true`
+   - `"source": "postgres"`
+   - `"warning": ""`
+
+Если пункты выше выполняются, то цепочка `Eleven Tool -> n8n webhook -> Postgres context` работает корректно.
