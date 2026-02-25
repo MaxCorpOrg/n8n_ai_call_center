@@ -44,6 +44,8 @@
 ## Voice Call Center (RU)
 - Быстрый старт для исходящих звонков по РФ + запись результатов в PostgreSQL:
   - `docs/VOICE_CALL_CENTER_RU.md`
+- Архитектура SIP-трансляции и материалы по обучаемому агенту:
+  - `docs/call-translation-bridge/README_RU.md`
 - Дополнительный compose override с Postgres:
   - `docker-compose.callcenter.yml`
 - SQL-схема:
@@ -66,6 +68,10 @@
   - User: `${POSTGRES_MEMORY_USER}`
   - Password: `${POSTGRES_MEMORY_PASSWORD}`
   - Session Key: `={{ $json.session_id || $json.chatId || $json.userId }}`
+- Для call-center агента (долговременная non-PII память + аудит действий):
+  - `sql/003_call_agent_pro.sql`
+  - `sql/004_seed_lipolong.sql`
+  - `docs/call-translation-bridge/05_AGENT_ENV_AND_DB_RU.md`
 
 ## Adminer UI (RU)
 - Отдельный HTTPS вход в PostgreSQL через Traefik:
