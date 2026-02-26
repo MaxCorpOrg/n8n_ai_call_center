@@ -71,7 +71,10 @@
 - Для call-center агента (долговременная non-PII память + аудит действий):
   - `sql/003_call_agent_pro.sql`
   - `sql/004_seed_lipolong.sql`
+  - `sql/005_seed_lipolong_kb_pack.sql`
+  - `docs/agent_kb_lipolong/README_RU.md`
   - `docs/call-translation-bridge/05_AGENT_ENV_AND_DB_RU.md`
+  - `scripts/create_google_sheet_callcenter.py` (создание таблицы логирования звонков)
 
 ## Adminer UI (RU)
 - Отдельный HTTPS вход в PostgreSQL через Traefik:

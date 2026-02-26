@@ -29,4 +29,8 @@ echo "[INFO] Применяем 004_seed_lipolong.sql -> service=${DB_SERVICE}, 
 docker compose "${ENV_ARGS[@]}" exec -T "$DB_SERVICE" \
   psql -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME" < sql/004_seed_lipolong.sql
 
-echo "[OK] Схема и seed применены."
+echo "[INFO] Применяем 005_seed_lipolong_kb_pack.sql -> service=${DB_SERVICE}, db=${DB_NAME}, user=${DB_USER}"
+docker compose "${ENV_ARGS[@]}" exec -T "$DB_SERVICE" \
+  psql -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME" < sql/005_seed_lipolong_kb_pack.sql
+
+echo "[OK] Схема и seed (включая KB pack) применены."
