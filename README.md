@@ -74,7 +74,9 @@
   - `sql/005_seed_lipolong_kb_pack.sql`
   - `docs/agent_kb_lipolong/README_RU.md`
   - `docs/call-translation-bridge/05_AGENT_ENV_AND_DB_RU.md`
+  - `docs/call-translation-bridge/07_ELEVEN_TOOL_CALL_LOG_RU.md`
   - `scripts/create_google_sheet_callcenter.py` (создание таблицы логирования звонков)
+  - `workflows/ELEVEN_TOOL_CALL_LOG_BRIDGE_DRAFT.json` (шаблон bridge для записи итогов звонка в Google Sheet)
 
 ## Adminer UI (RU)
 - Отдельный HTTPS вход в PostgreSQL через Traefik:

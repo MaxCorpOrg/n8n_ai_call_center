@@ -21,3 +21,5 @@
 2. Оставить `context_fetch` подключенным к агенту.
 3. Выполнить `sql/005_seed_lipolong_kb_pack.sql` в `postgres_memory`, чтобы контекст возвращался из Postgres.
 4. Создать Google Sheet скриптом `scripts/create_google_sheet_callcenter.py`.
+5. Подключить webhook-логирование из Eleven в таблицу:
+   - `docs/call-translation-bridge/07_ELEVEN_TOOL_CALL_LOG_RU.md`

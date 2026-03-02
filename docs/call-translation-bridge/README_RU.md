@@ -22,7 +22,10 @@
 6. `06_ELEVEN_TOOL_CONTEXT_RU.md`  
    Подключение Tool/Webhook из ElevenLabs в n8n для догрузки расширенного контекста + прод-чеклист проверки `context_fetch`.
 
-7. `../agent_kb_lipolong/README_RU.md`  
+7. `07_ELEVEN_TOOL_CALL_LOG_RU.md`  
+   Подключение Tool/Webhook `call_log` для автозаписи результатов звонка в Google Sheet.
+
+8. `../agent_kb_lipolong/README_RU.md`  
    Готовый KB-пакет для агента (контент + схема Google Sheet + шаги создания таблицы).
 
 ## Границы системы
