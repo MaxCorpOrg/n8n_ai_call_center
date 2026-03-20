@@ -32,7 +32,8 @@
 
 - LLM: `gemini-2.5-flash`
 - TTS model: `eleven_flash_v2_5`
-- Voice ID: `FZGeNF7bE3syeQOynDKC`
+- Voice: `Rina`
+- Voice ID: `ycbyWsnf4hqZgdpKHqiU`
 - Speed: `1.2`
 - Turn eagerness: `eager`
 - Turn timeout: `4.0`

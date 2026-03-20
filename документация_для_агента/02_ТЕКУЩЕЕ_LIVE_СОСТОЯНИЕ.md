@@ -38,6 +38,8 @@
 Текущая конфигурация:
 - `LLM = gemini-2.5-flash`
 - `TTS = eleven_flash_v2_5`
+- `voice = Rina`
+- `voice_id = ycbyWsnf4hqZgdpKHqiU`
 - `speed = 1.2`
 - `turn_eagerness = eager`
 - `turn_timeout = 4.0`
