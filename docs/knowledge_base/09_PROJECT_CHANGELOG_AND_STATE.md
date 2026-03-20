@@ -10,6 +10,34 @@
 
 ## 2) Последние важные изменения
 
+### 2026-03-20 — Зафиксировано live-состояние ElevenLabs агента LipoLong
+- Актуальный live-агент:
+  - `AI_CALL_AGENT_1`
+  - `agent_8801kgybyekned2a8yae6rp8hk3q`
+- Зафиксированы текущие параметры:
+  - `LLM = gemini-2.5-flash`
+  - `TTS = eleven_flash_v2_5`
+  - `speed = 1.2`
+  - `turn_eagerness = eager`
+  - `turn_timeout = 4.0`
+- Для стартовой и обычных реплик отключено прерывание пользователем:
+  - `disable_first_message_interruptions = true`
+  - из `client_events` удалено `interruption`
+- Обновлены документы:
+  - `docs/call-translation-bridge/08_LIVE_ELEVEN_AGENT_RU.md`
+  - `docs/agent_kb_lipolong/08_ELEVENLABS_SYSTEM_PROMPT_RU.md`
+  - `docs/agent_kb_lipolong/09_DIALOG_SCRIPTS_RU.md`
+
+### 2026-03-19 — Включен и стабилизирован memory/live bridge для call center
+- Поднят memory-контур:
+  - `postgres_memory`
+  - `postgrest`
+- Исправлен `ELEVEN_TOOL_CONTEXT_BRIDGE`, чтобы `context_fetch` возвращал `source=postgres`, а не `fallback`.
+- В `VOICE_INBOUND_AGENT` зафиксирована принудительная стартовая фраза для входа в разговор.
+- Практический эффект:
+  - контекст агента теперь может читаться из Postgres;
+  - стартовая подача в n8n и ElevenLabs синхронизирована.
+
 ### 2026-02-12 — Postgres Memory stack + API
 - Добавлены файлы:
   - `docker-compose.memory.yml`,

@@ -5,6 +5,14 @@
 - приём webhook-событий звонка;
 - запись результатов в PostgreSQL.
 
+Важно: этот документ описывает расширенный и подготовленный контур `call_tasks/call_events` в PostgreSQL.
+
+Текущее live-состояние проекта для LipoLong отличается:
+- рабочий боевой маршрут сейчас идет через `Mango -> Asterisk -> ElevenLabs -> n8n`;
+- результаты звонков логируются через tool `call_log` в Google Sheet;
+- основная live-логика агента находится в ElevenLabs + n8n webhook/tools;
+- отдельный `callcenter` Postgres-контур в этом документе следует считать подготовленным, но не обязательным для текущей боевой схемы.
+
 Дополнительная документация по реальному SIP-контуру Mango -> Asterisk -> Eleven -> LLM:
 - `docs/call-translation-bridge/README_RU.md`
 

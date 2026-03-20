@@ -25,7 +25,10 @@
 7. `07_ELEVEN_TOOL_CALL_LOG_RU.md`  
    Подключение Tool/Webhook `call_log` для автозаписи результатов звонка в Google Sheet.
 
-8. `../agent_kb_lipolong/README_RU.md`  
+8. `08_LIVE_ELEVEN_AGENT_RU.md`
+   Текущая live-конфигурация ElevenLabs-агента: LLM, voice, turn-taking, защита от перебивания и практические замечания по тестам.
+
+9. `../agent_kb_lipolong/README_RU.md`  
    Готовый KB-пакет для агента (контент + схема Google Sheet + шаги создания таблицы).
 
 ## Границы системы

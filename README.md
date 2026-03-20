@@ -46,6 +46,8 @@
   - `docs/VOICE_CALL_CENTER_RU.md`
 - Архитектура SIP-трансляции и материалы по обучаемому агенту:
   - `docs/call-translation-bridge/README_RU.md`
+- Текущее live-состояние ElevenLabs-агента и voice-настроек:
+  - `docs/call-translation-bridge/08_LIVE_ELEVEN_AGENT_RU.md`
 - Дополнительный compose override с Postgres:
   - `docker-compose.callcenter.yml`
 - SQL-схема:
@@ -73,6 +75,8 @@
   - `sql/004_seed_lipolong.sql`
   - `sql/005_seed_lipolong_kb_pack.sql`
   - `docs/agent_kb_lipolong/README_RU.md`
+  - `docs/agent_kb_lipolong/08_ELEVENLABS_SYSTEM_PROMPT_RU.md`
+  - `docs/agent_kb_lipolong/09_DIALOG_SCRIPTS_RU.md`
   - `docs/call-translation-bridge/05_AGENT_ENV_AND_DB_RU.md`
   - `docs/call-translation-bridge/07_ELEVEN_TOOL_CALL_LOG_RU.md`
   - `scripts/create_google_sheet_callcenter.py` (создание таблицы логирования звонков)
