@@ -10,6 +10,34 @@
 
 ## 2) Последние важные изменения
 
+### 2026-03-20 — Зафиксировано актуальное live-состояние ElevenLabs агента и восстановлен `call_log`
+- Актуальный live-агент:
+  - `AI_CALL_AGENT_1`
+  - `agent_8801kgybyekned2a8yae6rp8hk3q`
+  - `agtvrsn_7701km62tyq2eg9ax5tmkq8727tt`
+- Актуальные параметры:
+  - `LLM = gpt-4.1`
+  - `TTS = eleven_flash_v2_5`
+  - `voice_id = 0ArNnoIAWKlT4WweaVMY` (`Elena Gromova`)
+  - `speed = 1.16`
+  - `stability = 0.5`
+  - `similarity_boost = 0.78`
+  - `turn_eagerness = eager`
+  - `turn_timeout = 3.0`
+  - `disable_first_message_interruptions = true`
+- Зафиксирована обязательная `first_message` с завершающим вопросом о текущей работе с липолитиками.
+- В prompt зафиксированы:
+  - обязательное уточнение имени собеседника;
+  - follow-up без `e-mail` и без `telegram username`;
+  - сценарий отправки контактов только через номер и привязанный к нему канал связи.
+- Удалены битые `tool_ids`, после чего восстановлены валидные live-tools:
+  - `tool_1601km62rxpqegqr52m9gk9sftr3` -> `context_fetch`
+  - `tool_0901km62rxpre578kd1zvd7q7g04` -> `call_log`
+- Подтверждено по live-логам:
+  - `call_log` вызывается успешно;
+  - `end_call` завершает звонок штатно;
+  - связка `context_fetch` / `call_log` / `end_call` снова работает.
+
 ### 2026-03-20 — Зафиксировано live-состояние ElevenLabs агента LipoLong
 - Актуальный live-агент:
   - `AI_CALL_AGENT_1`

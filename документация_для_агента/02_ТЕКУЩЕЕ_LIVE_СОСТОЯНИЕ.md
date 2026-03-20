@@ -36,15 +36,21 @@
 - Branch ID: `agtbrch_7801kgybyg9nesrbv64y078pazq0`
 
 Текущая конфигурация:
-- `LLM = gemini-2.5-flash`
+- `LLM = gpt-4.1`
 - `TTS = eleven_flash_v2_5`
-- `voice = Rina`
-- `voice_id = ycbyWsnf4hqZgdpKHqiU`
-- `speed = 1.2`
+- `voice = Elena Gromova`
+- `voice_id = 0ArNnoIAWKlT4WweaVMY`
+- `speed = 1.16`
+- `stability = 0.5`
+- `similarity_boost = 0.78`
 - `turn_eagerness = eager`
-- `turn_timeout = 4.0`
+- `turn_timeout = 3.0`
 - `disable_first_message_interruptions = true`
-- в `client_events` удалено `interruption`
+- `speculative_turn = true`
+- active tools: `context_fetch`, `call_log`, `end_call`
+- `tool_ids`:
+  - `tool_1601km62rxpqegqr52m9gk9sftr3`
+  - `tool_0901km62rxpre578kd1zvd7q7g04`
 
 ## 5. Важное бизнес-ограничение
 
@@ -55,6 +61,8 @@
 ## 6. Что зафиксировано по поведению агента
 
 - агент стал живее после перехода на Flash-модель;
-- основная проблема в начале разговора была связана с длинной стартовой фразой и ранними перебиваниями клиента;
-- прерывания реплик отключены, чтобы агент договаривал мысль до конца;
-- остаточная задержка может появляться на нечетких репликах клиента и в turn-taking, а не только в TTS.
+- основная проблема в начале разговора была связана с длинной стартовой фразой и задержкой первого содержательного ответа;
+- прерывания стартовой фразы отключены, чтобы агент договаривал обязательную вводную до конца;
+- follow-up переведен на сценарий без почты: агент должен собирать имя, номер и удобный канал связи;
+- `call_log` и `context_fetch` были восстановлены через валидные `tool_ids` после очистки битых tool-ссылок;
+- остаточная задержка может появляться на нечетких репликах клиента и в LLM-ходе, а не только в TTS.
