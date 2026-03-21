@@ -79,8 +79,10 @@
   - `docs/agent_kb_lipolong/09_DIALOG_SCRIPTS_RU.md`
   - `docs/call-translation-bridge/05_AGENT_ENV_AND_DB_RU.md`
   - `docs/call-translation-bridge/07_ELEVEN_TOOL_CALL_LOG_RU.md`
+  - `docs/call-translation-bridge/09_ELEVEN_TOOL_SEND_SMS_RU.md`
   - `scripts/create_google_sheet_callcenter.py` (создание таблицы логирования звонков)
   - `workflows/ELEVEN_TOOL_CALL_LOG_BRIDGE_DRAFT.json` (шаблон bridge для записи итогов звонка в Google Sheet)
+  - `workflows/ELEVEN_TOOL_SEND_SMS_BRIDGE_DRAFT.json` (шаблон bridge для отправки SMS через Mango direct API `vpbx/commands/sms`)
 
 ## Adminer UI (RU)
 - Отдельный HTTPS вход в PostgreSQL через Traefik:

@@ -28,7 +28,10 @@
 8. `08_LIVE_ELEVEN_AGENT_RU.md`
    Текущая live-конфигурация ElevenLabs-агента: LLM, voice, turn-taking, защита от перебивания и практические замечания по тестам.
 
-9. `../agent_kb_lipolong/README_RU.md`  
+9. `09_ELEVEN_TOOL_SEND_SMS_RU.md`
+   Подключение Tool/Webhook `send_sms_info` для отправки SMS через Mango direct API из ElevenLabs через n8n, включая правило `на этот номер` -> `system__called_number`.
+
+10. `../agent_kb_lipolong/README_RU.md`  
    Готовый KB-пакет для агента (контент + схема Google Sheet + шаги создания таблицы).
 
 ## Границы системы

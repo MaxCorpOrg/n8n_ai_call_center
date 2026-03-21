@@ -1,0 +1,332 @@
+{
+  "name": "ELEVEN_TOOL_SEND_SMS_BRIDGE (draft)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "eleven/tool/send-sms",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "9152a5d1-1a6c-4dc6-8bca-4d77bb4d4cf3",
+      "name": "Tool | Webhook Send SMS",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1160,
+        160
+      ],
+      "webhookId": "6b482013-f7b2-4725-80c8-26ad4e62b1b7"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\nconst nowIso = new Date().toISOString();\n\nconst asText = (v) => {\n  if (v === null || v === undefined) return '';\n  return String(v).trim();\n};\n\nconst normalizeMultiline = (v) => String(v || '')\n  .replace(/\\r/g, '')\n  .split('\\n')\n  .map((line) => line.replace(/\\s+/g, ' ').trim())\n  .filter(Boolean)\n  .join('\\n')\n  .trim();\n\nconst normalizePhone = (input) => {\n  const digits = String(input || '').replace(/\\D/g, '');\n  if (!digits) return '';\n  if (digits.length === 11 && digits.startsWith('8')) return `+7${digits.slice(1)}`;\n  if (digits.length === 11 && digits.startsWith('7')) return `+${digits}`;\n  if (digits.length === 10) return `+7${digits}`;\n  if (digits.length >= 11 && digits.length <= 15) return `+${digits}`;\n  return '';\n};\n\nconst explicitPhoneRaw = asText(body.phone_target);\nconst explicitPhone = normalizePhone(explicitPhoneRaw);\nconst currentCallNumber = asText(body.current_call_number || body.system__called_number || body.caller || body.phone_primary);\nconst currentCallPhone = normalizePhone(currentCallNumber);\nconst otherPhoneRaw = asText(body.phone || body.client_phone);\nconst otherPhone = normalizePhone(otherPhoneRaw);\n\nconst phoneTarget = explicitPhone || currentCallPhone || otherPhone;\nconst phoneTargetRaw = explicitPhone ? explicitPhoneRaw : (currentCallPhone ? currentCallNumber : otherPhoneRaw);\n\nconst clientName = asText(body.client_name || body.contact_name);\nconst companyName = asText(body.company_name) || 'LipoLong';\nconst product = asText(body.product) || 'LipoLong';\nconst materialUrl = asText(body.material_url);\nconst callbackAt = asText(body.callback_at || body.next_call_at);\nconst replyPhone = normalizePhone(asText(body.reply_phone || body.manager_phone)) || '+79923298897';\nconst messageIntent = asText(body.message_intent).toLowerCase() || 'short_info';\nconst customSmsText = normalizeMultiline(body.sms_text);\nconst requestId = asText(body.request_id || body.tool_call_id || body.tool_request_id || body.session_id || body.conversation_id) || `sms.${Date.now()}`;\n\nconst contactPackText = normalizeMultiline(`\nОтправляю контакты и условия для сотрудничества:\nТелефон: 8 999 556-67-77\nTelegram: @Vorgesar_Peptides\nMessenger Max: @Vorgesar_Peptides\nСайт: lipolong.com\nЧаты Telegram: @MadCoreChat / @Peptides_shop / @vl26g_official / @Zhirotop_Shop\nУсловия оплаты: безналичный расчёт +6%\nРеквизиты: ИП Клочков Сергей Александрович, ИНН 645308371993\n`);\n\nconst buildTemplate = () => {\n  if (messageIntent === 'callback_confirmation') {\n    return normalizeMultiline(`\nИнформацию отправила SMS.\n${callbackAt ? `Если удобно, свяжемся ${callbackAt}.` : ''}\n${replyPhone ? `Контакт для связи: ${replyPhone}` : ''}\n`);\n  }\n  return contactPackText;\n};\n\nconst initialSmsText = customSmsText || buildTemplate();\nconst smsText = initialSmsText.length > 480\n  ? `${initialSmsText.slice(0, 477).trim()}...`\n  : initialSmsText;\n\nconst warnings = [];\nconst errors = [];\nif (!phoneTarget) errors.push('phone_target is empty or invalid');\nif (!smsText) errors.push('sms_text is empty after normalization');\nif (materialUrl && !/^https?:\\/\\//i.test(materialUrl)) warnings.push('material_url does not look like http/https');\nif (!explicitPhone && currentCallPhone) warnings.push('phone_target not provided explicitly, used current_call_number fallback');\nif (explicitPhoneRaw && !explicitPhone && currentCallPhone) warnings.push('explicit phone_target invalid, used current_call_number fallback');\n\nreturn [{\n  received_at: nowIso,\n  tool: 'send_sms_info',\n  ok_to_send: errors.length === 0,\n  errors,\n  warnings,\n  request_id: requestId,\n  session_id: asText(body.session_id),\n  conversation_id: asText(body.conversation_id || body.eleven_conv_id),\n  lead_id: asText(body.lead_id || body.client_ref || body.source_record_key),\n  client_name: clientName,\n  company_name: companyName,\n  product,\n  material_url: materialUrl,\n  callback_at: callbackAt,\n  current_call_number: currentCallNumber,\n  phone_target: phoneTarget,\n  phone_target_raw: phoneTargetRaw,\n  reply_phone: replyPhone,\n  message_intent: messageIntent,\n  sms_text: smsText,\n  sms_length: smsText.length,\n  source_payload: body,\n}];"
+      },
+      "id": "210efff5-ffed-473d-a729-8478e2800f2c",
+      "name": "Tool | Normalize SMS Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -900,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const req = $json || {};\nconst warningBase = [ ...(req.warnings || []), ...(req.errors || []) ].filter(Boolean).join('; ');\n\nif (!req.ok_to_send) {\n  return [{\n    ...req,\n    should_send: false,\n    provider: 'mango_sms',\n    status: 'invalid_request',\n    warning: warningBase,\n  }];\n}\n\nconst apiKey = String($env.MANGO_VPBX_API_KEY || '').trim();\nconst apiSalt = String($env.MANGO_VPBX_API_SALT || '').trim();\nconst fromExtension = String($env.MANGO_VPBX_FROM_EXTENSION || '').trim();\nconst smsSender = String($env.MANGO_SMS_SENDER || '').trim();\n\nconst missing = [];\nif (!apiKey) missing.push('MANGO_VPBX_API_KEY');\nif (!apiSalt) missing.push('MANGO_VPBX_API_SALT');\nif (!fromExtension) missing.push('MANGO_VPBX_FROM_EXTENSION');\n\nif (missing.length) {\n  return [{\n    ...req,\n    should_send: false,\n    provider: 'mango_sms',\n    status: 'config_error',\n    warning: [warningBase, `Missing env: ${missing.join(', ')}`].filter(Boolean).join('; '),\n  }];\n}\n\nconst payload = {\n  command_id: req.request_id || `cmd.sms.${Date.now()}`,\n  from_extension: fromExtension,\n  text: String(req.sms_text || ''),\n  to_number: String(req.phone_target || '').replace(/^\\+/, ''),\n  sms_sender: smsSender,\n};\nconst jsonPayload = JSON.stringify(payload);\nreturn [{\n  ...req,\n  should_send: true,\n  provider: 'mango_sms',\n  provider_command: payload,\n  api_key: apiKey,\n  sign_source: `${apiKey}${jsonPayload}${apiSalt}`,\n  json_payload: jsonPayload,\n  warning: warningBase,\n}];"
+      },
+      "id": "0057a4d5-b671-4850-838f-738f03a61f2f",
+      "name": "Mango | Build SMS Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.should_send ? 'send' : 'skip' }}",
+                    "rightValue": "send",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Send"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.should_send ? 'send' : 'skip' }}",
+                    "rightValue": "skip",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Skip"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1ff8f0c2-13b1-461d-b2f0-798f3fae5af6",
+      "name": "Mango | Send Decision",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -380,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "type": "SHA256",
+        "value": "={{ $json.sign_source }}",
+        "dataPropertyName": "sign"
+      },
+      "id": "89a5ec4d-c447-4294-b3f4-2d736ac1cb1c",
+      "name": "Mango | Sign SMS SHA256",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        -120,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  ...$json,\n  sign: String($json.sign || '').toLowerCase(),\n}];"
+      },
+      "id": "b7bc2d9d-98f4-4ef9-b854-a6fdff679f25",
+      "name": "Mango | Build SMS Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        120,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.mango-office.ru/vpbx/commands/sms",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "vpbx_api_key",
+              "value": "={{ $json.api_key }}"
+            },
+            {
+              "name": "sign",
+              "value": "={{ $json.sign }}"
+            },
+            {
+              "name": "json",
+              "value": "={{ $json.json_payload }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "ed161f4a-f022-4603-9a16-6d8694893bbf",
+      "name": "Mango | Send SMS HTTP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        360,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const req = $('Mango | Build SMS Request').item.json || {};\nconst providerResponse = $json || {};\nconst hasNumericResult = providerResponse.result !== undefined && providerResponse.result !== null && providerResponse.result !== '' && !Number.isNaN(Number(providerResponse.result));\nconst numericResult = hasNumericResult ? Number(providerResponse.result) : null;\nconst hasExplicitError = Boolean(providerResponse.error_code || providerResponse.error || providerResponse.message);\nconst looksAccepted = !hasExplicitError && (!hasNumericResult || numericResult >= 1000);\nconst fail = !looksAccepted;\nconst warning = [req.warning || '', fail ? JSON.stringify(providerResponse).slice(0, 300) : ''].filter(Boolean).join('; ');\n\nreturn [{\n  ok: !fail,\n  tool: 'send_sms_info',\n  status: fail ? 'send_error' : 'sent',\n  provider: 'mango_sms',\n  request_id: req.request_id || '',\n  lead_id: req.lead_id || '',\n  conversation_id: req.conversation_id || '',\n  phone_target: req.phone_target || '',\n  sms_length: req.sms_length || 0,\n  message_intent: req.message_intent || '',\n  sms_preview: req.sms_text || '',\n  warning,\n  provider_response: JSON.stringify(providerResponse).slice(0, 500),\n}];"
+      },
+      "id": "05da6c90-691c-4c87-a873-927e135d4691",
+      "name": "Tool | Build SMS Provider Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        620,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  ok: false,\n  tool: 'send_sms_info',\n  status: $json.status || 'invalid_request',\n  provider: 'mango_sms',\n  request_id: $json.request_id || '',\n  lead_id: $json.lead_id || '',\n  conversation_id: $json.conversation_id || '',\n  phone_target: $json.phone_target || '',\n  sms_length: $json.sms_length || 0,\n  message_intent: $json.message_intent || '',\n  sms_preview: $json.sms_text || '',\n  warning: $json.warning || '',\n  provider_response: '',\n}];"
+      },
+      "id": "8baa6679-482f-4b66-ac68-f669d31ff6c1",
+      "name": "Tool | Build SMS Skip Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -120,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "959da819-5cff-48b3-b3a7-a6be67dbe759",
+      "name": "Tool | Respond Send SMS",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        900,
+        176
+      ]
+    }
+  ],
+  "connections": {
+    "Tool | Webhook Send SMS": {
+      "main": [
+        [
+          {
+            "node": "Tool | Normalize SMS Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool | Normalize SMS Request": {
+      "main": [
+        [
+          {
+            "node": "Mango | Build SMS Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mango | Build SMS Command": {
+      "main": [
+        [
+          {
+            "node": "Mango | Send Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mango | Send Decision": {
+      "main": [
+        [
+          {
+            "node": "Mango | Sign SMS SHA256",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tool | Build SMS Skip Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mango | Sign SMS SHA256": {
+      "main": [
+        [
+          {
+            "node": "Mango | Build SMS Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mango | Build SMS Request": {
+      "main": [
+        [
+          {
+            "node": "Mango | Send SMS HTTP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mango | Send SMS HTTP": {
+      "main": [
+        [
+          {
+            "node": "Tool | Build SMS Provider Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool | Build SMS Provider Response": {
+      "main": [
+        [
+          {
+            "node": "Tool | Respond Send SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool | Build SMS Skip Response": {
+      "main": [
+        [
+          {
+            "node": "Tool | Respond Send SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  }
+}
