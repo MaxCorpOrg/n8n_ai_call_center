@@ -10,6 +10,24 @@
 
 ## 2) Последние важные изменения
 
+### 2026-03-22 — Усилен live-prompt агента и добавлен второй SMS-сценарий `product_intro`
+- В live-агенте `AI_CALL_AGENT_1` обновлен system prompt без изменения `first_message`.
+- В prompt зафиксированы новые правила:
+  - `не интересно` больше не является автоматическим завершением;
+  - `не работаем с липолитиками` и `не используем инъекционные методики` сначала переводятся в проверку релевантности направления;
+  - если направление коррекции фигуры релевантно, но инъекционные методики не используются, агент предлагает `product_intro` SMS и follow-up;
+  - агенту запрещены сервисные концовки `Могу ли я чем-то еще помочь?` и `Тогда наше предложение вам не подходит`;
+  - добавлено правило вариативных коротких связок, чтобы убрать повторяющееся `Поняла / Приняла`.
+- В live-tool `send_sms_info` обновлена schema:
+  - `message_intent` теперь поддерживает `short_info`, `product_intro`, `offer`, `callback_confirmation`;
+  - `short_info` используется для контактов менеджеров и связи;
+  - `product_intro` используется для краткого объяснения, что такое LipoLong, преимуществ, цены, условий входа и контактов менеджеров для консультации.
+- В live `n8n` workflow `ELEVEN_TOOL_SEND_SMS_BRIDGE (draft)` обновлен шаблон `product_intro`.
+- Сняты локальные backup-файлы live-конфигураций:
+  - `backups/live_2026-03-22_objection_sms_refresh/n8n_workflow_before.json`
+  - `backups/live_2026-03-22_objection_sms_refresh/eleven_send_sms_tool_before.json`
+  - `backups/live_2026-03-22_objection_sms_refresh/eleven_agent_before.json`
+
 ### 2026-03-21 — Введен live-сценарий отправки SMS через `send_sms_info` и синхронизирована документация
 - В live-агент `AI_CALL_AGENT_1` добавлен webhook tool:
   - `tool_1701km86jmcpek4rj2j1rbhxqtfr` -> `send_sms_info`

@@ -16,6 +16,7 @@
 7. `07_GOOGLE_SHEET_CREATE_STEPS_RU.md` — запуск скрипта создания Google Sheet.
 8. `08_ELEVENLABS_SYSTEM_PROMPT_RU.md` — рабочий system prompt для live-агента ElevenLabs.
 9. `09_DIALOG_SCRIPTS_RU.md` — живые разговорные скрипты без “деревянного” шаблона.
+10. `10_OBJECTION_PLAYBOOK_RU.md` — единая логика обработки мягких возражений и soft-refusal.
 
 ## Как использовать
 
