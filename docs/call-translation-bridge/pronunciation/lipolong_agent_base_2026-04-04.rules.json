@@ -62,7 +62,7 @@
     {
       "string_to_replace": "липолитика",
       "type": "alias",
-      "alias": "липолитИка",
+      "alias": "липолИтика",
       "case_sensitive": false,
       "word_boundaries": true
     },

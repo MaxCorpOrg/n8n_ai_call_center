@@ -13,7 +13,7 @@
 ### 2026-04-04 — Добавлен corpus-based pronunciation dictionary для live-агента
 - Для `AI_CALL_AGENT_1` создан и подключён отдельный pronunciation dictionary в ElevenLabs:
   - `dictionary_id = NnZrxd6lJkbHKqW6w04N`
-  - `version_id = XW2xEjEacenedSOQoOOq`
+  - `version_id = 8SrjbTKmOZjOnHxLQrxE`
 - Словарь построен по реальному корпусу:
   - `100` последних live-звонков;
   - текущий live-prompt;
