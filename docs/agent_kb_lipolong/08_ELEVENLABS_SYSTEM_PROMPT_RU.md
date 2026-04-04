@@ -9,6 +9,11 @@
 Актуальная live-версия:
 - [08_ELEVENLABS_SYSTEM_PROMPT_EN.md](/home/max/n8n_ai_call_center/docs/agent_kb_lipolong/08_ELEVENLABS_SYSTEM_PROMPT_EN.md)
 
+В live-версии дополнительно усилены блоки:
+- `value reveal` после подтверждения релевантности направления;
+- `status-oriented framing` для уважительного разговора с владельцем или специалистом;
+- `news-style pitch`, чтобы продукт звучал как новая коммерчески интересная возможность, а не как безликая поставка.
+
 ## Стартовая фраза
 
 Первая фраза уже задается в `first_message` и звучит так:
