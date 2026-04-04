@@ -51,7 +51,7 @@
 
 - В live-agent TTS подключён отдельный словарь произношения.
 - Dictionary ID: `NnZrxd6lJkbHKqW6w04N`
-- Version ID: `8lEt5avz1g7b4oYD9yUn`
+- Version ID: `K8lpSSKK1r5L3LiWHGPJ`
 - Locator в live: `pronunciation_dictionary_locators = [{ pronunciation_dictionary_id, version_id }]`
 - Исходник словаря в репозитории: `docs/call-translation-bridge/pronunciation/lipolong_agent_base_2026-04-04.rules.json`
 
@@ -111,7 +111,10 @@
   - словарь собран по 100 последним звонкам, live-prompt и локальной KB;
   - рабочая нормализация бренда зафиксирована как `липолонг`;
   - `Mango` и `n8n` специально не добавлялись, потому что это не рабочие слова клиентского диалога;
-  - текущий locator: `NnZrxd6lJkbHKqW6w04N / 8lEt5avz1g7b4oYD9yUn`.
+  - текущий locator: `NnZrxd6lJkbHKqW6w04N / K8lpSSKK1r5L3LiWHGPJ`.
+- 2026-04-04 выпущен hotfix-version pronunciation dictionary:
+  - точечно усилены слова `липолонг` и `липолитиками`;
+  - добавлены словоформы (`липолонга`, `липолонгом`) для более стабильного попадания правил.
 
 ## Наблюдения по последним тестам
 

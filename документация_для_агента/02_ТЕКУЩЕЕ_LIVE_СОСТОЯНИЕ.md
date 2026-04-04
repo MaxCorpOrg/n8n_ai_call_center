@@ -55,7 +55,7 @@
 
 Дополнительно подключено:
 - pronunciation dictionary: `NnZrxd6lJkbHKqW6w04N`
-- version id: `8lEt5avz1g7b4oYD9yUn`
+- version id: `K8lpSSKK1r5L3LiWHGPJ`
 - базовая нормализация бренда: `ЛипоЛонг / LipoLong / lipolong -> липолонг`
 
 ## 5. Важное бизнес-ограничение

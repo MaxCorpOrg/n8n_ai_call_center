@@ -6,21 +6,42 @@
     {
       "string_to_replace": "ЛипоЛонг",
       "type": "alias",
-      "alias": "липолонг",
+      "alias": "липолОнг",
       "case_sensitive": false,
       "word_boundaries": true
     },
     {
       "string_to_replace": "LipoLong",
       "type": "alias",
-      "alias": "липолонг",
+      "alias": "липолОнг",
       "case_sensitive": false,
       "word_boundaries": true
     },
     {
       "string_to_replace": "lipolong",
       "type": "alias",
-      "alias": "липолонг",
+      "alias": "липолОнг",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "липолонг",
+      "type": "alias",
+      "alias": "липолОнг",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "липолонга",
+      "type": "alias",
+      "alias": "липолОнга",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "липолонгом",
+      "type": "alias",
+      "alias": "липолОнгом",
       "case_sensitive": false,
       "word_boundaries": true
     },
@@ -34,35 +55,42 @@
     {
       "string_to_replace": "липолитик",
       "type": "alias",
-      "alias": "липолити́к",
+      "alias": "липолитИк",
       "case_sensitive": false,
       "word_boundaries": true
     },
     {
       "string_to_replace": "липолитика",
       "type": "alias",
-      "alias": "липолити́ка",
+      "alias": "липолитИка",
       "case_sensitive": false,
       "word_boundaries": true
     },
     {
       "string_to_replace": "липолитики",
       "type": "alias",
-      "alias": "липолити́ки",
+      "alias": "липолитИки",
       "case_sensitive": false,
       "word_boundaries": true
     },
     {
       "string_to_replace": "липолитиками",
       "type": "alias",
-      "alias": "липолити́ками",
+      "alias": "липолитИками",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "с липолитиками",
+      "type": "alias",
+      "alias": "с липолитИками",
       "case_sensitive": false,
       "word_boundaries": true
     },
     {
       "string_to_replace": "липолитиков",
       "type": "alias",
-      "alias": "липолити́ков",
+      "alias": "липолитИков",
       "case_sensitive": false,
       "word_boundaries": true
     },

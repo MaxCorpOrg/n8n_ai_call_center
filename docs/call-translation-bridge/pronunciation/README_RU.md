@@ -6,8 +6,12 @@
 
 Актуальная версия от `2026-04-04`:
 - dictionary id: `NnZrxd6lJkbHKqW6w04N`
-- version id: `8lEt5avz1g7b4oYD9yUn`
+- version id: `K8lpSSKK1r5L3LiWHGPJ`
 - source file: `lipolong_agent_base_2026-04-04.rules.json`
+
+Hotfix этой версии:
+- усилены точечно слова `липолонг` и `липолитиками`;
+- для них добавлены дополнительные словоформы и более стабильный формат акцента.
 
 ## Как он собран
 

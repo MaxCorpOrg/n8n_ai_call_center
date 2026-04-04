@@ -13,7 +13,7 @@
 ### 2026-04-04 — Добавлен corpus-based pronunciation dictionary для live-агента
 - Для `AI_CALL_AGENT_1` создан и подключён отдельный pronunciation dictionary в ElevenLabs:
   - `dictionary_id = NnZrxd6lJkbHKqW6w04N`
-  - `version_id = 8lEt5avz1g7b4oYD9yUn`
+  - `version_id = K8lpSSKK1r5L3LiWHGPJ`
 - Словарь построен по реальному корпусу:
   - `100` последних live-звонков;
   - текущий live-prompt;
@@ -30,6 +30,9 @@
   - `docs/call-translation-bridge/pronunciation/lipolong_agent_base_2026-04-04.rules.json`
   - `docs/call-translation-bridge/pronunciation/README_RU.md`
   - `backups/2026-04-04_11-49-17_pronunciation_dict_attach/`
+- Отдельным hotfix обновлены самые частые проблемные ударения:
+  - `липолонг`
+  - `липолитиками`
 
 ### 2026-04-04 — Усилен sales-prompt агента без изменения `first_message`
 - В локальных KB-документах и live-prompt для `AI_CALL_AGENT_1` усилена логика уверенного B2B-продажника без правки стартовой фразы.
