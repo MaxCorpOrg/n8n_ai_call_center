@@ -47,6 +47,24 @@
 - Turn timeout: `3.0`
 - Speculative turn: `true`
 
+## Текущий pronunciation dictionary
+
+- В live-agent TTS подключён отдельный словарь произношения.
+- Dictionary ID: `NnZrxd6lJkbHKqW6w04N`
+- Version ID: `8lEt5avz1g7b4oYD9yUn`
+- Locator в live: `pronunciation_dictionary_locators = [{ pronunciation_dictionary_id, version_id }]`
+- Исходник словаря в репозитории: `docs/call-translation-bridge/pronunciation/lipolong_agent_base_2026-04-04.rules.json`
+
+Словарь собран по реальному корпусу:
+- `100` последних live-диалогов агента;
+- текущий live-prompt;
+- локальная русская KB проекта.
+
+Что он нормализует в первую очередь:
+- бренд произносится как `липолонг`, даже если в тексте остались варианты `ЛипоЛонг`, `LipoLong` или `lipolong`;
+- выравниваются частые продуктовые слова: `липолитик`, `липолитиками`, `коррекция`, `инъекционные`, `консультация`, `процедуры`;
+- выравниваются частые клиентские каналы: `Telegram`, `WhatsApp`, `MAX`.
+
 ## Настройки перебивания
 
 - `disable_first_message_interruptions = true`
@@ -89,6 +107,11 @@
 - 2026-04-04 выполнялся безопасный TTS-тюнинг без смены голоса, но затем был откатан по результату live-прослушивания:
   - сохранены исходные параметры `speed = 1.16`, `stability = 0.5`, `similarity_boost = 0.78`;
   - причина отката: голос стал слишком медленным, а паузы начали восприниматься как лишнее ожидание ответа.
+- 2026-04-04 в live подключён pronunciation dictionary без изменения голоса и темпа:
+  - словарь собран по 100 последним звонкам, live-prompt и локальной KB;
+  - рабочая нормализация бренда зафиксирована как `липолонг`;
+  - `Mango` и `n8n` специально не добавлялись, потому что это не рабочие слова клиентского диалога;
+  - текущий locator: `NnZrxd6lJkbHKqW6w04N / 8lEt5avz1g7b4oYD9yUn`.
 
 ## Наблюдения по последним тестам
 
@@ -114,6 +137,7 @@
 - SIP trunk / номер / inbound-outbound настройки
 - webhook URL tools
 - `voice_id`
+- `pronunciation_dictionary_locators` без проверки новой версии словаря
 - `tool_ids` без отдельной проверки через live API
 - SMS-правило `на этот номер` -> `system__called_number`
 

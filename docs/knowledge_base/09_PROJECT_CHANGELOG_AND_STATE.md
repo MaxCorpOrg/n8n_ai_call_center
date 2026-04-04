@@ -10,6 +10,27 @@
 
 ## 2) Последние важные изменения
 
+### 2026-04-04 — Добавлен corpus-based pronunciation dictionary для live-агента
+- Для `AI_CALL_AGENT_1` создан и подключён отдельный pronunciation dictionary в ElevenLabs:
+  - `dictionary_id = NnZrxd6lJkbHKqW6w04N`
+  - `version_id = 8lEt5avz1g7b4oYD9yUn`
+- Словарь построен по реальному корпусу:
+  - `100` последних live-звонков;
+  - текущий live-prompt;
+  - локальная русская knowledge base.
+- В словарь включены только реально встречающиеся и важные для live-диалога слова:
+  - `ЛипоЛонг / LipoLong / lipolong -> липолонг`
+  - частые продуктовые слова: `липолитик`, `липолитиками`, `коррекция`, `инъекционные`, `консультация`, `процедуры`
+  - клиентские каналы: `Telegram`, `WhatsApp`, `MAX`
+- Специально не добавлялись `Mango` и `n8n`, потому что они не являются рабочими словами клиентского разговора.
+- Важно:
+  - голос, `voice_id`, `speed`, `stability` и `similarity_boost` при подключении словаря не менялись;
+  - словарь подключён только через `pronunciation_dictionary_locators`.
+- Для репозитория сохранены исходники и backup:
+  - `docs/call-translation-bridge/pronunciation/lipolong_agent_base_2026-04-04.rules.json`
+  - `docs/call-translation-bridge/pronunciation/README_RU.md`
+  - `backups/2026-04-04_11-49-17_pronunciation_dict_attach/`
+
 ### 2026-04-04 — Усилен sales-prompt агента без изменения `first_message`
 - В локальных KB-документах и live-prompt для `AI_CALL_AGENT_1` усилена логика уверенного B2B-продажника без правки стартовой фразы.
 - Добавлены и зафиксированы правила:

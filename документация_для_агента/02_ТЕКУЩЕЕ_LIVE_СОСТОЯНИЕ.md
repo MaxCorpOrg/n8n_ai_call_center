@@ -47,10 +47,16 @@
 - `turn_timeout = 3.0`
 - `disable_first_message_interruptions = true`
 - `speculative_turn = true`
-- active tools: `context_fetch`, `call_log`, `end_call`
+- active tools: `context_fetch`, `call_log`, `send_sms_info`, `end_call`
 - `tool_ids`:
   - `tool_1601km62rxpqegqr52m9gk9sftr3`
   - `tool_0901km62rxpre578kd1zvd7q7g04`
+  - `tool_1701km86jmcpek4rj2j1rbhxqtfr`
+
+Дополнительно подключено:
+- pronunciation dictionary: `NnZrxd6lJkbHKqW6w04N`
+- version id: `8lEt5avz1g7b4oYD9yUn`
+- базовая нормализация бренда: `ЛипоЛонг / LipoLong / lipolong -> липолонг`
 
 ## 5. Важное бизнес-ограничение
 
@@ -65,4 +71,5 @@
 - прерывания стартовой фразы отключены, чтобы агент договаривал обязательную вводную до конца;
 - follow-up переведен на сценарий без почты: агент должен собирать имя, номер и удобный канал связи;
 - `call_log` и `context_fetch` были восстановлены через валидные `tool_ids` после очистки битых tool-ссылок;
+- словарь произношения собран по живым звонкам и текущему prompt, чтобы выровнять бренд `липолонг` и частые термины;
 - остаточная задержка может появляться на нечетких репликах клиента и в LLM-ходе, а не только в TTS.

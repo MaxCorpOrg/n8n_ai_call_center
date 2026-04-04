@@ -1,0 +1,336 @@
+{
+  "name": "lipolong-agent-base-2026-04-04",
+  "description": "Corpus-based alias dictionary for the live lipolong sales agent. Built from 100 recent conversations, current live prompt, and local RU knowledge base.",
+  "workspace_access": "editor",
+  "rules": [
+    {
+      "string_to_replace": "ЛипоЛонг",
+      "type": "alias",
+      "alias": "липолонг",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "LipoLong",
+      "type": "alias",
+      "alias": "липолонг",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "lipolong",
+      "type": "alias",
+      "alias": "липолонг",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "lipolong.com",
+      "type": "alias",
+      "alias": "липолонг точка ком",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "липолитик",
+      "type": "alias",
+      "alias": "липолити́к",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "липолитика",
+      "type": "alias",
+      "alias": "липолити́ка",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "липолитики",
+      "type": "alias",
+      "alias": "липолити́ки",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "липолитиками",
+      "type": "alias",
+      "alias": "липолити́ками",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "липолитиков",
+      "type": "alias",
+      "alias": "липолити́ков",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "коррекция",
+      "type": "alias",
+      "alias": "корре́кция",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "коррекции",
+      "type": "alias",
+      "alias": "корре́кции",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "коррекция фигуры",
+      "type": "alias",
+      "alias": "корре́кция фигу́ры",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "инъекционный",
+      "type": "alias",
+      "alias": "инъекцио́нный",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "инъекционные",
+      "type": "alias",
+      "alias": "инъекцио́нные",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "инъекционные методики",
+      "type": "alias",
+      "alias": "инъекцио́нные методики",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "косметологической",
+      "type": "alias",
+      "alias": "косметологи́ческой",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "косметологический",
+      "type": "alias",
+      "alias": "косметологи́ческий",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "консультация",
+      "type": "alias",
+      "alias": "консульта́ция",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "консультации",
+      "type": "alias",
+      "alias": "консульта́ции",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "консультацию",
+      "type": "alias",
+      "alias": "консульта́цию",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "процедура",
+      "type": "alias",
+      "alias": "процеду́ра",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "процедуры",
+      "type": "alias",
+      "alias": "процеду́ры",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "экономику",
+      "type": "alias",
+      "alias": "эконо́мику",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "экономики",
+      "type": "alias",
+      "alias": "эконо́мики",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "управляемый",
+      "type": "alias",
+      "alias": "управля́емый",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "прогнозируемый",
+      "type": "alias",
+      "alias": "прогнози́руемый",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "оригинальную",
+      "type": "alias",
+      "alias": "оригина́льную",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "локальных",
+      "type": "alias",
+      "alias": "лока́льных",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "отложений",
+      "type": "alias",
+      "alias": "отложе́ний",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "жировых",
+      "type": "alias",
+      "alias": "жировы́х",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "подбородке",
+      "type": "alias",
+      "alias": "подборо́дке",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "противопоказано",
+      "type": "alias",
+      "alias": "противопоказа́но",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "противопоказания",
+      "type": "alias",
+      "alias": "противопоказа́ния",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "менеджер",
+      "type": "alias",
+      "alias": "ме́неджер",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "менеджера",
+      "type": "alias",
+      "alias": "ме́неджера",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "менеджером",
+      "type": "alias",
+      "alias": "ме́неджером",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "протокола",
+      "type": "alias",
+      "alias": "прото́кола",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "премиум",
+      "type": "alias",
+      "alias": "пре́миум",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "безнал",
+      "type": "alias",
+      "alias": "безна́л",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "безналу",
+      "type": "alias",
+      "alias": "безна́лу",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "безналичный",
+      "type": "alias",
+      "alias": "безнали́чный",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "предоплата",
+      "type": "alias",
+      "alias": "предопла́та",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "Telegram",
+      "type": "alias",
+      "alias": "телеграм",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "WhatsApp",
+      "type": "alias",
+      "alias": "ватсап",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "MAX",
+      "type": "alias",
+      "alias": "макс",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "sms",
+      "type": "alias",
+      "alias": "смс",
+      "case_sensitive": false,
+      "word_boundaries": true
+    },
+    {
+      "string_to_replace": "SMS",
+      "type": "alias",
+      "alias": "смс",
+      "case_sensitive": false,
+      "word_boundaries": true
+    }
+  ]
+}
