@@ -23,6 +23,22 @@
 - Снят свежий backup live-конфигурации:
   - `backups/2026-04-04_09-48-29_live_sales_prompt_refresh/eleven_agent_live_before_changes.json`
 
+### 2026-04-04 — Выполнен безопасный voice-tuning live-агента
+- В live-конфигурации `AI_CALL_AGENT_1` сохранены:
+  - `voice_id = 0ArNnoIAWKlT4WweaVMY`
+  - `LLM = gpt-4.1`
+  - неизменная `first_message`
+- Точечно изменены только TTS-параметры:
+  - `speed: 1.16 -> 1.08`
+  - `stability: 0.5 -> 0.62`
+  - `similarity_boost: 0.78 -> 0.80`
+- Цель правки:
+  - снизить плавающий тон;
+  - сделать интонацию ровнее;
+  - уменьшить риск смазанного произношения и кривых ударений на быстрой подаче.
+- Снят backup:
+  - `backups/2026-04-04_10-30-27_voice_tuning/eleven_agent_before_voice_tuning.json`
+
 ### 2026-03-22 — Усилен live-prompt агента и добавлен второй SMS-сценарий `product_intro`
 - В live-агенте `AI_CALL_AGENT_1` обновлен system prompt без изменения `first_message`.
 - В prompt зафиксированы новые правила:
