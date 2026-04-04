@@ -76,14 +76,14 @@
     {
       "string_to_replace": "липолитиками",
       "type": "alias",
-      "alias": "липолитИками",
+      "alias": "липолИтиками",
       "case_sensitive": false,
       "word_boundaries": true
     },
     {
       "string_to_replace": "с липолитиками",
       "type": "alias",
-      "alias": "с липолитИками",
+      "alias": "с липолИтиками",
       "case_sensitive": false,
       "word_boundaries": true
     },

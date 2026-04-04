@@ -6,7 +6,7 @@
 
 Актуальная версия от `2026-04-04`:
 - dictionary id: `NnZrxd6lJkbHKqW6w04N`
-- version id: `K8lpSSKK1r5L3LiWHGPJ`
+- version id: `XW2xEjEacenedSOQoOOq`
 - source file: `lipolong_agent_base_2026-04-04.rules.json`
 
 Hotfix этой версии:
