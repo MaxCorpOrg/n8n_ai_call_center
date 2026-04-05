@@ -10,11 +10,11 @@
 
 ## 2) Последние важные изменения
 
-### 2026-04-05 — Собран draft автодозвона по таблице `Лиды_обзвон`
-- Добавлен первый рабочий draft workflow: `workflows/AUTODIAL_DISPATCHER_DRAFT.json`.
-- Добавлена PostgreSQL-схема для автодозвона:
-  - `sql/005_autodial_dispatcher.sql`
-  - таблицы: `autodial_campaigns`, `autodial_queue`, `autodial_attempts`
+### 2026-04-05 — Автодозвон переведен на sheet-first runtime и активирован в live n8n
+- Live workflow `AUTODIAL_DISPATCHER` переведен на Google Sheet-only контур:
+  - источник истины: `Лиды_обзвон`;
+  - state/runtime хранится прямо в той же таблице через append-only lock и outcome rows;
+  - Postgres-схема `sql/005_autodial_dispatcher.sql` осталась как исторический draft и в live не используется.
 - Логика диспетчера:
   - запускается каждые 5 минут;
   - звонит только в окне `10:00–14:00` по МСК;
@@ -22,12 +22,12 @@
   - ограничивает дневной объем до `15` живых контактов;
   - держит максимум `3` попытки на контакт в одном цикле;
   - при исчерпании списка переводит кампанию в `exhausted` и не запускает ее заново автоматически.
-- Источник контактов:
-  - Google Sheet `Лиды_обзвон`;
-  - seed-строки помечаются как `source_system = xlsx_import`;
-  - live call log-строки — как `source_system = elevenlabs`.
-- Runtime-состояние хранится отдельно в Postgres, чтобы не плодить дубли и сохранить retry-логику между запусками.
-- Подробное описание контура вынесено в `docs/call-translation-bridge/10_AUTODIAL_DISPATCHER_RU.md`.
+- Runtime теперь работает через:
+  - `call_log` как lock/history append-only webhook;
+  - `source_system = autodial_dispatcher` для lock-строк;
+  - `source_system = elevenlabs` для фактических live call-log строк;
+  - `POST /webhook/eleven/outbound-call` для outbound-звонка.
+- Подробное описание актуального sheet-first контура вынесено в `docs/call-translation-bridge/10_AUTODIAL_DISPATCHER_RU.md`.
 
 ### 2026-04-04 — Live system prompt переведен на английский при сохранении русского диалога
 - Для `AI_CALL_AGENT_1` live system prompt переведен на английский, но язык разговора с клиентом сохранен русским.

@@ -1,6 +1,6 @@
 {
-  "name": "AUTODIAL_DISPATCHER (draft)",
-  "active": false,
+  "name": "AUTODIAL_DISPATCHER (sheet-first draft)",
+  "active": true,
   "nodes": [
     {
       "parameters": {
@@ -24,7 +24,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const now = new Date(); const fmt = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Moscow', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(now); const [mskDate, mskTime] = fmt.split(' '); const [hh, mm] = mskTime.split(':'); const minutes = Number(hh) * 60 + Number(mm); const withinWindow = minutes >= 600 && minutes < 840; const campaignKey = 'lipolong_contacts_msk'; const jobId = `autodial.${mskDate}.${mskTime.replace(/:/g, '')}.${Math.random().toString(36).slice(2, 8)}`; return [{ run_ts: now.toISOString(), msk_datetime: `${mskDate}T${mskTime}+03:00`, msk_date: mskDate, msk_time: mskTime, within_window: withinWindow, campaign_key: campaignKey, job_id: jobId, daily_success_limit: 15, max_attempts_per_lead: 3, call_window_start: '10:00', call_window_end: '14:00', dial_timeout_minutes: 20, spreadsheet_id: '1pLrCNeQ_thipr5-fajPusgNZZSd5NHEZFmGkegfpIqI', sheet_name: 'Лиды_обзвон', sheet_url: 'https://docs.google.com/spreadsheets/d/1pLrCNeQ_thipr5-fajPusgNZZSd5NHEZFmGkegfpIqI/edit', sheet_range: 'Лиды_обзвон!A1:AM', sheet_range_encoded: '%D0%9B%D0%B8%D0%B4%D1%8B_%D0%BE%D0%B1%D0%B7%D0%B2%D0%BE%D0%BD%21A1%3AAM' }];"
+        "jsCode": "const now = new Date();\nconst fmt = new Intl.DateTimeFormat('sv-SE', {\n  timeZone: 'Europe/Moscow',\n  hour12: false,\n  year: 'numeric',\n  month: '2-digit',\n  day: '2-digit',\n  hour: '2-digit',\n  minute: '2-digit',\n  second: '2-digit',\n}).format(now);\nconst [mskDate, mskTime] = fmt.split(' ');\nconst [hh, mm] = mskTime.split(':');\nconst minutes = Number(hh) * 60 + Number(mm);\nconst withinWindow = minutes >= 600 && minutes < 840;\nconst campaignKey = 'lipolong_contacts_msk';\nconst jobId = `autodial.${mskDate}.${mskTime.replace(/:/g, '')}.${Math.random().toString(36).slice(2, 8)}`;\nreturn [{\n  run_ts: now.toISOString(),\n  msk_datetime: `${mskDate}T${mskTime}+03:00`,\n  msk_date: mskDate,\n  msk_time: mskTime,\n  within_window: withinWindow,\n  campaign_key: campaignKey,\n  job_id: jobId,\n  daily_success_limit: 15,\n  max_attempts_per_lead: 3,\n  call_window_start: '10:00',\n  call_window_end: '14:00',\n  dial_timeout_minutes: 20,\n  spreadsheet_id: '1E-VCKAv4vF_SFLY8DgW0UC80FvAC_DDIxbSbi8GC8kU',\n  sheet_name: 'Лиды_обзвон',\n  sheet_url: 'https://docs.google.com/spreadsheets/d/1E-VCKAv4vF_SFLY8DgW0UC80FvAC_DDIxbSbi8GC8kU/edit?gid=1983852347#gid=1983852347',\n  sheet_range: 'Лиды_обзвон!A1:AM',\n  sheet_range_encoded: '%D0%9B%D0%B8%D0%B4%D1%8B_%D0%BE%D0%B1%D0%B7%D0%B2%D0%BE%D0%BD%21A1%3AAM',\n}];"
       },
       "id": "df9eeb33-4214-4082-8b88-bd44b1087c15",
       "name": "Dispatcher | Build Run Context",
@@ -100,7 +100,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const ctx = $json || {}; return [{ ok: true, action: 'skipped', reason: 'outside_call_window', campaign_key: ctx.campaign_key || 'lipolong_contacts_msk', msk_datetime: ctx.msk_datetime || '', window: '10:00-14:00 MSK' }];"
+        "jsCode": "const data = $json || {};\nreturn [{\n  ok: true,\n  action: 'skipped',\n  reason: String(data.reason || 'no_due_rows'),\n  campaign_key: String(data.campaign_key || 'lipolong_contacts_msk'),\n  job_id: String(data.job_id || ''),\n  msk_datetime: String(data.msk_datetime || ''),\n  msk_date: String(data.msk_date || ''),\n  msk_time: String(data.msk_time || ''),\n  daily_success_count: Number(data.daily_success_count || 0),\n  daily_success_limit: Number(data.daily_success_limit || 15),\n  active_dial_count: Number(data.active_dial_count || 0),\n  eligible_count: Number(data.eligible_count || 0),\n  total_leads: Number(data.total_leads || 0),\n}];"
       },
       "id": "fb10748c-c8b3-4042-8bf2-67c788d0f4b2",
       "name": "Dispatcher | Finish Outside Window",
@@ -163,7 +163,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{ spreadsheet_id: '1pLrCNeQ_thipr5-fajPusgNZZSd5NHEZFmGkegfpIqI', sheet_name: 'Лиды_обзвон', range_encoded: '%D0%9B%D0%B8%D0%B4%D1%8B_%D0%BE%D0%B1%D0%B7%D0%B2%D0%BE%D0%BD%21A1%3AAM', fetch_url: 'https://sheets.googleapis.com/v4/spreadsheets/1pLrCNeQ_thipr5-fajPusgNZZSd5NHEZFmGkegfpIqI/values/%D0%9B%D0%B8%D0%B4%D1%8B_%D0%BE%D0%B1%D0%B7%D0%B2%D0%BE%D0%BD%21A1%3AAM?majorDimension=ROWS', oauth_url: 'https://oauth2.googleapis.com/token', client_id: '{{GOOGLE_CLIENT_ID}}', client_secret: '{{GOOGLE_CLIENT_SECRET}}', refresh_token: '{{GOOGLE_REFRESH_TOKEN}}' }];"
+        "jsCode": "return [{\n  spreadsheet_id: '1E-VCKAv4vF_SFLY8DgW0UC80FvAC_DDIxbSbi8GC8kU',\n  sheet_name: 'Лиды_обзвон',\n  range_encoded: '%D0%9B%D0%B8%D0%B4%D1%8B_%D0%BE%D0%B1%D0%B7%D0%B2%D0%BE%D0%BD%21A%3AAM',\n  fetch_url: 'https://sheets.googleapis.com/v4/spreadsheets/1E-VCKAv4vF_SFLY8DgW0UC80FvAC_DDIxbSbi8GC8kU/values/%D0%9B%D0%B8%D0%B4%D1%8B_%D0%BE%D0%B1%D0%B7%D0%B2%D0%BE%D0%BD%21A%3AAM?majorDimension=ROWS',\n  oauth_url: 'https://oauth2.googleapis.com/token',\n  client_id: '{{GOOGLE_CLIENT_ID}}',\n  client_secret: '{{GOOGLE_CLIENT_SECRET}}',\n  refresh_token: '{{GOOGLE_REFRESH_TOKEN}}',\n}];"
       },
       "id": "3a39abb8-4977-4754-9296-bb36e89faa25",
       "name": "Google | Build Sheet Payload",
@@ -249,7 +249,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $json.body ?? $json; const values = Array.isArray(body.values) ? body.values : []; const headers = values.length ? values[0].map((h) => String(h || '').trim()) : []; const normalizePhone = (input) => { const digits = String(input || '').replace(/\\D/g, ''); if (!digits) return ''; if (digits.length === 11 && digits.startsWith('8')) return `+7${digits.slice(1)}`; if (digits.length === 11 && digits.startsWith('7')) return `+${digits}`; if (digits.length === 10) return `+7${digits}`; if (digits.length >= 11 && digits.length <= 15) return `+${digits}`; return String(input || '').trim(); }; const asText = (v) => String(v ?? '').trim(); const asBool = (v) => ['1', 'true', 'yes', 'да'].includes(asText(v).toLowerCase()); const makeRow = (rowValues, sheetRowNumber) => { const obj = { sheet_row_number: sheetRowNumber }; headers.forEach((header, idx) => { if (!header) return; obj[header] = asText(rowValues[idx]); }); obj.source_system = asText(obj.source_system); obj.lead_id = asText(obj.lead_id); obj.source_record_key = asText(obj.source_record_key); obj.phone_primary = normalizePhone(obj.phone_primary || obj.caller || obj.phone || ''); obj.phone_secondary = normalizePhone(obj.phone_secondary || ''); obj.lpr_confirmed = asBool(obj.lpr_confirmed); obj.material_sent = asBool(obj.material_sent); obj.do_not_call = asBool(obj.do_not_call); obj.followup_count = Number(obj.followup_count || 0) || 0; obj.max_touch_limit = Number(obj.max_touch_limit || 0) || 3; obj.lead_key = obj.lead_id || obj.source_record_key || obj.phone_primary || `row_${sheetRowNumber}`; obj.event_key = obj.n8n_execution_id || obj.eleven_conv_id || obj.source_record_key || obj.lead_key; obj.is_live_connect = !!obj.call_result && !['busy', 'no_answer', 'timeout', 'failed', 'voicemail', 'missed'].includes(String(obj.call_result).toLowerCase()); return obj; }; const rows = values.slice(1).map((rowValues, idx) => makeRow(rowValues, idx + 2)).filter((row) => Object.values(row).some((v) => String(v ?? '').trim() !== '')); const seedRows = rows.filter((row) => String(row.source_system || '').trim() === 'xlsx_import'); const outcomeRows = rows.filter((row) => String(row.source_system || '').trim() !== 'xlsx_import' && (row.call_result || row.next_step || row.next_call_at || row.notes_short || row.eleven_conv_id || row.n8n_execution_id)); return [{ seed_rows_json: JSON.stringify(seedRows), outcome_rows_json: JSON.stringify(outcomeRows), seed_count: seedRows.length, outcome_count: outcomeRows.length, total_rows: rows.length, headers: headers.join(',') }];"
+        "jsCode": "const body = $json.body ?? $json;\nconst values = Array.isArray(body.values) ? body.values : [];\nconst headers = values.length ? values[0].map((h) => String(h || '').trim()) : [];\nconst asText = (v) => String(v ?? '').trim();\nconst normalizePhone = (input) => {\n  const digits = String(input || '').replace(/\\D/g, '');\n  if (!digits) return '';\n  if (digits.length === 11 && digits.startsWith('8')) return `+7${digits.slice(1)}`;\n  if (digits.length === 11 && digits.startsWith('7')) return `+${digits}`;\n  if (digits.length === 10) return `+7${digits}`;\n  if (digits.length >= 11 && digits.length <= 15) return `+${digits}`;\n  return String(input || '').trim();\n};\nconst asBool = (v) => ['1', 'true', 'yes', 'да'].includes(asText(v).toLowerCase());\nconst parseTs = (v) => {\n  if (!v) return null;\n  const t = Date.parse(String(v));\n  return Number.isFinite(t) ? t : null;\n};\nconst fmtMsk = (date, withTime = false) => new Intl.DateTimeFormat('sv-SE', {\n  timeZone: 'Europe/Moscow',\n  hour12: false,\n  year: 'numeric',\n  month: '2-digit',\n  day: '2-digit',\n  ...(withTime ? { hour: '2-digit', minute: '2-digit', second: '2-digit' } : {}),\n}).format(date);\nconst now = new Date();\nconst mskFmt = fmtMsk(now, true);\nconst [mskDate, mskTime] = mskFmt.split(' ');\nconst nowTs = parseTs(`${mskDate}T${mskTime}+03:00`) || now.getTime();\nconst maxAttemptsPerLead = Number($node['Dispatcher | Build Run Context'].json.max_attempts_per_lead || 3);\nconst dailySuccessLimit = Number($node['Dispatcher | Build Run Context'].json.daily_success_limit || 15);\nconst dialTimeoutMinutes = Number($node['Dispatcher | Build Run Context'].json.dial_timeout_minutes || 20);\nconst callWindowStart = String($node['Dispatcher | Build Run Context'].json.call_window_start || '10:00');\nconst callWindowEnd = String($node['Dispatcher | Build Run Context'].json.call_window_end || '14:00');\nconst campaignKey = String($node['Dispatcher | Build Run Context'].json.campaign_key || 'lipolong_contacts_msk');\nconst jobId = String($node['Dispatcher | Build Run Context'].json.job_id || `autodial.${Date.now()}`);\n\nconst failureResults = new Set(['busy', 'no_answer', 'timeout', 'outbound_request_failed']);\nconst finalResults = new Set(['dnc', 'not_target', 'order_test', 'manager_call']);\nconst retryResults = new Set(['busy', 'no_answer', 'timeout', 'callback_scheduled', 'send_kp_pending_callback', 'refusal_soft', 'outbound_request_failed', 'dialing']);\n\nconst makeRow = (rowValues, sheetRowNumber) => {\n  const obj = { sheet_row_number: sheetRowNumber };\n  headers.forEach((header, idx) => {\n    if (!header) return;\n    obj[header] = asText(rowValues[idx]);\n  });\n  obj.source_system = asText(obj.source_system);\n  obj.lead_id = asText(obj.lead_id);\n  obj.source_record_key = asText(obj.source_record_key);\n  obj.phone_primary = normalizePhone(obj.phone_primary || obj.caller || obj.phone || '');\n  obj.phone_secondary = normalizePhone(obj.phone_secondary || '');\n  obj.lpr_confirmed = asBool(obj.lpr_confirmed);\n  obj.material_sent = asBool(obj.material_sent);\n  obj.do_not_call = asBool(obj.do_not_call);\n  obj.followup_count = Number(obj.followup_count || 0) || 0;\n  obj.max_touch_limit = Number(obj.max_touch_limit || 0) || maxAttemptsPerLead;\n  obj.lead_key = obj.source_record_key || obj.lead_id || obj.phone_primary || obj.phone_secondary || `row_${sheetRowNumber}`;\n  obj.result_key = String(obj.call_result || '').toLowerCase();\n  obj.created_ts = parseTs(obj.created_at) || parseTs(obj.updated_at) || null;\n  obj.updated_ts = parseTs(obj.updated_at) || obj.created_ts || null;\n  obj.row_date = obj.updated_ts ? fmtMsk(new Date(obj.updated_ts), false) : mskDate;\n  obj.next_call_ts = parseTs(obj.next_call_at);\n  obj.is_autodial_lock = obj.source_system === 'autodial_dispatcher' && obj.result_key === 'dialing';\n  obj.is_live_success = obj.source_system === 'elevenlabs' && !!obj.eleven_conv_id && !failureResults.has(obj.result_key) && obj.result_key !== 'dialing' && obj.result_key !== '';\n  return obj;\n};\n\nconst rows = values.slice(1)\n  .map((rowValues, idx) => makeRow(rowValues, idx + 2))\n  .filter((row) => Object.values(row).some((v) => String(v ?? '').trim() !== ''));\n\nconst byLead = new Map();\nfor (const row of rows) {\n  const key = String(row.lead_key || '').trim();\n  if (!key) continue;\n  const state = byLead.get(key) || {\n    lead_key: key,\n    latest: null,\n    history: [],\n    attempts_today: 0,\n    live_success_today: false,\n    has_retryable_history: false,\n    seed_row: null,\n  };\n  state.history.push(row);\n  state.latest = row;\n  if (row.source_system === 'xlsx_import' && !state.seed_row) state.seed_row = row;\n  if (row.source_system === 'autodial_dispatcher' && row.result_key === 'dialing' && row.row_date === mskDate) {\n    state.attempts_today += 1;\n  }\n  if (row.is_live_success && row.row_date === mskDate) {\n    state.live_success_today = true;\n  }\n  if (row.source_system === 'autodial_dispatcher' || retryResults.has(row.result_key) || !finalResults.has(row.result_key)) {\n    state.has_retryable_history = true;\n  }\n  byLead.set(key, state);\n}\n\nconst states = Array.from(byLead.values());\nconst totalLeads = states.length;\nconst dailySuccessCount = states.filter((s) => s.live_success_today).length;\nconst activeDialing = states.filter((s) => s.latest && s.latest.is_autodial_lock && s.latest.next_call_ts && s.latest.next_call_ts > nowTs);\nif (dailySuccessCount >= dailySuccessLimit) {\n  return [{\n    action: 'finish',\n    reason: 'daily_limit_reached',\n    campaign_key: campaignKey,\n    job_id: jobId,\n    msk_datetime: mskFmt,\n    msk_date: mskDate,\n    msk_time: mskTime,\n    daily_success_count: dailySuccessCount,\n    daily_success_limit: dailySuccessLimit,\n    active_dial_count: activeDialing.length,\n    eligible_count: 0,\n    total_leads: totalLeads,\n  }];\n}\nif (activeDialing.length > 0) {\n  return [{\n    action: 'finish',\n    reason: 'active_dialing',\n    campaign_key: campaignKey,\n    job_id: jobId,\n    msk_datetime: mskFmt,\n    msk_date: mskDate,\n    msk_time: mskTime,\n    daily_success_count: dailySuccessCount,\n    daily_success_limit: dailySuccessLimit,\n    active_dial_count: activeDialing.length,\n    eligible_count: 0,\n    total_leads: totalLeads,\n  }];\n}\n\nconst candidates = [];\nfor (const state of states) {\n  const latest = state.latest;\n  if (!latest) continue;\n  const latestResult = String(latest.result_key || '').toLowerCase();\n  if (latest.do_not_call || finalResults.has(latestResult)) continue;\n  if (state.live_success_today) continue;\n  if (state.attempts_today >= Math.min(latest.max_touch_limit || maxAttemptsPerLead, maxAttemptsPerLead)) continue;\n  if (latest.next_call_ts && latest.next_call_ts > nowTs) continue;\n  const isRetryable = !latestResult || retryResults.has(latestResult) || latest.source_system === 'xlsx_import' || latest.source_system === 'autodial_dispatcher' || latest.is_live_success;\n  if (!isRetryable) continue;\n  const priority = latest.next_call_ts ? 0 : 1;\n  const dueTs = latest.next_call_ts || latest.updated_ts || latest.created_ts || 0;\n  candidates.push({ state, priority, dueTs });\n}\n\ncandidates.sort((a, b) => (\n  a.priority - b.priority\n  || a.dueTs - b.dueTs\n  || a.state.attempts_today - b.state.attempts_today\n  || (a.state.latest?.sheet_row_number || 0) - (b.state.latest?.sheet_row_number || 0)\n));\n\nif (candidates.length === 0) {\n  const hasRetryableHistory = states.some((s) => s.has_retryable_history && !s.live_success_today && !s.latest?.do_not_call && !finalResults.has(String(s.latest?.result_key || '').toLowerCase()));\n  return [{\n    action: 'finish',\n    reason: hasRetryableHistory ? 'no_due_rows' : 'exhausted',\n    campaign_key: campaignKey,\n    job_id: jobId,\n    msk_datetime: mskFmt,\n    msk_date: mskDate,\n    msk_time: mskTime,\n    daily_success_count: dailySuccessCount,\n    daily_success_limit: dailySuccessLimit,\n    active_dial_count: 0,\n    eligible_count: 0,\n    total_leads: totalLeads,\n  }];\n}\n\nconst selectedState = candidates[0].state;\nconst latest = selectedState.latest || {};\nconst attemptNo = selectedState.attempts_today + 1;\nconst lockUntil = new Date(nowTs + dialTimeoutMinutes * 60 * 1000).toISOString();\nconst retryAt = latest.next_call_ts ? new Date(latest.next_call_ts).toISOString() : null;\n\nconst selected = {\n  campaign_key: campaignKey,\n  job_id: jobId,\n  lead_key: selectedState.lead_key,\n  client_ref: selectedState.lead_key,\n  source_record_key: String(latest.source_record_key || selectedState.lead_key),\n  sheet_row_number: Number(latest.sheet_row_number || 0),\n  company_name: String(latest.company_name || ''),\n  contact_name: String(latest.contact_name || ''),\n  phone_primary: String(latest.phone_primary || ''),\n  phone_secondary: String(latest.phone_secondary || ''),\n  city: String(latest.city || ''),\n  segment: String(latest.segment || ''),\n  lpr_role: String(latest.lpr_role || ''),\n  lpr_confirmed: !!latest.lpr_confirmed,\n  current_supplier: String(latest.current_supplier || ''),\n  current_product: String(latest.current_product || ''),\n  current_price: String(latest.current_price || ''),\n  pain_points: String(latest.pain_points || ''),\n  objection_code: String(latest.objection_code || ''),\n  objection_text: String(latest.objection_text || ''),\n  preferred_channel: String(latest.preferred_channel || ''),\n  manager_owner: String(latest.manager_owner || ''),\n  notes_short: String(latest.notes_short || ''),\n  interest_level: String(latest.interest_level || ''),\n  call_result: String(latest.call_result || ''),\n  next_step: String(latest.next_step || ''),\n  next_call_at: String(latest.next_call_at || ''),\n  followup_count: selectedState.attempts_today,\n  attempt_count_today: selectedState.attempts_today,\n  attempt_count_total: attemptNo,\n  max_touch_limit: Number(latest.max_touch_limit || maxAttemptsPerLead) || maxAttemptsPerLead,\n  call_window_start: callWindowStart,\n  call_window_end: callWindowEnd,\n  dial_timeout_minutes: dialTimeoutMinutes,\n  request_id: `${campaignKey}.${mskDate}.${mskTime.replace(/:/g, '')}.${Math.random().toString(36).slice(2, 8)}`,\n  run_ts: now.toISOString(),\n  msk_datetime: mskFmt,\n  msk_date: mskDate,\n  msk_time: mskTime,\n  lock_until: lockUntil,\n  retry_at: retryAt,\n};\n\nconst lock_payload = {\n  lead_id: selected.lead_key,\n  client_ref: selected.lead_key,\n  source_system: 'autodial_dispatcher',\n  source_record_key: selected.source_record_key,\n  company_name: selected.company_name,\n  contact_name: selected.contact_name,\n  caller: selected.phone_primary,\n  phone_primary: selected.phone_primary,\n  phone_secondary: selected.phone_secondary,\n  city: selected.city,\n  segment: selected.segment,\n  lpr_role: selected.lpr_role,\n  lpr_confirmed: selected.lpr_confirmed,\n  current_supplier: selected.current_supplier,\n  current_product: selected.current_product,\n  current_price: selected.current_price,\n  pain_points: selected.pain_points,\n  objection_code: selected.objection_code,\n  objection_text: selected.objection_text,\n  interest_level: selected.interest_level,\n  call_result: 'dialing',\n  next_step: 'autodial_dialing',\n  next_call_at: selected.lock_until,\n  preferred_channel: selected.preferred_channel,\n  manager_owner: selected.manager_owner,\n  material_sent: false,\n  followup_count: selected.attempt_count_total,\n  max_touch_limit: selected.max_touch_limit,\n  do_not_call: false,\n  final_reason: '',\n  notes_short: 'Автодозвон: взят в работу',\n  notes_redacted: '',\n  call_record_url: '',\n  eleven_conv_id: '',\n  n8n_execution_id: selected.request_id,\n  agent_version: 'AUTODIAL_DISPATCHER_SHEET_V1',\n  last_updated_by: 'autodial_dispatcher',\n};\n\nreturn [{\n  action: 'dial',\n  reason: 'candidate_selected',\n  campaign_key: campaignKey,\n  job_id: jobId,\n  msk_datetime: mskFmt,\n  msk_date: mskDate,\n  msk_time: mskTime,\n  daily_success_count: dailySuccessCount,\n  daily_success_limit: dailySuccessLimit,\n  active_dial_count: 0,\n  eligible_count: candidates.length,\n  total_leads: totalLeads,\n  selected,\n  lock_payload,\n}];"
       },
       "id": "ea783481-3a89-4a62-a163-d443d933950b",
       "name": "Dispatcher | Parse Sheet Rows",
@@ -374,8 +374,8 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.is_exhausted ? 'true' : 'false' }}",
-                    "rightValue": "true",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "dial",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
@@ -385,7 +385,7 @@
                 "combinator": "and"
               },
               "renameOutput": true,
-              "outputKey": "Exhausted"
+              "outputKey": "Dial"
             },
             {
               "conditions": {
@@ -397,8 +397,8 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.is_exhausted ? 'true' : 'false' }}",
-                    "rightValue": "false",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "finish",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
@@ -408,7 +408,7 @@
                 "combinator": "and"
               },
               "renameOutput": true,
-              "outputKey": "Active"
+              "outputKey": "Finish"
             }
           ]
         },
@@ -425,7 +425,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const data = $json || {}; return [{ ok: true, action: 'exhausted', remaining_active: Number(data.remaining_active || 0), campaign_key: 'lipolong_contacts_msk' }];"
+        "jsCode": "const data = $json || {};\nreturn [{\n  ok: true,\n  action: 'skipped',\n  reason: String(data.reason || 'no_due_rows'),\n  campaign_key: String(data.campaign_key || 'lipolong_contacts_msk'),\n  job_id: String(data.job_id || ''),\n  msk_datetime: String(data.msk_datetime || ''),\n  msk_date: String(data.msk_date || ''),\n  msk_time: String(data.msk_time || ''),\n  daily_success_count: Number(data.daily_success_count || 0),\n  daily_success_limit: Number(data.daily_success_limit || 15),\n  active_dial_count: Number(data.active_dial_count || 0),\n  eligible_count: Number(data.eligible_count || 0),\n  total_leads: Number(data.total_leads || 0),\n}];"
       },
       "id": "06da5faa-56c6-44ad-8ee0-cbb5d030baf8",
       "name": "Dispatcher | Finish Exhausted",
@@ -438,16 +438,23 @@
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "WITH campaign AS (SELECT c.campaign_key, c.status, c.current_day, c.daily_success_count, c.daily_success_limit, c.max_attempts_per_lead, c.dial_timeout_minutes FROM autodial_campaigns c WHERE c.campaign_key = $1), candidate AS (SELECT q.* FROM autodial_queue q JOIN campaign c ON c.campaign_key = q.campaign_key WHERE c.status = 'active' AND c.daily_success_count < c.daily_success_limit AND q.campaign_key = $1 AND q.do_not_call = false AND q.dial_status IN ('pending', 'retry_pending') AND q.attempt_count_today < LEAST(q.max_touch_limit, c.max_attempts_per_lead) AND (q.next_call_at IS NULL OR q.next_call_at <= NOW()) AND (q.locked_until IS NULL OR q.locked_until < NOW()) ORDER BY COALESCE(q.next_call_at, NOW()), q.attempt_count_total, q.sheet_row_number FOR UPDATE SKIP LOCKED LIMIT 1), updated AS (UPDATE autodial_queue q SET dial_status = 'dialing', attempt_count_today = attempt_count_today + 1, attempt_count_total = attempt_count_total + 1, last_attempt_at = NOW(), locked_by_job = $2, locked_until = NOW() + (COALESCE((SELECT dial_timeout_minutes FROM campaign), 20) * INTERVAL '1 minute'), last_updated_by = 'autodial_dispatcher', updated_at = NOW() FROM candidate c WHERE q.id = c.id RETURNING q.*) SELECT COALESCE((SELECT q.campaign_key FROM updated q LIMIT 1), $1::text) AS campaign_key, COALESCE((SELECT q.id FROM updated q LIMIT 1), NULL) AS queue_id, COALESCE((SELECT q.lead_key FROM updated q LIMIT 1), '') AS lead_key, COALESCE((SELECT q.sheet_row_number FROM updated q LIMIT 1), 0) AS sheet_row_number, COALESCE((SELECT q.phone_primary FROM updated q LIMIT 1), '') AS phone_primary, COALESCE((SELECT q.phone_secondary FROM updated q LIMIT 1), '') AS phone_secondary, COALESCE((SELECT q.company_name FROM updated q LIMIT 1), '') AS company_name, COALESCE((SELECT q.contact_name FROM updated q LIMIT 1), '') AS contact_name, COALESCE((SELECT q.source_record_key FROM updated q LIMIT 1), '') AS source_record_key, COALESCE((SELECT q.attempt_count_today FROM updated q LIMIT 1), 0) AS attempt_count_today, COALESCE((SELECT q.attempt_count_total FROM updated q LIMIT 1), 0) AS attempt_count_total, COALESCE((SELECT q.dial_status FROM updated q LIMIT 1), '') AS dial_status, COALESCE((SELECT q.next_call_at FROM updated q LIMIT 1), NULL) AS next_call_at, COALESCE((SELECT q.locked_until FROM updated q LIMIT 1), NULL) AS locked_until, COALESCE((SELECT q.locked_by_job FROM updated q LIMIT 1), '') AS locked_by_job, COALESCE((SELECT status FROM campaign), 'active') AS campaign_status, COALESCE((SELECT daily_success_count FROM campaign), 0) AS daily_success_count, COALESCE((SELECT daily_success_limit FROM campaign), 15) AS daily_success_limit, COALESCE((SELECT max_attempts_per_lead FROM campaign), 3) AS max_attempts_per_lead, COALESCE((SELECT dial_timeout_minutes FROM campaign), 20) AS dial_timeout_minutes, CASE WHEN EXISTS(SELECT 1 FROM updated) THEN true ELSE false END AS claimed;",
+        "method": "POST",
+        "url": "https://www.n-8-n.site/webhook/eleven/tool/call-log",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.lock_payload }}",
         "options": {
-          "queryReplacement": "={{ [ String($node['Dispatcher | Build Run Context'].json.campaign_key), String($node['Dispatcher | Build Run Context'].json.job_id) ] }}"
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
         }
       },
       "id": "d10cca50-80b3-49c3-b8b9-03aae99f0077",
       "name": "Postgres | Claim Next Lead",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         1740,
         440
@@ -475,7 +482,7 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.lead_key ? 'true' : 'false' }}",
+                    "leftValue": "={{ $json.ok ? \"true\" : \"false\" }}",
                     "rightValue": "true",
                     "operator": {
                       "type": "string",
@@ -486,7 +493,7 @@
                 "combinator": "and"
               },
               "renameOutput": true,
-              "outputKey": "Claimed"
+              "outputKey": "Accepted"
             },
             {
               "conditions": {
@@ -498,7 +505,7 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.lead_key ? 'true' : 'false' }}",
+                    "leftValue": "={{ $json.ok ? \"true\" : \"false\" }}",
                     "rightValue": "false",
                     "operator": {
                       "type": "string",
@@ -509,7 +516,7 @@
                 "combinator": "and"
               },
               "renameOutput": true,
-              "outputKey": "Empty"
+              "outputKey": "Rejected"
             }
           ]
         },
@@ -526,7 +533,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const data = $json || {}; return [{ ok: true, action: 'no_lead_available', campaign_key: data.campaign_key || 'lipolong_contacts_msk', daily_success_count: Number(data.daily_success_count || 0), daily_success_limit: Number(data.daily_success_limit || 15), remaining_reason: 'no_due_rows' }];"
+        "jsCode": "const data = $json || {};\nreturn [{ ok: false, action: 'lock_failed', lead_key: String(data.lead_key || ''), campaign_key: String(data.campaign_key || 'lipolong_contacts_msk'), request_id: String(data.request_id || ''), note: 'dispatcher could not claim the lead' }];"
       },
       "id": "4f255515-a2c7-4ecc-a95d-7f038d99bb7c",
       "name": "Dispatcher | Finish No Lead",
@@ -539,7 +546,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const row = $json || {}; const leadKey = String(row.lead_key || ''); const phone = String(row.phone_primary || row.phone_secondary || ''); return [{ campaign_key: String(row.campaign_key || 'lipolong_contacts_msk'), job_id: String(row.job_id || ''), lead_key: leadKey, client_ref: leadKey, source_record_key: String(row.source_record_key || leadKey), company_name: String(row.company_name || ''), contact_name: String(row.contact_name || ''), phone_primary: phone, phone_target: phone, sheet_row_number: Number(row.sheet_row_number || 0), attempt_no: Number(row.attempt_count_total || row.attempt_count_today || 0), call_window_start: String(row.call_window_start || '10:00'), call_window_end: String(row.call_window_end || '14:00'), dial_timeout_minutes: Number(row.dial_timeout_minutes || 20), request_id: `${String(row.job_id || 'autodial')}:${leadKey}:${Date.now()}` }];"
+        "jsCode": "const row = $node['Dispatcher | Parse Sheet Rows'].json.selected || {};\nconst leadKey = String(row.lead_key || '');\nconst phone = String(row.phone_primary || row.phone_secondary || '');\nreturn [{\n  campaign_key: String(row.campaign_key || 'lipolong_contacts_msk'),\n  job_id: String(row.job_id || ''),\n  lead_key: leadKey,\n  client_ref: leadKey,\n  source_record_key: String(row.source_record_key || leadKey),\n  company_name: String(row.company_name || ''),\n  contact_name: String(row.contact_name || ''),\n  phone_primary: phone,\n  phone_target: phone,\n  sheet_row_number: Number(row.sheet_row_number || 0),\n  attempt_no: Number(row.attempt_count_total || row.attempt_count_today || 0),\n  call_window_start: String(row.call_window_start || '10:00'),\n  call_window_end: String(row.call_window_end || '14:00'),\n  dial_timeout_minutes: Number(row.dial_timeout_minutes || 20),\n  request_id: String(row.request_id || `autodial.${Date.now()}`),\n  notes_short: String(row.notes_short || ''),\n}];"
       },
       "id": "180ed758-4d44-46a5-80d7-adefae070bf0",
       "name": "Dispatcher | Build Outbound Request",
@@ -631,7 +638,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $json.body ?? $json; const action = String(body.action || body.status || body.result || '').trim(); const accepted = body.ok === true || action === 'call_requested' || action === 'requested' || action === 'ok' || body.success === true; return [{ accepted, action: action || (accepted ? 'call_requested' : ''), ok: accepted, response_body: body, lead_key: String($node['Dispatcher | Build Outbound Request'].json.lead_key || ''), campaign_key: String($node['Dispatcher | Build Outbound Request'].json.campaign_key || 'lipolong_contacts_msk'), request_id: String($node['Dispatcher | Build Outbound Request'].json.request_id || '') }];"
+        "jsCode": "const body = $json.body ?? $json;\nconst action = String(body.action || body.status || body.result || '').trim();\nconst accepted = body.ok === true || action === 'call_requested' || action === 'requested' || action === 'ok' || body.success === true;\nreturn [{\n  accepted,\n  action: action || (accepted ? 'call_requested' : ''),\n  ok: accepted,\n  response_body: body,\n  lead_key: String($node['Dispatcher | Build Outbound Request'].json.lead_key || ''),\n  campaign_key: String($node['Dispatcher | Build Outbound Request'].json.campaign_key || 'lipolong_contacts_msk'),\n  request_id: String($node['Dispatcher | Build Outbound Request'].json.request_id || ''),\n}];"
       },
       "id": "9128df3e-18ec-4192-880b-990b45f835ff",
       "name": "Dispatcher | Normalize Outbound Response",
@@ -707,7 +714,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const data = $json || {}; return [{ ok: true, action: 'call_requested', lead_key: String(data.lead_key || ''), campaign_key: String(data.campaign_key || 'lipolong_contacts_msk'), request_id: String(data.request_id || ''), response_action: String(data.action || ''), note: 'outbound request accepted' }];"
+        "jsCode": "const data = $json || {};\nreturn [{\n  ok: true,\n  action: 'call_requested',\n  lead_key: String(data.lead_key || ''),\n  campaign_key: String(data.campaign_key || 'lipolong_contacts_msk'),\n  request_id: String(data.request_id || ''),\n  response_action: String(data.action || ''),\n  note: 'outbound request accepted',\n}];"
       },
       "id": "2b0faa97-5e8d-4bc4-8a04-8d1b875e9e50",
       "name": "Dispatcher | Finish Call Requested",
@@ -720,16 +727,12 @@
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "WITH updated AS (UPDATE autodial_queue q SET dial_status = 'retry_pending', attempt_count_today = GREATEST(q.attempt_count_today - 1, 0), attempt_count_total = GREATEST(q.attempt_count_total - 1, 0), locked_by_job = NULL, locked_until = NULL, last_attempt_result = 'outbound_request_failed', next_call_at = NOW() + interval '15 minutes', last_updated_by = 'autodial_dispatcher', updated_at = NOW() FROM (SELECT $1::text AS lead_key, $2::text AS campaign_key) f WHERE q.campaign_key = f.campaign_key AND q.lead_key = f.lead_key RETURNING q.id, q.lead_key, q.next_call_at) SELECT COALESCE((SELECT COUNT(*)::int FROM updated), 0) AS reverted_rows;",
-        "options": {
-          "queryReplacement": "={{ [ String($node['Dispatcher | Normalize Outbound Response'].json.lead_key || ''), String($node['Dispatcher | Build Run Context'].json.campaign_key) ] }}"
-        }
+        "jsCode": "const response = $json || {};\nconst selected = $node['Dispatcher | Parse Sheet Rows'].json.selected || {};\nconst nextCallAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();\nreturn [{\n  lead_id: String(selected.lead_key || ''),\n  client_ref: String(selected.lead_key || ''),\n  source_system: 'autodial_dispatcher',\n  source_record_key: String(selected.source_record_key || selected.lead_key || ''),\n  company_name: String(selected.company_name || ''),\n  contact_name: String(selected.contact_name || ''),\n  caller: String(selected.phone_primary || ''),\n  phone_primary: String(selected.phone_primary || ''),\n  phone_secondary: String(selected.phone_secondary || ''),\n  city: String(selected.city || ''),\n  segment: String(selected.segment || ''),\n  lpr_role: String(selected.lpr_role || ''),\n  lpr_confirmed: selected.lpr_confirmed === true,\n  current_supplier: String(selected.current_supplier || ''),\n  current_product: String(selected.current_product || ''),\n  current_price: String(selected.current_price || ''),\n  pain_points: String(selected.pain_points || ''),\n  objection_code: String(selected.objection_code || ''),\n  objection_text: String(selected.objection_text || ''),\n  interest_level: String(selected.interest_level || ''),\n  call_result: 'outbound_request_failed',\n  next_step: 'retry_after_failed_outbound',\n  next_call_at: nextCallAt,\n  preferred_channel: String(selected.preferred_channel || ''),\n  manager_owner: String(selected.manager_owner || ''),\n  material_sent: false,\n  followup_count: Number(selected.attempt_count_total || 0),\n  max_touch_limit: Number(selected.max_touch_limit || 3),\n  do_not_call: false,\n  final_reason: '',\n  notes_short: 'Автодозвон: outbound запрос не принят, ставим повтор',\n  notes_redacted: '',\n  call_record_url: '',\n  eleven_conv_id: '',\n  n8n_execution_id: String(selected.request_id || ''),\n  agent_version: 'AUTODIAL_DISPATCHER_SHEET_V1',\n  last_updated_by: 'autodial_dispatcher',\n  failure_reason: String(response.action || response.error || response.message || 'outbound_request_failed'),\n}];"
       },
       "id": "151f07ba-acb4-41b9-97c8-aa4eaa78a3dc",
       "name": "Postgres | Mark Outbound Failure",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         3180,
         600
@@ -745,12 +748,23 @@
     },
     {
       "parameters": {
-        "jsCode": "const data = $json || {}; return [{ ok: false, action: 'outbound_request_failed', lead_key: String(data.lead_key || ''), campaign_key: String(data.campaign_key || 'lipolong_contacts_msk'), request_id: String(data.request_id || ''), note: 'dispatcher reverted the claim and scheduled a retry' }];"
+        "method": "POST",
+        "url": "https://www.n-8-n.site/webhook/eleven/tool/call-log",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
       },
       "id": "2b0faa97-5e8d-4bc4-8a04-8d1b875e9e51",
       "name": "Dispatcher | Finish Outbound Failure",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         3420,
         600
@@ -784,7 +798,7 @@
       "main": [
         [
           {
-            "node": "Postgres | Upsert Campaign",
+            "node": "Google | Build Sheet Payload",
             "type": "main",
             "index": 0
           }
@@ -792,39 +806,6 @@
         [
           {
             "node": "Dispatcher | Finish Outside Window",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Postgres | Upsert Campaign": {
-      "main": [
-        [
-          {
-            "node": "Postgres | Reap Stale Dialing",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Postgres | Reap Stale Dialing": {
-      "main": [
-        [
-          {
-            "node": "Postgres | Reset Daily Cycle",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Postgres | Reset Daily Cycle": {
-      "main": [
-        [
-          {
-            "node": "Google | Build Sheet Payload",
             "type": "main",
             "index": 0
           }
@@ -865,39 +846,6 @@
       ]
     },
     "Dispatcher | Parse Sheet Rows": {
-      "main": [
-        [
-          {
-            "node": "Postgres | Seed Queue",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Postgres | Seed Queue": {
-      "main": [
-        [
-          {
-            "node": "Postgres | Sync Outcomes",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Postgres | Sync Outcomes": {
-      "main": [
-        [
-          {
-            "node": "Postgres | Evaluate Exhaustion",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Postgres | Evaluate Exhaustion": {
       "main": [
         [
           {
