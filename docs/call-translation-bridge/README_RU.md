@@ -31,7 +31,10 @@
 9. `09_ELEVEN_TOOL_SEND_SMS_RU.md`
    Подключение Tool/Webhook `send_sms_info` для отправки SMS через Mango direct API из ElevenLabs через n8n, включая правило `на этот номер` -> `system__called_number`.
 
-10. `../agent_kb_lipolong/README_RU.md`  
+10. `10_AUTODIAL_DISPATCHER_RU.md`
+   Автодозвон по таблице `Лиды_обзвон`: окно `10:00–14:00` МСК, retry-политика, лимит `15` живых контактов в день и остановка кампании после исчерпания списка.
+
+11. `../agent_kb_lipolong/README_RU.md`  
    Готовый KB-пакет для агента (контент + схема Google Sheet + шаги создания таблицы).
 
 ## Границы системы

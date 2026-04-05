@@ -48,3 +48,10 @@
 - `next_step`: `send_kp`, `call_manager`, `callback`, `close_won`, `close_lost`, `archive`.
 - `preferred_channel`: `phone`, `whatsapp`, `telegram`.
 - `interest_level`: `A`, `B`, `C`.
+
+## Примечание по автодозвону
+
+- Строки с `source_system = xlsx_import` считаются исходной очередью контактов.
+- Строки, добавленные через live `call_log`, имеют `source_system = elevenlabs` и используются как история звонков.
+- Для автодозвона не нужно смешивать seed-строки и лог-строки в одну логику выбора.
+- Стабильный ключ лида для outbound-цепочки рекомендуется брать из `source_record_key`.
