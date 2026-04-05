@@ -293,3 +293,10 @@
 - Проверка:
 - Следующие шаги:
 ```
+### 2026-04-05 — Переключение call_log на новую таблицу контактов
+
+- Для рабочей таблицы `контакты_косметологов_москва_47.xlsx` создана native Google Sheet-копия:
+  - `1pLrCNeQ_thipr5-fajPusgNZZSd5NHEZFmGkegfpIqI`
+- Причина: исходный файл был в формате `.xlsx`, и текущий `call_log` через Google Sheets API не может писать напрямую в Excel-файл на Google Drive.
+- Live workflow `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` переведен на новую Google Sheet.
+- Целевой лист сохранен прежним: `Лиды_обзвон`.
