@@ -10,26 +10,30 @@
 
 ## 2) Последние важные изменения
 
-### 2026-04-06 — Добавлен relay-обход для outbound ElevenLabs
-- Поднят локальный relay для исходящих вызовов ElevenLabs:
-  - `scripts/eleven_outbound_relay_server.py`
-  - `scripts/localhost_run_tunnel_sync.py`
-- Причина:
-  - live `n8n` не получал валидный JSON от `api.elevenlabs.io` на outbound-call;
-  - upstream мог отдавать HTML block/challenge page вместо API-ответа;
-  - с локальной машины прямой вызов ElevenLabs API отдавал нормальный JSON.
-- Новая схема:
-  - live `n8n` вызывает relay через публичный HTTPS tunnel;
-  - relay на локальной машине уже делает прямой `POST` в `https://api.elevenlabs.io/v1/convai/sip-trunk/outbound-call`;
-  - tunnel-sync автоматически переписывает live-ноду `Eleven | Outbound HTTP` на актуальный tunnel URL.
-- В live workflow `VOICE_INBOUND_AGENT (draft)` зафиксирована новая логика:
+### 2026-04-06 — Relay для outbound ElevenLabs вынесен на отдельный сервер
+- Первичный локальный relay через ноутбук использовался только как временный обход и выведен из live-контура.
+- Финальная рабочая схема на сегодня:
+  - live `n8n` на `147.45.213.87`
+  - relay на отдельном сервере `151.241.228.232`
+  - live `VOICE_INBOUND_AGENT (draft)` ходит в:
+    - `http://151.241.228.232:8787/eleven/outbound-call`
+- На relay-сервере поднят systemd-сервис:
+  - `/opt/eleven_outbound_relay.py`
+  - `/root/.eleven_outbound_relay.env`
+  - `/etc/systemd/system/eleven-outbound-relay.service`
+- Найдена и исправлена причина таймаута live outbound:
+  - `n8n` работал не на relay-сервере;
+  - firewall relay-сервера не пускал трафик на `8787/tcp`;
+  - добавлено правило доступа только от IP live `n8n`:
+    - `147.45.213.87 -> 151.241.228.232:8787/tcp`
+- После исправления:
+  - invalid test number -> корректный `provider_rejected` с JSON `SIP 403`;
+  - route `n8n -> server relay -> ElevenLabs` подтвержден живым smoke-test.
+- В live workflow `VOICE_INBOUND_AGENT (draft)` сохранена логика:
   - HTML/challenge response -> `provider_rejected`;
   - `success=false` от Eleven -> `provider_rejected` даже если есть `conversation_id`;
   - `success=true` и валидный payload -> `call_requested`.
-- Smoke-test после внедрения:
-  - invalid test number -> корректный `provider_rejected` с JSON `SIP 403`;
-  - реальный test outbound -> корректный `call_requested`, `conversation_id` и `sip_call_id` пришли от Eleven.
-- Документация по relay вынесена в:
+- Документация по актуальной relay-схеме:
   - `docs/call-translation-bridge/11_ELEVEN_OUTBOUND_RELAY_RU.md`
 
 ### 2026-04-06 — Проведен live smoke-test outbound-call и исправлена ложная success-ветка
