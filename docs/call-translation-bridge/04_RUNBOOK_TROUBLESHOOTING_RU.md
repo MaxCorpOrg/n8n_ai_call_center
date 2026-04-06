@@ -34,6 +34,8 @@ core set verbose 5
 - `action=route_sent` или `action=skipped`;
 - `reason` для skipped;
 - `key_ok` / `sign_ok`.
+- Для outbound webhook `POST /webhook/eleven/outbound-call` нормальным успехом считается только валидный accepted payload от ElevenLabs.
+- Если в `Eleven | Outbound HTTP` пришел HTML, `Cloudflare`, `Just a moment`, `help.elevenlabs.io` или `action=provider_rejected`, это не успешный звонок, а блок/ошибка upstream-провайдера.
 
 ## 4) Обязательный пакет для поддержки Mango
 
@@ -47,7 +49,6 @@ core set verbose 5
 
 1. Inbound event -> `route_sent`.
 2. Outbound/internal event -> `skipped`.
-3. Eleven outbound webhook -> `call_requested`.
+3. Eleven outbound webhook -> `call_requested` только при валидном accepted payload; `provider_rejected` считать сбоем провайдера.
 4. Нет хардкода новых тестовых номеров в workflow.
 5. Ключи и токены не публикуются в документах и чате.
-

@@ -10,6 +10,20 @@
 
 ## 2) Последние важные изменения
 
+### 2026-04-06 — Проведен live smoke-test outbound-call и исправлена ложная success-ветка
+- Выполнен live-тест `5` исходящих запросов по первым строкам рабочей таблицы `Лиды_обзвон`.
+- Результат теста:
+  - `n8n` принимал webhook-запросы успешно;
+  - сами outbound-вызовы не подтверждались реальным API-ответом ElevenLabs;
+  - вместо JSON API upstream возвращал HTML challenge/block page (`Cloudflare / help.elevenlabs.io`), поэтому реальные звонки из этого контура не подтвердились.
+- Из-за этого старый outbound bridge ошибочно возвращал `action = call_requested`, хотя провайдер фактически не дал валидный ответ на создание звонка.
+- Live workflow `VOICE_INBOUND_AGENT (draft)` обновлен:
+  - `Eleven | Build Success Response` теперь проверяет, что upstream-ответ похож на валидный accepted payload;
+  - HTML / challenge / block page теперь помечаются как `ok = false`, `action = provider_rejected`;
+  - это позволяет `AUTODIAL_DISPATCHER` корректно видеть отказ провайдера и не считать такой запрос успешным.
+- Для live снят backup перед правкой:
+  - `backups/2026-04-06_outbound_provider_fix/VOICE_INBOUND_AGENT_before_provider_fix.json`
+
 ### 2026-04-06 — Исправлен критичный рассинхрон таблиц для автодозвона
 - Найден и исправлен баг в `AUTODIAL_DISPATCHER`: workflow читал старый `spreadsheet_id` `1E-VCKAv4vF_SFLY8DgW0UC80FvAC_DDIxbSbi8GC8kU`, тогда как live `call_log` и рабочая таблица уже были переведены на `1pLrCNeQ_thipr5-fajPusgNZZSd5NHEZFmGkegfpIqI`.
 - Из-за этого dispatcher мог корректно стартовать по расписанию, но смотреть не в ту таблицу и не видеть актуальную очередь обзвона.
