@@ -16,6 +16,7 @@
 - Репозиторный draft и документация приведены к одному источнику истины:
   - `https://docs.google.com/spreadsheets/d/1pLrCNeQ_thipr5-fajPusgNZZSd5NHEZFmGkegfpIqI/edit`
 - Дополнительно dispatcher переведен на выбор целевой вкладки по `gid = 199760593`, чтобы ссылка на нужный таб была достаточной для настройки.
+- Отдельно исправлен критичный routing-bug: у `Dispatcher | Exhaustion Switch` были перепутаны выходы, из-за чего ветка `dial` уходила в `Finish Exhausted` вместо `Claim Next Lead`. Live workflow обновлен и активен на версии `72288ab6-a401-4f16-90b2-a8ec3a8a8bc7`.
 
 ### 2026-04-05 — Автодозвон переведен на sheet-first runtime и активирован в live n8n
 - Live workflow `AUTODIAL_DISPATCHER` переведен на Google Sheet-only контур:

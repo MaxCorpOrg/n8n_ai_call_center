@@ -925,14 +925,14 @@
       "main": [
         [
           {
-            "node": "Dispatcher | Finish Exhausted",
+            "node": "Postgres | Claim Next Lead",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Postgres | Claim Next Lead",
+            "node": "Dispatcher | Finish Exhausted",
             "type": "main",
             "index": 0
           }
