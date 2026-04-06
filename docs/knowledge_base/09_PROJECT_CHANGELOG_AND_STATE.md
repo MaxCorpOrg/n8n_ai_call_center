@@ -10,6 +10,13 @@
 
 ## 2) Последние важные изменения
 
+### 2026-04-06 — Исправлен критичный рассинхрон таблиц для автодозвона
+- Найден и исправлен баг в `AUTODIAL_DISPATCHER`: workflow читал старый `spreadsheet_id` `1E-VCKAv4vF_SFLY8DgW0UC80FvAC_DDIxbSbi8GC8kU`, тогда как live `call_log` и рабочая таблица уже были переведены на `1pLrCNeQ_thipr5-fajPusgNZZSd5NHEZFmGkegfpIqI`.
+- Из-за этого dispatcher мог корректно стартовать по расписанию, но смотреть не в ту таблицу и не видеть актуальную очередь обзвона.
+- Репозиторный draft и документация приведены к одному источнику истины:
+  - `https://docs.google.com/spreadsheets/d/1pLrCNeQ_thipr5-fajPusgNZZSd5NHEZFmGkegfpIqI/edit`
+- Дополнительно dispatcher переведен на выбор целевой вкладки по `gid = 199760593`, чтобы ссылка на нужный таб была достаточной для настройки.
+
 ### 2026-04-05 — Автодозвон переведен на sheet-first runtime и активирован в live n8n
 - Live workflow `AUTODIAL_DISPATCHER` переведен на Google Sheet-only контур:
   - источник истины: `Лиды_обзвон`;

@@ -24,7 +24,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const now = new Date();\nconst fmt = new Intl.DateTimeFormat('sv-SE', {\n  timeZone: 'Europe/Moscow',\n  hour12: false,\n  year: 'numeric',\n  month: '2-digit',\n  day: '2-digit',\n  hour: '2-digit',\n  minute: '2-digit',\n  second: '2-digit',\n}).format(now);\nconst [mskDate, mskTime] = fmt.split(' ');\nconst [hh, mm] = mskTime.split(':');\nconst minutes = Number(hh) * 60 + Number(mm);\nconst withinWindow = minutes >= 600 && minutes < 840;\nconst campaignKey = 'lipolong_contacts_msk';\nconst jobId = `autodial.${mskDate}.${mskTime.replace(/:/g, '')}.${Math.random().toString(36).slice(2, 8)}`;\nreturn [{\n  run_ts: now.toISOString(),\n  msk_datetime: `${mskDate}T${mskTime}+03:00`,\n  msk_date: mskDate,\n  msk_time: mskTime,\n  within_window: withinWindow,\n  campaign_key: campaignKey,\n  job_id: jobId,\n  daily_success_limit: 15,\n  max_attempts_per_lead: 3,\n  call_window_start: '10:00',\n  call_window_end: '14:00',\n  dial_timeout_minutes: 20,\n  spreadsheet_id: '1E-VCKAv4vF_SFLY8DgW0UC80FvAC_DDIxbSbi8GC8kU',\n  sheet_name: 'Лиды_обзвон',\n  sheet_url: 'https://docs.google.com/spreadsheets/d/1E-VCKAv4vF_SFLY8DgW0UC80FvAC_DDIxbSbi8GC8kU/edit?gid=1983852347#gid=1983852347',\n  sheet_range: 'Лиды_обзвон!A1:AM',\n  sheet_range_encoded: '%D0%9B%D0%B8%D0%B4%D1%8B_%D0%BE%D0%B1%D0%B7%D0%B2%D0%BE%D0%BD%21A1%3AAM',\n}];"
+        "jsCode": "const now = new Date();\nconst fmt = new Intl.DateTimeFormat('sv-SE', {\n  timeZone: 'Europe/Moscow',\n  hour12: false,\n  year: 'numeric',\n  month: '2-digit',\n  day: '2-digit',\n  hour: '2-digit',\n  minute: '2-digit',\n  second: '2-digit',\n}).format(now);\nconst [mskDate, mskTime] = fmt.split(' ');\nconst [hh, mm] = mskTime.split(':');\nconst minutes = Number(hh) * 60 + Number(mm);\nconst withinWindow = minutes >= 600 && minutes < 840;\nconst campaignKey = 'lipolong_contacts_msk';\nconst jobId = `autodial.${mskDate}.${mskTime.replace(/:/g, '')}.${Math.random().toString(36).slice(2, 8)}`;\nreturn [{\n  run_ts: now.toISOString(),\n  msk_datetime: `${mskDate}T${mskTime}+03:00`,\n  msk_date: mskDate,\n  msk_time: mskTime,\n  within_window: withinWindow,\n  campaign_key: campaignKey,\n  job_id: jobId,\n  daily_success_limit: 15,\n  max_attempts_per_lead: 3,\n  call_window_start: '10:00',\n  call_window_end: '14:00',\n  dial_timeout_minutes: 20,\n  spreadsheet_id: '1pLrCNeQ_thipr5-fajPusgNZZSd5NHEZFmGkegfpIqI',\n  sheet_gid: '199760593',\n  fallback_sheet_name: 'Лиды_обзвон',\n  sheet_url: 'https://docs.google.com/spreadsheets/d/1pLrCNeQ_thipr5-fajPusgNZZSd5NHEZFmGkegfpIqI/edit?gid=199760593#gid=199760593',\n  sheet_range: 'A1:AM',\n}];"
       },
       "id": "df9eeb33-4214-4082-8b88-bd44b1087c15",
       "name": "Dispatcher | Build Run Context",
@@ -163,7 +163,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{\n  spreadsheet_id: '1E-VCKAv4vF_SFLY8DgW0UC80FvAC_DDIxbSbi8GC8kU',\n  sheet_name: 'Лиды_обзвон',\n  range_encoded: '%D0%9B%D0%B8%D0%B4%D1%8B_%D0%BE%D0%B1%D0%B7%D0%B2%D0%BE%D0%BD%21A%3AAM',\n  fetch_url: 'https://sheets.googleapis.com/v4/spreadsheets/1E-VCKAv4vF_SFLY8DgW0UC80FvAC_DDIxbSbi8GC8kU/values/%D0%9B%D0%B8%D0%B4%D1%8B_%D0%BE%D0%B1%D0%B7%D0%B2%D0%BE%D0%BD%21A%3AAM?majorDimension=ROWS',\n  oauth_url: 'https://oauth2.googleapis.com/token',\n  client_id: '{{GOOGLE_CLIENT_ID}}',\n  client_secret: '{{GOOGLE_CLIENT_SECRET}}',\n  refresh_token: '{{GOOGLE_REFRESH_TOKEN}}',\n}];"
+        "jsCode": "return [{\n  spreadsheet_id: '1pLrCNeQ_thipr5-fajPusgNZZSd5NHEZFmGkegfpIqI',\n  target_sheet_gid: '199760593',\n  fallback_sheet_name: 'Лиды_обзвон',\n  metadata_url: 'https://sheets.googleapis.com/v4/spreadsheets/1pLrCNeQ_thipr5-fajPusgNZZSd5NHEZFmGkegfpIqI?fields=sheets.properties(sheetId,title)',\n  oauth_url: 'https://oauth2.googleapis.com/token',\n  client_id: '{{GOOGLE_CLIENT_ID}}',\n  client_secret: '{{GOOGLE_CLIENT_SECRET}}',\n  refresh_token: '{{GOOGLE_REFRESH_TOKEN}}',\n}];"
       },
       "id": "3a39abb8-4977-4754-9296-bb36e89faa25",
       "name": "Google | Build Sheet Payload",
@@ -220,7 +220,50 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $node['Google | Build Sheet Payload'].json.fetch_url }}",
+        "url": "={{ $node['Google | Build Sheet Payload'].json.metadata_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + ($node['Google | Refresh Access Token'].json.access_token || '') }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "1cb4b3b8-a429-4d41-88f8-27f1da8cc0f6",
+      "name": "Google | Fetch Sheet Metadata",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        280,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const payload = $node['Google | Build Sheet Payload'].json || {};\nconst body = $json.body ?? $json;\nconst sheets = Array.isArray(body.sheets) ? body.sheets : [];\nconst targetGid = Number(payload.target_sheet_gid || 0);\nconst fallbackSheetName = String(payload.fallback_sheet_name || 'Лиды_обзвон');\nconst matchedSheet = sheets.find((sheet) => Number(sheet?.properties?.sheetId) === targetGid);\nconst sheetName = String(matchedSheet?.properties?.title || fallbackSheetName);\nconst rangeEncoded = encodeURIComponent(`${sheetName}!A:AM`);\nreturn [{\n  spreadsheet_id: String(payload.spreadsheet_id || ''),\n  target_sheet_gid: String(payload.target_sheet_gid || ''),\n  sheet_name: sheetName,\n  resolved_from_gid: !!matchedSheet,\n  range_encoded: rangeEncoded,\n  fetch_url: `https://sheets.googleapis.com/v4/spreadsheets/${payload.spreadsheet_id}/values/${rangeEncoded}?majorDimension=ROWS`,\n}];"
+      },
+      "id": "4df90979-e783-40a3-abf4-d70d84750411",
+      "name": "Google | Resolve Sheet By Gid",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $node['Google | Resolve Sheet By Gid'].json.fetch_url }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -243,7 +286,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        280,
+        760,
         440
       ]
     },
@@ -256,7 +299,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        520,
+        1000,
         440
       ]
     },
@@ -824,6 +867,28 @@
       ]
     },
     "Google | Refresh Access Token": {
+      "main": [
+        [
+          {
+            "node": "Google | Fetch Sheet Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google | Fetch Sheet Metadata": {
+      "main": [
+        [
+          {
+            "node": "Google | Resolve Sheet By Gid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google | Resolve Sheet By Gid": {
       "main": [
         [
           {
