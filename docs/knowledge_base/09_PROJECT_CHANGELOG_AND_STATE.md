@@ -27,6 +27,10 @@
   - `speculative_turn = false`
   - включены built-in tools `skip_turn` и `voicemail_detection`
   - prompt переведен в режим `human-answer gate`: `IVR/hold/ringback -> wait`, `voicemail -> short callback message`, `temporarily unavailable -> no_answer`
+  - после просмотра первого live-диалога opener скорректирован на более понятный business-entry:
+    - убрана формулировка `у вас это направление уже в работе или пока только смотрите`
+    - новый opener идёт через `официальный представитель + сотрудничество + вам это интересно`
+  - возвращён `pronunciation_dictionary_locators`, который был временно потерян при patch-обновлении `conversation_config`
 - Сняты backup-файлы:
   - `backups/2026-04-07_human_gate_autodial_refresh/autodial_live_before_put.json`
   - `backups/2026-04-07_human_gate_autodial_refresh/autodial_live_after_put.json`
