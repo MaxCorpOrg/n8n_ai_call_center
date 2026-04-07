@@ -10,6 +10,29 @@
 
 ## 2) Последние важные изменения
 
+### 2026-04-07 — Live-autodial обновлён под rule set `2/day + 3 unreachable` и включён human-answer gate
+- Для live workflow `AUTODIAL_DISPATCHER (sheet-first draft)` найден и использован рабочий путь сохранения через публичный `n8n` API с минимальным телом `name + nodes + connections + settings`.
+- Live dispatcher обновлён без пересоздания workflow:
+  - `cron = */1 * * * *`
+  - окно обзвона `10:00–14:00` МСК
+  - `daily_attempt_limit_per_lead = 2`
+  - `max_unreachable_total = 3`
+  - добавлена ветка `Retire` для архивирования номера как нерабочего после третьей недоступности
+  - для одинакового номера больше не допускается более `2` автодозвонов в день, если нет явного клиентского callback
+- Для `AI_CALL_AGENT_1` обновлено live-поведение старта разговора:
+  - `first_message = ""`
+  - первая живая реплика агента после подтвержденного человеческого ответа: `Здравствуйте.`
+  - `turn_timeout = 15.0`
+  - `turn_eagerness = normal`
+  - `speculative_turn = false`
+  - включены built-in tools `skip_turn` и `voicemail_detection`
+  - prompt переведен в режим `human-answer gate`: `IVR/hold/ringback -> wait`, `voicemail -> short callback message`, `temporarily unavailable -> no_answer`
+- Сняты backup-файлы:
+  - `backups/2026-04-07_human_gate_autodial_refresh/autodial_live_before_put.json`
+  - `backups/2026-04-07_human_gate_autodial_refresh/autodial_live_after_put.json`
+  - `backups/2026-04-07_ivr_human_gate_live_refresh/eleven_agent_before.json`
+  - `backups/2026-04-07_ivr_human_gate_live_refresh/eleven_agent_after.json`
+
 ### 2026-04-06 — Relay для outbound ElevenLabs вынесен на отдельный сервер
 - Первичный локальный relay через ноутбук использовался только как временный обход и выведен из live-контура.
 - Финальная рабочая схема на сегодня:
