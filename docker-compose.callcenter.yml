@@ -9,12 +9,19 @@ services:
       TZ: ${GENERIC_TIMEZONE:-Europe/Moscow}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-call_center} -d ${POSTGRES_DB:-call_center}"]
-      interval: 15s
+      interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 5
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./sql:/docker-entrypoint-initdb.d:ro
+    mem_limit: 512m
 
 volumes:
   postgres_data:

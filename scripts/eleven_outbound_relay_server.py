@@ -1,14 +1,25 @@
 #!/usr/bin/env python3
 import json
+import logging
 import os
 import sys
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib import error, request
 
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
+    format='{"ts":"%(asctime)s","level":"%(levelname)s","msg":"%(message)s"}',
+    datefmt="%Y-%m-%dT%H:%M:%S%z",
+    stream=sys.stdout,
+)
+logger = logging.getLogger("eleven_relay")
 
 RELAY_BIND = os.getenv("RELAY_BIND", "127.0.0.1")
 RELAY_PORT = int(os.getenv("RELAY_PORT", "8787"))
 RELAY_SHARED_TOKEN = os.getenv("RELAY_SHARED_TOKEN", "")
+RELAY_TIMEOUT = int(os.getenv("RELAY_TIMEOUT", "20"))
 ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY", "")
 ELEVEN_OUTBOUND_URL = os.getenv(
     "ELEVEN_OUTBOUND_URL",
@@ -41,16 +52,19 @@ class RelayHandler(BaseHTTPRequestHandler):
         )
 
     def do_POST(self) -> None:
+        start = time.monotonic()
         if self.path != "/eleven/outbound-call":
             fail(self, 404, {"ok": False, "error": "not_found"})
             return
 
         auth = self.headers.get("X-Relay-Token", "")
         if not RELAY_SHARED_TOKEN or auth != RELAY_SHARED_TOKEN:
+            logger.warning("Forbidden: invalid X-Relay-Token from %s", self.client_address[0])
             fail(self, 403, {"ok": False, "error": "forbidden"})
             return
 
         if not ELEVEN_API_KEY:
+            logger.error("Missing ELEVEN_API_KEY env var")
             fail(self, 500, {"ok": False, "error": "missing_eleven_api_key"})
             return
 
@@ -62,6 +76,8 @@ class RelayHandler(BaseHTTPRequestHandler):
             fail(self, 400, {"ok": False, "error": "invalid_json"})
             return
 
+        logger.info("Relaying to %s (%d bytes)", ELEVEN_OUTBOUND_URL, len(raw))
+
         req = request.Request(
             ELEVEN_OUTBOUND_URL,
             data=json.dumps(payload).encode(),
@@ -72,8 +88,10 @@ class RelayHandler(BaseHTTPRequestHandler):
             },
         )
         try:
-            with request.urlopen(req, timeout=20) as resp:
+            with request.urlopen(req, timeout=RELAY_TIMEOUT) as resp:
                 body = resp.read()
+                elapsed_ms = int((time.monotonic() - start) * 1000)
+                logger.info("Upstream %d (%dms, %d bytes)", resp.status, elapsed_ms, len(body))
                 self.send_response(resp.status)
                 self.send_header(
                     "Content-Type",
@@ -84,6 +102,8 @@ class RelayHandler(BaseHTTPRequestHandler):
                 self.wfile.write(body)
         except error.HTTPError as exc:
             body = exc.read() or b""
+            elapsed_ms = int((time.monotonic() - start) * 1000)
+            logger.warning("Upstream HTTP %d (%dms): %s", exc.code, elapsed_ms, body[:200])
             self.send_response(exc.code)
             self.send_header(
                 "Content-Type",
@@ -93,6 +113,8 @@ class RelayHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
         except Exception as exc:
+            elapsed_ms = int((time.monotonic() - start) * 1000)
+            logger.error("Upstream failed (%dms): %s", elapsed_ms, exc)
             fail(
                 self,
                 502,

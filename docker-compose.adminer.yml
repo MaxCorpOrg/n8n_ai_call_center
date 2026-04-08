@@ -2,12 +2,26 @@ services:
   adminer:
     image: adminer:latest
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.adminer.rule=Host(`${ADMINER_DOMAIN}`)"
       - "traefik.http.routers.adminer.entrypoints=websecure"
       - "traefik.http.routers.adminer.tls=true"
       - "traefik.http.routers.adminer.tls.certresolver=le"
-      - "traefik.http.routers.adminer.middlewares=adminer-auth"
+      - "traefik.http.routers.adminer.middlewares=adminer-auth,adminer-ratelimit"
       - "traefik.http.middlewares.adminer-auth.basicauth.users=${ADMINER_BASICAUTH}"
+      - "traefik.http.middlewares.adminer-ratelimit.ratelimit.average=30"
+      - "traefik.http.middlewares.adminer-ratelimit.ratelimit.burst=50"
       - "traefik.http.services.adminer.loadbalancer.server.port=8080"
+    mem_limit: 256m

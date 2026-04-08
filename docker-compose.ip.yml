@@ -2,14 +2,21 @@ services:
   redis:
     image: redis:7.4-alpine
     restart: always
-    command: ["redis-server", "--appendonly", "yes"]
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 15s
+      interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     volumes:
       - redis_data:/data
+    mem_limit: 256m
 
   n8n:
     image: docker.n8n.io/n8nio/n8n:2.6.4
@@ -17,11 +24,11 @@ services:
     ports:
       - "5678:5678"
     environment:
-      N8N_HOST: "147.45.213.87"
+      N8N_HOST: "${SERVER_IP:-147.45.213.87}"
       N8N_PORT: "5678"
       N8N_PROTOCOL: "http"
       N8N_SECURE_COOKIE: "${N8N_SECURE_COOKIE}"
-      WEBHOOK_URL: "http://147.45.213.87:5678/"
+      WEBHOOK_URL: "http://${SERVER_IP:-147.45.213.87}:5678/"
       GENERIC_TIMEZONE: "${GENERIC_TIMEZONE}"
       NODE_ENV: "production"
       N8N_BASIC_AUTH_ACTIVE: "true"
@@ -39,9 +46,15 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     volumes:
       - n8n_data:/home/node/.n8n
       - ./local-files:/files
+    mem_limit: 1g
 
 volumes:
   redis_data:
