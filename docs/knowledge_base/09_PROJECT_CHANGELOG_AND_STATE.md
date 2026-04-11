@@ -47,6 +47,7 @@
 - Добавлены новые operational-скрипты:
   - `scripts/backup_call_center_postgres.sh` — отдельный dump `call_center` Postgres с gzip, checksum, retention и lock;
   - `scripts/install_n8n_autodeploy_cron.sh` — установка `/etc/cron.d/n8n-autodeploy-clean`.
+  - `scripts/install_prod_ssh_key_147.sh` — helper для установки выделенного SSH-ключа на `147.45.213.87` при наличии разового парольного доступа.
 - Для будущих сессий подготовлен выделенный SSH-ключ и alias на машине `max`:
   - `~/.ssh/n8n_ai_call_center_prod_147_ed25519`
   - alias `ai-core-prod-147`
