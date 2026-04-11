@@ -35,6 +35,30 @@
   - SSH-проверка с `BatchMode=yes` вернула `Permission denied (publickey,password,keyboard-interactive)`;
   - значит состояние сервера пока частично подтверждено отчётом предыдущей сессии и кодом, но не прямой live-проверкой через shell.
 
+### 2026-04-11 — Доукомплектован прод-пакет: clean autodeploy, backup `call_center`, фиксы docs
+- Исправлен важный хвост в репозитории:
+  - из `docker-compose.memory.yml` удалён `postgrest` healthcheck, который ломал clean deploy из-за отсутствия `/bin/sh` в образе `postgrest/postgrest:latest`.
+- Усилен `scripts/n8n-autodeploy-clean.sh`:
+  - добавлена проверка обязательных файлов;
+  - добавлен вызов `validate_env.sh`;
+  - добавлен `up -d --remove-orphans`;
+  - добавлен пост-деплой `healthcheck_all.sh`;
+  - сохранено идемпотентное применение `sql/006_observability.sql`.
+- Добавлены новые operational-скрипты:
+  - `scripts/backup_call_center_postgres.sh` — отдельный dump `call_center` Postgres с gzip, checksum, retention и lock;
+  - `scripts/install_n8n_autodeploy_cron.sh` — установка `/etc/cron.d/n8n-autodeploy-clean`.
+- Для будущих сессий подготовлен выделенный SSH-ключ и alias на машине `max`:
+  - `~/.ssh/n8n_ai_call_center_prod_147_ed25519`
+  - alias `ai-core-prod-147`
+- Но это только подготовка клиента:
+  - сам публичный ключ ещё нужно установить на сервер `147.45.213.87`;
+  - до этого момента безпарольный вход остаётся неподтверждённым.
+- Обновлены серверные docs:
+  - `03_AUTOMATION_BACKUP_RESTORE.md`
+  - `10_SERVER_ACCESS_147_45_213_87.md`
+- Ограничение остаётся прежним:
+  - без рабочего доступа на `147.45.213.87` эти изменения пока подготовлены в git, но не подтверждены live-запуском на сервере.
+
 ### 2026-04-07 — Live-autodial обновлён под rule set `2/day + 3 unreachable` и включён human-answer gate
 - Для live workflow `AUTODIAL_DISPATCHER (sheet-first draft)` найден и использован рабочий путь сохранения через публичный `n8n` API с минимальным телом `name + nodes + connections + settings`.
 - Live dispatcher обновлён без пересоздания workflow:
