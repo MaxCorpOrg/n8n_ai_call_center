@@ -10,6 +10,31 @@
 
 ## 2) Последние важные изменения
 
+### 2026-04-11 — Зафиксирован runbook по прод-серверу `147.45.213.87` и clean deploy
+- По локальной проверке подтверждено, что текущий `HEAD` репозитория: `7c27614`, а в коде реально присутствуют server-side артефакты из прод-отчёта:
+  - `scripts/n8n-autodeploy-clean.sh`
+  - `scripts/backup_n8n.sh`
+  - `scripts/restore_n8n.sh`
+  - `scripts/validate_env.sh`
+  - `sql/006_observability.sql`
+- Создан отдельный handoff/runbook для будущих LLM/AI-сессий:
+  - `docs/knowledge_base/10_SERVER_ACCESS_147_45_213_87.md`
+- В нём зафиксированы:
+  - канонические адреса и рабочие пути сервера `147.45.213.87`;
+  - различие между `рабочим продом` `/home/aicore/n8n-server` и `clean deploy clone` `/home/aicore/n8n-ai-clean`;
+  - рекомендуемая cron-команда для `/usr/local/bin/n8n-autodeploy-clean`;
+  - правило не хранить root-пароль в репозитории;
+  - чеклист для следующей live-сессии по SSH, git, Docker и backup-проверке.
+- Обновлены связанные документы:
+  - `01_INFRASTRUCTURE_AND_WORKSPACES.md`
+  - `03_AUTOMATION_BACKUP_RESTORE.md`
+  - `05_SECURITY_ACCESS_POLICIES.md`
+  - `README.md` в `docs/knowledge_base`
+- Важное ограничение:
+  - live-доступ на `147.45.213.87` из текущей локальной сессии не подтверждён;
+  - SSH-проверка с `BatchMode=yes` вернула `Permission denied (publickey,password,keyboard-interactive)`;
+  - значит состояние сервера пока частично подтверждено отчётом предыдущей сессии и кодом, но не прямой live-проверкой через shell.
+
 ### 2026-04-07 — Live-autodial обновлён под rule set `2/day + 3 unreachable` и включён human-answer gate
 - Для live workflow `AUTODIAL_DISPATCHER (sheet-first draft)` найден и использован рабочий путь сохранения через публичный `n8n` API с минимальным телом `name + nodes + connections + settings`.
 - Live dispatcher обновлён без пересоздания workflow:

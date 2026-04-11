@@ -6,13 +6,16 @@
 |---|---|---|---|---|---|---|---|---|
 | ai-core-1 | `147.45.213.87` | TODO | n8n + Traefik + memory stack + automation | Ubuntu 24.04 | TODO | TODO | TODO | active |
 
-Примечание: IP подтверждён в `docker-compose.ip.yml`.
+Примечание:
+- IP подтверждён в `docker-compose.ip.yml`.
+- Актуальный handoff по этому серверу: `10_SERVER_ACCESS_147_45_213_87.md`.
+- На момент последней локальной проверки рабочий безпарольный SSH-вход с машины `max` не подтверждён: сервер отклонял `publickey` и требовал `password/keyboard-interactive`.
 
 ## 2) Сетевая архитектура
 
 | Компонент | Значение | Примечание |
 |---|---|---|
-| SSH | `22/tcp` | Только по ключам, user `aicore` |
+| SSH | `22/tcp` | Операционный доступ сейчас документирован как `ssh root@147.45.213.87`; старое описание `только по ключам, user aicore` требует live-перепроверки |
 | HTTP | `80/tcp` | Traefik redirect -> HTTPS |
 | HTTPS | `443/tcp` | Публичный вход в n8n и Adminer (через Traefik) |
 | n8n internal | `5678/tcp` | Внутри docker-сети |
@@ -26,6 +29,11 @@
 - App: `n8n` container (`docker-compose.https.yml`).
 - Memory layer: `postgres_memory` + `postgrest` (`docker-compose.memory.yml`).
 - DB UI: `adminer` (`docker-compose.adminer.yml`).
+
+### Рабочие пути на проде
+- Живой рабочий каталог: `/home/aicore/n8n-server`
+- Clean deploy-клон: `/home/aicore/n8n-ai-clean`
+- Для автодеплоя и git-управляемых правок использовать clean-clone, а не грязный рабочий прод-каталог.
 
 ## 3) VPN / DNS (шаблон)
 
