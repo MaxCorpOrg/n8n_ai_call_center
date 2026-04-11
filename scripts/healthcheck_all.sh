@@ -125,7 +125,7 @@ check_n8n_health() {
   echo "─────────────────────────────────────────"
 
   local n8n_container
-  n8n_container=$(docker ps --filter "name=n8n" --format '{{.Names}}' 2>/dev/null | head -1)
+  n8n_container=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '(^|-)n8n(-[0-9]+)?$|(^|-)n8n-1$' | head -1 || true)
   if [[ -z "${n8n_container}" ]]; then
     yellow "n8n container not found"
     return
