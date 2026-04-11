@@ -27,7 +27,7 @@
 
 ## 3. Что трогать нельзя без отдельного решения
 
-- `first_message`
+- пустой `first_message`, если задача не про механику `human-answer gate`
 - номер телефона
 - SIP/provider bindings
 - tool URL без необходимости
@@ -35,8 +35,12 @@
 
 ## 4. Что уже настроено
 
-- защита стартовой фразы от перебивания;
-- более быстрый LLM/TTS стек;
+- live-agent работает через `human-answer gate`;
+- `first_message = ""`;
+- первая живая реплика агента: `Здравствуйте.`;
+- до живого ответа человека продажный opener не запускается;
+- включены built-in tools `skip_turn` и `voicemail_detection`;
+- текущий LLM/TTS стек: `gpt-4.1 + eleven_flash_v2_5 + Elena Gromova`;
 - anti-repeat правила в prompt;
 - реакция на `алло / не слышу / что / о чем звонок / кто вы / где вы`.
 - обязательное уточнение имени собеседника после подтверждения релевантности;
@@ -58,10 +62,11 @@
 1. Не изменился ли `first_message`.
 2. Не съехали ли `tool_ids`.
 3. Не изменились ли `voice_id` и номер.
-4. Не пропало ли `disable_first_message_interruptions = true`.
-5. Не пропали ли `context_fetch`, `call_log` и `send_sms_info` из active tools.
-6. Не вернулась ли в prompt логика с `e-mail`, `telegram username` и вопросом про мессенджер в SMS-кейсе.
+4. Не пропали ли `skip_turn` и `voicemail_detection`.
+5. Не вернулись ли старые `turn_eagerness = eager`, `turn_timeout = 3`, `speculative_turn = true`.
+6. Не пропали ли `context_fetch`, `call_log` и `send_sms_info` из active tools.
+7. Не вернулась ли в prompt логика с `e-mail`, `telegram username` и вопросом про мессенджер в SMS-кейсе.
 
 ## 6. Основной риск
 
-Самая опасная ошибка — случайно изменить бизнес-критичную стартовую фразу, потерять `tool_ids` или сломать состав live-tools, после чего агент перестанет писать `call_log`, потеряет `context_fetch` или перестанет корректно отправлять SMS через `send_sms_info`.
+Самая опасная ошибка — случайно снести `human-answer gate`, потерять `tool_ids` или сломать состав live-tools, после чего агент начнет снова говорить в автоответчики, перестанет писать `call_log`, потеряет `context_fetch` или перестанет корректно отправлять SMS через `send_sms_info`.
