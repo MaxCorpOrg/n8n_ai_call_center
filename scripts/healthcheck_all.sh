@@ -78,7 +78,10 @@ check_postgres() {
   echo "PostgreSQL:"
   echo "─────────────────────────────────────────"
 
-  for pg_container in $(docker ps --filter "name=postgres" --format '{{.Names}}' 2>/dev/null); do
+  local pg_containers
+  pg_containers=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -E '(^|-)postgres(-|$)|(^|-)postgres_memory(-|$)' || true)
+
+  for pg_container in ${pg_containers}; do
     if docker exec "${pg_container}" pg_isready 2>/dev/null | grep -q "accepting"; then
       green "${pg_container}: accepting connections"
     else
@@ -128,14 +131,23 @@ check_n8n_health() {
     return
   fi
 
-  if docker exec "${n8n_container}" node -e "
-    const http=require('http');
-    const req=http.get('http://127.0.0.1:5678',res=>{
-      process.stdout.write(String(res.statusCode));
-      process.exit(res.statusCode<500?0:1)
-    });
-    req.on('error',()=>process.exit(1));
-  " 2>/dev/null; then
+  local health_status
+  health_status=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "${n8n_container}" 2>/dev/null || echo "unknown")
+
+  if [[ "${health_status}" == "healthy" ]]; then
+    green "n8n container health: healthy"
+    return
+  fi
+
+  if docker exec "${n8n_container}" sh -lc '
+    if command -v wget >/dev/null 2>&1; then
+      wget -qO- http://127.0.0.1:5678 >/dev/null 2>&1
+    elif command -v curl >/dev/null 2>&1; then
+      curl -fsS http://127.0.0.1:5678 >/dev/null 2>&1
+    else
+      exit 1
+    fi
+  ' 2>/dev/null; then
     green "n8n HTTP responding"
   else
     red "n8n HTTP not responding"

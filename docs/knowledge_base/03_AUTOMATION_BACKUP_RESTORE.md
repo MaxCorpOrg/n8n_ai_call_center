@@ -32,9 +32,9 @@
 ```
 
 Важно:
-- по отчёту предыдущей сессии cron автодеплоя ещё не включён;
+- на live `147.45.213.87` cron автодеплоя уже включён через `/etc/cron.d/n8n-autodeploy-clean`;
 - clean deploy должен работать из `/home/aicore/n8n-ai-clean`, а не из `/home/aicore/n8n-server`;
-- для `call_center` Postgres теперь есть отдельный backup-скрипт, но live-включение cron на сервере всё ещё требует ручной проверки и запуска.
+- для `call_center` Postgres теперь есть отдельный backup-скрипт и live-cron `/etc/cron.d/n8n-callcenter-backup`;
 - bind mounts clean-clone должны опираться на `SERVER_RUNTIME_ROOT=/home/aicore/n8n-server`, чтобы не расходиться с живыми SQL и `local-files`.
 
 ## 3) Процедура восстановления (SOP)

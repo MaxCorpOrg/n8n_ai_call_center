@@ -60,6 +60,34 @@
 - Ограничение остаётся прежним:
   - без рабочего доступа на `147.45.213.87` эти изменения пока подготовлены в git, но не подтверждены live-запуском на сервере.
 
+### 2026-04-11 — Live `147.45.213.87` нормализован: SSH, clean deploy, cron, backup
+- На сервер `147.45.213.87` установлен выделенный публичный SSH-ключ для машины `max`.
+- Рабочий вход теперь подтверждён:
+  - `ssh ai-core-prod-147`
+- На live-сервере подтверждены каталоги:
+  - рабочий прод: `/home/aicore/n8n-server`
+  - clean deploy: `/home/aicore/n8n-ai-clean`
+- Clean deploy-клон приведён к чистому `origin/main` и больше не держит вечные локальные diff по compose-файлам.
+- В `.env.https` clean-клона установлен:
+  - `SERVER_RUNTIME_ROOT=/home/aicore/n8n-server`
+- Обновлён live wrapper:
+  - `/usr/local/bin/n8n-autodeploy-clean`
+- Подтверждено, что cron автодеплоя уже включён и сейчас работает:
+  - `/etc/cron.d/n8n-autodeploy-clean`
+  - `*/5 * * * * root /usr/local/bin/n8n-autodeploy-clean`
+- Отдельно включён backup `call_center` Postgres:
+  - ручной smoke-test `scripts/backup_call_center_postgres.sh` прошёл успешно;
+  - создан dump `call_center_2026-04-11_07-09-19.sql.gz`
+  - установлен cron:
+    - `/etc/cron.d/n8n-callcenter-backup`
+    - `10 3 * * * root cd /home/aicore/n8n-ai-clean && ./scripts/backup_call_center_postgres.sh >> /home/aicore/n8n-backups/postgres/call_center_backup.log 2>&1`
+- Ручной compose smoke-test из clean-клона прошёл:
+  - подняты `postgres`, `postgres_memory`, `postgrest`, `adminer`
+  - `n8n`, `traefik`, `redis` остались healthy
+- Выявлены и закрыты два operational хвоста:
+  - `postgrest` healthcheck в репозитории удалён;
+  - `healthcheck_all.sh` исправлен, чтобы не путать `postgrest` с `postgres` и не проверять `n8n` через несуществующий `node` binary.
+
 ### 2026-04-07 — Live-autodial обновлён под rule set `2/day + 3 unreachable` и включён human-answer gate
 - Для live workflow `AUTODIAL_DISPATCHER (sheet-first draft)` найден и использован рабочий путь сохранения через публичный `n8n` API с минимальным телом `name + nodes + connections + settings`.
 - Live dispatcher обновлён без пересоздания workflow:
