@@ -137,3 +137,10 @@ dist
 .yarn/install-state.gz
 .pnp.*
 logs/
+
+# Python caches
+__pycache__/
+*.pyc
+
+# Local secrets/helpers
+Postgres/key.txt

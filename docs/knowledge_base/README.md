@@ -13,6 +13,7 @@
 8. `08_ARCHITECTURE_DIAGRAMS.md` — Mermaid-диаграммы инфраструктуры.
 9. `09_PROJECT_CHANGELOG_AND_STATE.md` — что сделано в проекте, последние изменения.
 10. `10_SERVER_ACCESS_147_45_213_87.md` — актуальный handoff/runbook по прод-серверу `147.45.213.87`, clean deploy и SSH-доступу.
+11. `11_LOCAL_WORKING_MATERIALS.md` — локальные рабочие материалы, операционные артефакты и правила обращения с ними.
 
 ## Быстрый поиск
 ```bash

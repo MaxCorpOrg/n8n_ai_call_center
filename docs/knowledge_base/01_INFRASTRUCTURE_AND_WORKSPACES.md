@@ -56,6 +56,16 @@ curl -s https://api.ipify.org; echo
 |---|---|---|---|
 | media_orchestrator_v1 | `n8n_workspaces/media_orchestrator_v1` | Телеграм-оркестратор контента + KB Sync + Memory | `C8Wmmjuv5hC425PM`, `ABnHZb9Ee2YOtfr2`, `KeKhk230Zy3Iz0a4`, `KFWMYCaEpWAdVIn3`, `LG1KGfhnNCICjNra`, `DUJBo0tvHA5qIafi`, `K5es5hBE05LEeB1j`, `kcH2rlqr8aZoOPiO` |
 
+### Локальные рабочие материалы рядом с core-проектом
+- В repo-root есть дополнительные рабочие каталоги и артефакты:
+  - `agent_contact_parser_docs/`
+  - `MANGO_отчеты/`
+  - `Документация по скриптам `
+  - ` Таблицы_контактов `
+  - `workflows/Peptide_Expert_YJdwp45LI1dmrsLy_runtime_2026-03-02.json`
+- Это не основной runtime прод-сервера, но это полезные материалы для следующих агентов.
+- Подробное описание и правила обращения: `11_LOCAL_WORKING_MATERIALS.md`.
+
 ## 5) Контейнеры (оперативный список)
 
 | Тип | Имя сервиса | Файл | Назначение |
