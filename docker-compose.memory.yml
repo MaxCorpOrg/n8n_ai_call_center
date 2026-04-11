@@ -20,7 +20,7 @@ services:
         max-file: "3"
     volumes:
       - postgres_memory_data:/var/lib/postgresql/data
-      - ./sql/002_agent_memory.sql:/docker-entrypoint-initdb.d/002_agent_memory.sql:ro
+      - ${SERVER_RUNTIME_ROOT:-.}/sql/002_agent_memory.sql:/docker-entrypoint-initdb.d/002_agent_memory.sql:ro
     ports:
       - "${POSTGRES_MEMORY_PORT:-5432}:5432"
     mem_limit: 512m

@@ -98,7 +98,7 @@ services:
         max-file: "5"
     volumes:
       - n8n_data:/home/node/.n8n
-      - ./local-files:/files
+      - ${SERVER_RUNTIME_ROOT:-.}/local-files:/files
     mem_limit: 1g
 
 volumes:

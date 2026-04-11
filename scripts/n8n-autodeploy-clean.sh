@@ -49,7 +49,7 @@ fi
 log "update: $LOCAL -> $REMOTE"
 git pull --ff-only origin main
 
-COMPOSE_PROJECT_NAME="$PROJECT_NAME" docker compose \
+if ! COMPOSE_PROJECT_NAME="$PROJECT_NAME" docker compose \
   --env-file .env.https \
   --env-file .env.memory \
   --env-file .env.callcenter \
@@ -57,7 +57,9 @@ COMPOSE_PROJECT_NAME="$PROJECT_NAME" docker compose \
   -f docker-compose.callcenter.yml \
   -f docker-compose.memory.yml \
   -f docker-compose.adminer.yml \
-  pull
+  pull; then
+  log "warning: docker compose pull failed, continuing with local cached images"
+fi
 
 COMPOSE_PROJECT_NAME="$PROJECT_NAME" docker compose \
   --env-file .env.https \
