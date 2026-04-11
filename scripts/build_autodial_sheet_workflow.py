@@ -46,7 +46,7 @@ def fetch_workflow(session: requests.Session, workflow_id: str) -> dict:
 def put_workflow(session: requests.Session, workflow_id: str, payload: dict) -> dict:
     response = session.put(
         f"{N8N_BASE_URL}/api/v1/workflows/{workflow_id}",
-        data=json.dumps(payload, ensure_ascii=False),
+        data=json.dumps(payload, ensure_ascii=True),
         timeout=60,
     )
     response.raise_for_status()
@@ -115,6 +115,7 @@ return [{
   job_id: jobId,
   daily_success_limit: 15,
   daily_attempt_limit_per_lead: 2,
+  monthly_touch_limit_per_phone: 1,
   max_unreachable_total: 3,
   max_attempts_per_lead: 3,
   call_window_start: '10:00',
@@ -176,16 +177,19 @@ const campaignKey = String($node['Dispatcher | Build Run Context'].json.campaign
 const jobId = String($node['Dispatcher | Build Run Context'].json.job_id || `autodial.${Date.now()}`);
 const dailySuccessLimit = Number($node['Dispatcher | Build Run Context'].json.daily_success_limit || 15);
 const dailyAttemptLimit = Number($node['Dispatcher | Build Run Context'].json.daily_attempt_limit_per_lead || 2);
+const monthlyTouchLimitPerPhone = Number($node['Dispatcher | Build Run Context'].json.monthly_touch_limit_per_phone || 1);
 const maxUnreachableTotal = Number($node['Dispatcher | Build Run Context'].json.max_unreachable_total || 3);
 const maxAttemptsPerLead = Number($node['Dispatcher | Build Run Context'].json.max_attempts_per_lead || 3);
 const dialTimeoutMinutes = Number($node['Dispatcher | Build Run Context'].json.dial_timeout_minutes || 1);
 const callWindowStart = String($node['Dispatcher | Build Run Context'].json.call_window_start || '10:00');
 const callWindowEnd = String($node['Dispatcher | Build Run Context'].json.call_window_end || '14:00');
+const mskMonth = mskDate.slice(0, 7);
 
 const failureResults = new Set(['busy', 'no_answer', 'timeout', 'outbound_request_failed']);
 const finalResults = new Set(['dnc', 'not_target', 'order_test', 'manager_call']);
 const unreachableResults = new Set(['no_answer', 'timeout']);
 const retryResults = new Set(['busy', 'no_answer', 'timeout', 'callback_scheduled', 'send_kp_pending_callback', 'refusal_soft', 'outbound_request_failed', 'dialing']);
+const monthlyTouchResults = new Set(['refusal_soft', 'send_kp_pending_callback', 'order_test', 'manager_call', 'not_target', 'dnc']);
 
 const makeRow = (rowValues, sheetRowNumber) => {
   const obj = { sheet_row_number: sheetRowNumber };
@@ -204,13 +208,16 @@ const makeRow = (rowValues, sheetRowNumber) => {
   obj.followup_count = Number(obj.followup_count || 0) || 0;
   obj.max_touch_limit = Number(obj.max_touch_limit || 0) || maxAttemptsPerLead;
   obj.lead_key = obj.source_record_key || obj.lead_id || obj.phone_primary || obj.phone_secondary || `row_${sheetRowNumber}`;
+  obj.phone_key = obj.phone_primary || obj.phone_secondary || '';
   obj.result_key = String(obj.call_result || '').toLowerCase();
   obj.created_ts = parseTs(obj.created_at) || parseTs(obj.updated_at) || null;
   obj.updated_ts = parseTs(obj.updated_at) || obj.created_ts || null;
   obj.row_date = obj.updated_ts ? fmtMsk(new Date(obj.updated_ts), false) : mskDate;
+  obj.row_month = obj.row_date.slice(0, 7);
   obj.next_call_ts = parseTs(obj.next_call_at);
   obj.is_autodial_attempt = obj.source_system === 'autodial_dispatcher' && obj.result_key === 'dialing';
   obj.is_live_success = obj.source_system === 'elevenlabs' && !!obj.eleven_conv_id && !failureResults.has(obj.result_key) && obj.result_key !== 'dialing' && obj.result_key !== '';
+  obj.has_monthly_touch = obj.source_system !== 'xlsx_import' && obj.row_month === mskMonth && (obj.is_live_success || monthlyTouchResults.has(obj.result_key));
   return obj;
 };
 
@@ -235,6 +242,7 @@ const rows = values.slice(1)
 const seedRows = [];
 const outcomeRows = [];
 const byLead = new Map();
+const byPhoneMonth = new Map();
 
 for (const row of rows) {
   if (row.source_system === 'xlsx_import') {
@@ -301,6 +309,19 @@ for (const row of rows) {
       updated_at: row.updated_at || '',
       is_live_connect: row.is_live_success === true,
     });
+  }
+
+  if (row.phone_key) {
+    const phoneState = byPhoneMonth.get(row.phone_key) || {
+      phone_key: row.phone_key,
+      monthly_touch_count: 0,
+      latest_touch_ts: 0,
+    };
+    if (row.has_monthly_touch) {
+      phoneState.monthly_touch_count += 1;
+      phoneState.latest_touch_ts = Math.max(phoneState.latest_touch_ts, row.updated_ts || row.created_ts || 0);
+    }
+    byPhoneMonth.set(row.phone_key, phoneState);
   }
 
   const key = String(row.lead_key || '').trim();
@@ -377,8 +398,12 @@ for (const state of states) {
   if (latest.do_not_call || latest.final_reason === 'number_unreachable' || finalResults.has(latestResult)) continue;
   if (state.live_success_today) continue;
 
-  const callbackOverride = latestResult === 'callback_scheduled';
+  const callbackOverride = latestResult === 'callback_scheduled' || String(latest.next_step || '').toLowerCase() === 'callback';
   const nextCallTs = effectiveNextCallTs(latest, state);
+  const phoneState = latest.phone_key ? byPhoneMonth.get(latest.phone_key) : null;
+  const monthlyTouchCount = Number(phoneState?.monthly_touch_count || 0);
+
+  if (monthlyTouchCount >= monthlyTouchLimitPerPhone && !callbackOverride) continue;
 
   if (state.unreachable_total >= maxUnreachableTotal && unreachableResults.has(latestResult)) {
     const dueTs = nextCallTs || latest.updated_ts || latest.created_ts || 0;
@@ -485,6 +510,7 @@ const attemptCountTotal = selectedState.attempts_total + 1;
 const lockUntilTs = nowTs + dialTimeoutMinutes * 60 * 1000;
 const lockUntil = new Date(lockUntilTs).toISOString();
 const nextCallTs = dialCandidates[0].nextCallTs;
+const selectedPhoneState = latest.phone_key ? byPhoneMonth.get(latest.phone_key) : null;
 const selected = {
   campaign_key: campaignKey,
   job_id: jobId,
@@ -520,6 +546,8 @@ const selected = {
   unreachable_total: selectedState.unreachable_total,
   max_touch_limit: Number(latest.max_touch_limit || maxAttemptsPerLead) || maxAttemptsPerLead,
   daily_attempt_limit_per_lead: dailyAttemptLimit,
+  monthly_touch_limit_per_phone: monthlyTouchLimitPerPhone,
+  monthly_touch_count_for_phone: Number(selectedPhoneState?.monthly_touch_count || 0),
   max_unreachable_total: maxUnreachableTotal,
   call_window_start: callWindowStart,
   call_window_end: callWindowEnd,
@@ -840,7 +868,13 @@ def main() -> None:
     (backup_dir / "autodial_live_before.json").write_text(json.dumps(live_before, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     (backup_dir / "autodial_live_after.json").write_text(json.dumps(live_after, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-    response = put_workflow(session, LIVE_WORKFLOW_ID, live_after)
+    live_put_payload = {
+        "name": repo_workflow["name"],
+        "nodes": repo_workflow["nodes"],
+        "connections": repo_workflow["connections"],
+        "settings": repo_workflow["settings"],
+    }
+    response = put_workflow(session, LIVE_WORKFLOW_ID, live_put_payload)
     summary = {
         "id": response.get("id", LIVE_WORKFLOW_ID),
         "name": response.get("name", live_after["name"]),
