@@ -26,6 +26,7 @@ DEFAULT_LOCAL_OUTPUT_DIR = str(DEFAULT_TABLES_DIR)
 DEFAULT_TEMPLATE_XLSX = str(DEFAULT_TABLES_DIR / "пример_таблицы.xlsx")
 DEFAULT_SETTINGS_PATH = str(DEFAULT_RUNTIME_DIR / "settings.json")
 DEFAULT_PREVIEW_DIR = str(DEFAULT_RUNTIME_DIR / "previews")
+DEFAULT_DRIVE_FOLDER_ID = os.getenv("COSMETOLOGIST_HUNTER_DRIVE_FOLDER_ID", "").strip()
 DEFAULT_PORT = 8787
 
 LEADS_HEADERS = [
@@ -278,9 +279,10 @@ def load_google_oauth():
 
 
 class GoogleSheetsClient:
-    def __init__(self, source_spreadsheet_id, source_sheet_name):
+    def __init__(self, source_spreadsheet_id, source_sheet_name, drive_folder_id=""):
         self.source_spreadsheet_id = source_spreadsheet_id
         self.source_sheet_name = source_sheet_name
+        self.drive_folder_id = str(drive_folder_id or "").strip()
         self.session = requests.Session()
         self._access_token = None
 
@@ -370,11 +372,14 @@ class GoogleSheetsClient:
         return phones
 
     def copy_sheet(self, title):
+        payload = {"name": title}
+        if self.drive_folder_id:
+            payload["parents"] = [self.drive_folder_id]
         resp = self.session.post(
             f"https://www.googleapis.com/drive/v3/files/{self.source_spreadsheet_id}/copy",
             params={"supportsAllDrives": "true"},
             headers=self.auth_headers(json_body=True),
-            json={"name": title},
+            json=payload,
             timeout=60,
         )
         resp.raise_for_status()
@@ -668,14 +673,16 @@ class HunterService:
         template_xlsx=DEFAULT_TEMPLATE_XLSX,
         settings_path=DEFAULT_SETTINGS_PATH,
         preview_dir=DEFAULT_PREVIEW_DIR,
+        drive_folder_id=DEFAULT_DRIVE_FOLDER_ID,
     ):
-        self.google = GoogleSheetsClient(source_spreadsheet_id, source_sheet_name)
+        self.google = GoogleSheetsClient(source_spreadsheet_id, source_sheet_name, drive_folder_id=drive_folder_id)
         self.source_spreadsheet_id = source_spreadsheet_id
         self.source_sheet_name = source_sheet_name
         self.local_output_dir = Path(local_output_dir)
         self.template_xlsx = Path(template_xlsx)
         self.settings_path = settings_path
         self.preview_dir = Path(preview_dir)
+        self.drive_folder_id = str(drive_folder_id or "").strip()
         self.lock = threading.Lock()
 
     def load_settings(self):
@@ -868,6 +875,7 @@ def run_server(args):
         template_xlsx=args.template_xlsx,
         settings_path=args.settings_path,
         preview_dir=args.preview_dir,
+        drive_folder_id=args.drive_folder_id,
     )
     HunterRequestHandler.service = service
     server = ThreadingHTTPServer((args.host, args.port), HunterRequestHandler)
@@ -883,6 +891,7 @@ def run_once(args):
         template_xlsx=args.template_xlsx,
         settings_path=args.settings_path,
         preview_dir=args.preview_dir,
+        drive_folder_id=args.drive_folder_id,
     )
     result = service.run_hunt(city=args.city, count=args.count, chat_id=args.chat_id, dry_run=args.dry_run)
     print(json.dumps(result, ensure_ascii=False, indent=2))
@@ -896,6 +905,7 @@ def build_parser():
     parser.add_argument("--template-xlsx", default=DEFAULT_TEMPLATE_XLSX)
     parser.add_argument("--settings-path", default=DEFAULT_SETTINGS_PATH)
     parser.add_argument("--preview-dir", default=DEFAULT_PREVIEW_DIR)
+    parser.add_argument("--drive-folder-id", default=DEFAULT_DRIVE_FOLDER_ID)
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 

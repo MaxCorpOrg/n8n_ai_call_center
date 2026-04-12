@@ -43,9 +43,20 @@ sudo systemctl status cosmetologist_hunter.service
 ```bash
 COSMETOLOGIST_HUNTER_URL=http://127.0.0.1:8787
 COSMETOLOGIST_HUNTER_AUTH_TOKEN=replace_with_long_random_token
+COSMETOLOGIST_HUNTER_DRIVE_FOLDER_ID=1YguwTRirqR1KFzqTevqsEZzvtxksslUo
 ```
 
 Если `n8n` запущен в Docker отдельно, указывайте URL так, чтобы контейнер видел локальный сервис.
+
+## 5.1 Папка Google Drive
+Чтобы новые таблицы создавались сразу в нужной папке Google Drive, задайте:
+```bash
+COSMETOLOGIST_HUNTER_DRIVE_FOLDER_ID=1YguwTRirqR1KFzqTevqsEZzvtxksslUo
+```
+
+Для ссылки вида:
+`https://drive.google.com/drive/folders/<FOLDER_ID>`
+нужное значение это именно `<FOLDER_ID>`.
 
 ## 6. Защита HTTP-сервиса
 Если задан `COSMETOLOGIST_HUNTER_AUTH_TOKEN`, сервис требует заголовок:
