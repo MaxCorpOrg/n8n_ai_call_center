@@ -46,19 +46,6 @@ def api_session() -> requests.Session:
     return session
 
 
-def telegram_keyboard_json() -> str:
-    keyboard = {
-        'keyboard': [
-            [{'text': '/settings'}],
-            [{'text': '/city Москва'}, {'text': '/count 45'}],
-            [{'text': 'найди 45 косметологов в Москве'}],
-        ],
-        'resize_keyboard': True,
-        'one_time_keyboard': False,
-    }
-    return json.dumps(keyboard, ensure_ascii=False)
-
-
 def node(name: str, type_: str, parameters: dict[str, Any], position: list[int], *, type_version: float | int = 2, webhook_id: str | None = None) -> dict[str, Any]:
     out = {
         'id': str(uuid.uuid4()),
@@ -92,12 +79,16 @@ def switch_condition_equals(left_expr: str, right_value: str) -> dict[str, Any]:
 
 
 def switch_condition_bool(left_expr: str, value: bool, output_key: str) -> dict[str, Any]:
+    inner = left_expr
+    if left_expr.startswith('={{') and left_expr.endswith('}}'):
+        inner = left_expr[3:-2].strip()
+    rendered_left = '={{ String(' + inner + ') }}'
     return {
         'conditions': {
             'options': {'caseSensitive': True, 'leftValue': '', 'typeValidation': 'strict', 'version': 2},
             'conditions': [
                 {
-                    'leftValue': f'={{ String({left_expr[3:-2]}) }}' if left_expr.startswith('={{ ') and left_expr.endswith(' }}') else left_expr,
+                    'leftValue': rendered_left,
                     'rightValue': str(value).lower(),
                     'operator': {'type': 'string', 'operation': 'equals'},
                 }
@@ -111,7 +102,6 @@ def switch_condition_bool(left_expr: str, value: bool, output_key: str) -> dict[
 
 def build_workflow(cfg: dict[str, str]) -> dict[str, Any]:
     prompt = PROMPT_PATH.read_text(encoding='utf-8').strip()
-    keyboard_json = telegram_keyboard_json()
 
     normalize_js = f"""
 const update = $json.body ?? $json;
@@ -136,7 +126,6 @@ return [{{
   mistral_api_key: {json.dumps(cfg['MISTRAL_API_KEY'])},
   mistral_model: 'mistral-medium-latest',
   controller_system_prompt: {json.dumps(prompt)},
-  reply_markup_json: {json.dumps(keyboard_json)},
 }}];
 """.strip()
 
@@ -250,7 +239,6 @@ return [{
     'собери ещё 45 новых косметологов в Москве',
   ].join('\n'),
   telegram_send_url: $json.telegram_send_url,
-  reply_markup_json: $json.reply_markup_json,
 }];
 """.strip()
 
@@ -259,7 +247,6 @@ return [{
   chat_id: $json.chat_id,
   reply_text: 'Сейчас поддерживаются только текстовые сообщения. Напишите город и количество контактов текстом.',
   telegram_send_url: $json.telegram_send_url,
-  reply_markup_json: $json.reply_markup_json,
 }];
 """.strip()
 
@@ -270,7 +257,6 @@ const settings = data.settings ?? {};
 return [{
   chat_id: input.chat_id,
   telegram_send_url: input.telegram_send_url,
-  reply_markup_json: input.reply_markup_json,
   reply_text: [
     'Текущие настройки агента:',
     `Город: ${settings.city || 'Москва'}`,
@@ -290,7 +276,6 @@ const ok = data.ok !== false;
 return [{
   chat_id: source.chat_id,
   telegram_send_url: source.telegram_send_url,
-  reply_markup_json: source.reply_markup_json,
   reply_text: ok
     ? [
         'Настройки сохранены.',
@@ -305,7 +290,6 @@ return [{
 return [{
   chat_id: $json.chat_id,
   telegram_send_url: $json.telegram_send_url,
-  reply_markup_json: $json.reply_markup_json,
   reply_text: 'Запускаю поиск контактов. Это может занять 30-90 секунд.',
 }];
 """.strip()
@@ -329,15 +313,13 @@ if (data.ok) {
 return [{
   chat_id: source.chat_id,
   telegram_send_url: source.telegram_send_url,
-  reply_markup_json: source.reply_markup_json,
   reply_text: replyText,
 }];
 """.strip()
 
     send_message_json = r'''={{ ({
   chat_id: $json.chat_id,
-  text: $json.reply_text,
-  reply_markup: JSON.parse($json.reply_markup_json || '{}'),
+  text: $json.reply_text
 }) }}'''
 
     nodes = [
