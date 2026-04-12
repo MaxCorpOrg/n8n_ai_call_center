@@ -18,7 +18,8 @@
 7. [07_AGENT_WORKFLOW.md](./07_AGENT_WORKFLOW.md) — рабочий алгоритм агента
 8. [08_OBSERVABILITY_AND_QA.md](./08_OBSERVABILITY_AND_QA.md) — контроль качества и наблюдаемость
 9. [09_OPERATIONS_AND_SECURITY.md](./09_OPERATIONS_AND_SECURITY.md) — эксплуатация, риски, безопасность
-10. Резервный слот для расширений (добавляется при необходимости отдельным документом)
+10. [10_SECRETS_LOCATION.md](./10_SECRETS_LOCATION.md) — хранение секретов и локальные env-файлы
+11. [11_SERVER_TOOL_PATHS.md](./11_SERVER_TOOL_PATHS.md) — серверные пути `Firecrawl` и `site-control-kit`
 
 ## Быстрый запуск для агента
 1. Проверить текущий Excel-файл с контактами.

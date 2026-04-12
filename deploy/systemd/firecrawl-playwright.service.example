@@ -1,0 +1,18 @@
+[Unit]
+Description=Firecrawl Playwright Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aicore
+WorkingDirectory=/home/aicore/agent-tools/firecrawl/apps/playwright-service-ts
+Environment=PORT=3003
+Environment=BLOCK_MEDIA=true
+Environment=ALLOW_LOCAL_WEBHOOKS=true
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

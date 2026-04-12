@@ -27,6 +27,18 @@ DEFAULT_TEMPLATE_XLSX = str(DEFAULT_TABLES_DIR / "пример_таблицы.xl
 DEFAULT_SETTINGS_PATH = str(DEFAULT_RUNTIME_DIR / "settings.json")
 DEFAULT_PREVIEW_DIR = str(DEFAULT_RUNTIME_DIR / "previews")
 DEFAULT_DRIVE_FOLDER_ID = os.getenv("COSMETOLOGIST_HUNTER_DRIVE_FOLDER_ID", "").strip()
+DEFAULT_SERVER_TOOL_ROOT = os.getenv("COSMETOLOGIST_HUNTER_SERVER_TOOL_ROOT", "/home/aicore/agent-tools").strip()
+DEFAULT_FIRECRAWL_ROOT = os.getenv(
+    "COSMETOLOGIST_HUNTER_FIRECRAWL_ROOT", str(Path(DEFAULT_SERVER_TOOL_ROOT) / "firecrawl")
+).strip()
+DEFAULT_FIRECRAWL_BASE_URL = os.getenv("COSMETOLOGIST_HUNTER_FIRECRAWL_BASE_URL", "").strip()
+DEFAULT_FIRECRAWL_API_KEY = os.getenv("COSMETOLOGIST_HUNTER_FIRECRAWL_API_KEY", "").strip()
+DEFAULT_SITE_CONTROL_ROOT = os.getenv(
+    "COSMETOLOGIST_HUNTER_SITE_CONTROL_ROOT", str(Path(DEFAULT_SERVER_TOOL_ROOT) / "site-control-kit")
+).strip()
+DEFAULT_SITE_CONTROL_SERVER_URL = os.getenv("COSMETOLOGIST_HUNTER_SITE_CONTROL_SERVER_URL", "").strip()
+DEFAULT_SITE_CONTROL_TOKEN = os.getenv("COSMETOLOGIST_HUNTER_SITE_CONTROL_TOKEN", "").strip()
+DEFAULT_SITE_CONTROL_CLIENT_ID = os.getenv("COSMETOLOGIST_HUNTER_SITE_CONTROL_CLIENT_ID", "").strip()
 DEFAULT_PORT = 8787
 
 LEADS_HEADERS = [
@@ -332,6 +344,183 @@ def load_google_oauth():
     )
 
 
+class FirecrawlClient:
+    def __init__(self, base_url="", api_key="", root_path=""):
+        self.base_url = str(base_url or "").rstrip("/")
+        self.api_key = str(api_key or "").strip()
+        self.root_path = str(root_path or "").strip()
+        self.session = requests.Session()
+
+    def enabled(self):
+        return bool(self.base_url)
+
+    def scrape_html(self, url, timeout=90):
+        if not self.enabled():
+            return ""
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        payload = {
+            "url": url,
+            "formats": ["rawHtml", "html"],
+            "onlyMainContent": False,
+            "waitFor": 1500,
+            "timeout": int(timeout * 1000),
+        }
+        try:
+            resp = self.session.post(f"{self.base_url}/v2/scrape", headers=headers, json=payload, timeout=timeout)
+            resp.raise_for_status()
+            body = resp.json()
+        except Exception:
+            return ""
+        data = body.get("data") or {}
+        return str(data.get("rawHtml") or data.get("html") or "")
+
+    def status(self):
+        return {
+            "enabled": self.enabled(),
+            "base_url": self.base_url,
+            "root_path": self.root_path,
+            "has_api_key": bool(self.api_key),
+        }
+
+
+class SiteControlKitClient:
+    def __init__(self, server_url="", token="", client_id="", root_path=""):
+        self.server_url = str(server_url or "").rstrip("/")
+        self.token = str(token or "").strip()
+        self.client_id = str(client_id or "").strip()
+        self.root_path = str(root_path or "").strip()
+        self.session = requests.Session()
+        self._clients_cache = []
+        self._clients_cache_at = 0.0
+
+    def enabled(self):
+        return bool(self.server_url and self.token)
+
+    def _headers(self):
+        return {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "X-Access-Token": self.token,
+        }
+
+    def _get(self, path, timeout=30):
+        resp = self.session.get(f"{self.server_url}{path}", headers=self._headers(), timeout=timeout)
+        resp.raise_for_status()
+        return resp.json()
+
+    def _post(self, path, payload, timeout=30):
+        resp = self.session.post(f"{self.server_url}{path}", headers=self._headers(), json=payload, timeout=timeout)
+        resp.raise_for_status()
+        return resp.json()
+
+    def list_clients(self, force=False):
+        if not self.enabled():
+            return []
+        if not force and self._clients_cache and (time.time() - self._clients_cache_at) < 5:
+            return self._clients_cache
+        try:
+            body = self._get("/api/clients")
+        except Exception:
+            self._clients_cache = []
+            self._clients_cache_at = time.time()
+            return []
+        clients = body.get("clients")
+        self._clients_cache = clients if isinstance(clients, list) else []
+        self._clients_cache_at = time.time()
+        return self._clients_cache
+
+    def pick_client(self):
+        clients = self.list_clients()
+        if not clients:
+            return None
+        if self.client_id:
+            for client in clients:
+                if str(client.get("client_id", "")).strip() == self.client_id:
+                    return client
+            return None
+        return sorted(clients, key=lambda item: str(item.get("last_seen", "")), reverse=True)[0]
+
+    def _wait_command(self, command_id, timeout=45, poll_interval=0.5):
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            body = self._get(f"/api/commands/{command_id}")
+            command = body.get("command") or {}
+            if command.get("status") in {"completed", "failed", "cancelled", "timed_out"}:
+                return command
+            time.sleep(max(poll_interval, 0.1))
+        return {}
+
+    def _extract_result(self, command, client_id):
+        deliveries = command.get("deliveries") if isinstance(command, dict) else {}
+        if not isinstance(deliveries, dict):
+            return {}
+        delivery = deliveries.get(client_id) or {}
+        result = delivery.get("result")
+        return result if isinstance(result, dict) else {}
+
+    def send_command(self, target, command, timeout_ms=40000, wait_timeout=45):
+        if not self.enabled():
+            return {}
+        try:
+            body = self._post(
+                "/api/commands",
+                {
+                    "issued_by": "cosmetologist-hunter",
+                    "timeout_ms": timeout_ms,
+                    "target": target,
+                    "command": command,
+                },
+                timeout=max(30, wait_timeout),
+            )
+        except Exception:
+            return {}
+        command_id = str(body.get("command_id") or "").strip()
+        if not command_id:
+            return {}
+        return self._wait_command(command_id, timeout=wait_timeout)
+
+    def fetch_html(self, url, wait_timeout=45):
+        client = self.pick_client()
+        if not client:
+            return ""
+        client_id = str(client.get("client_id", "")).strip()
+        if not client_id:
+            return ""
+        target = {
+            "client_id": client_id,
+            "active": True,
+        }
+        navigate = self.send_command(target, {"type": "navigate", "url": url}, timeout_ms=45000, wait_timeout=wait_timeout)
+        if not navigate or navigate.get("status") != "completed":
+            return ""
+        self.send_command(
+            target,
+            {"type": "wait_selector", "selector": "body", "timeout_ms": 20000, "visible_only": False},
+            timeout_ms=25000,
+            wait_timeout=wait_timeout,
+        )
+        html_command = self.send_command(target, {"type": "get_html"}, timeout_ms=25000, wait_timeout=wait_timeout)
+        result = self._extract_result(html_command, client_id)
+        data = result.get("data") if isinstance(result, dict) else {}
+        if not isinstance(data, dict):
+            return ""
+        return str(data.get("html") or "")
+
+    def status(self):
+        clients = self.list_clients()
+        selected = self.pick_client()
+        return {
+            "enabled": self.enabled(),
+            "server_url": self.server_url,
+            "root_path": self.root_path,
+            "client_id": self.client_id,
+            "connected_clients": len(clients),
+            "selected_client_id": str((selected or {}).get("client_id", "")).strip(),
+        }
+
+
 class GoogleSheetsClient:
     def __init__(self, source_spreadsheet_id, source_sheet_name, drive_folder_id=""):
         self.source_spreadsheet_id = source_spreadsheet_id
@@ -551,11 +740,38 @@ class GoogleSheetsClient:
 
 
 class CosmetologistHunter:
-    def __init__(self, city):
+    def __init__(self, city, firecrawl=None, site_control=None):
         self.city = str(city or "").strip() or "Москва"
         self.city_lc = self.city.lower()
         self.session = requests.Session()
         self.session.headers.update({"user-agent": "Mozilla/5.0"})
+        self.firecrawl = firecrawl or FirecrawlClient()
+        self.site_control = site_control or SiteControlKitClient()
+
+    def _matches_required_markers(self, html, required_markers=None):
+        if not html:
+            return False
+        markers = [str(marker or "") for marker in (required_markers or []) if str(marker or "")]
+        if not markers:
+            return True
+        return any(marker in html for marker in markers)
+
+    def fetch_html(self, url, required_markers=None):
+        if self.firecrawl.enabled():
+            html = self.firecrawl.scrape_html(url)
+            if self._matches_required_markers(html, required_markers):
+                return html
+        if self.site_control.enabled():
+            html = self.site_control.fetch_html(url)
+            if self._matches_required_markers(html, required_markers):
+                return html
+        try:
+            html = self.session.get(url, timeout=20).text
+        except Exception:
+            return ""
+        if self._matches_required_markers(html, required_markers):
+            return html
+        return ""
 
     def build_yandex_urls(self):
         queries = [f"{query} {self.city}".strip() for query in BASE_QUERIES]
@@ -589,9 +805,8 @@ class CosmetologistHunter:
         return urls
 
     def parse_yandex_url(self, url):
-        try:
-            text = self.session.get(url, timeout=20).text
-        except Exception:
+        text = self.fetch_html(url, required_markers=['type":"business', '"seoname"', '"phones"'])
+        if not text:
             return []
         out = []
         decoder = json.JSONDecoder()
@@ -639,17 +854,15 @@ class CosmetologistHunter:
         return out
 
     def parse_2gis_search_url(self, url):
-        try:
-            text = self.session.get(url, timeout=15).text
-        except Exception:
+        text = self.fetch_html(url, required_markers=["/firm/"])
+        if not text:
             return []
         return list(dict.fromkeys(re.findall(r"/firm/(\d+)", text)))
 
     def parse_2gis_firm(self, firm_id):
         url = f"https://2gis.ru/{'moscow' if self.city_lc == 'москва' else 'search'}/firm/{firm_id}"
-        try:
-            text = self.session.get(url, timeout=15).text
-        except Exception:
+        text = self.fetch_html(url, required_markers=["initialState", "contact_groups"])
+        if not text:
             return []
         match = re.search(r"var initialState = JSON\.parse\('(.*?)'\);\s+var __REACT_QUERY_STATE__", text, re.S)
         if not match:
@@ -811,6 +1024,17 @@ class HunterService:
         drive_folder_id=DEFAULT_DRIVE_FOLDER_ID,
     ):
         self.google = GoogleSheetsClient(source_spreadsheet_id, source_sheet_name, drive_folder_id=drive_folder_id)
+        self.firecrawl = FirecrawlClient(
+            base_url=DEFAULT_FIRECRAWL_BASE_URL,
+            api_key=DEFAULT_FIRECRAWL_API_KEY,
+            root_path=DEFAULT_FIRECRAWL_ROOT,
+        )
+        self.site_control = SiteControlKitClient(
+            server_url=DEFAULT_SITE_CONTROL_SERVER_URL,
+            token=DEFAULT_SITE_CONTROL_TOKEN,
+            client_id=DEFAULT_SITE_CONTROL_CLIENT_ID,
+            root_path=DEFAULT_SITE_CONTROL_ROOT,
+        )
         self.source_spreadsheet_id = source_spreadsheet_id
         self.source_sheet_name = source_sheet_name
         self.local_output_dir = Path(local_output_dir)
@@ -819,6 +1043,13 @@ class HunterService:
         self.preview_dir = Path(preview_dir)
         self.drive_folder_id = str(drive_folder_id or "").strip()
         self.lock = threading.Lock()
+
+    def tooling_status(self):
+        return {
+            "server_tool_root": DEFAULT_SERVER_TOOL_ROOT,
+            "firecrawl": self.firecrawl.status(),
+            "site_control": self.site_control.status(),
+        }
 
     def load_settings(self):
         return load_json_file(self.settings_path, {})
@@ -881,7 +1112,7 @@ class HunterService:
             ordinal = self.google.next_ordinal(title_prefix)
             title = build_sheet_title(city, ordinal)
             existing_signatures = self.google.existing_signatures_for_city(city)
-            hunter = CosmetologistHunter(city)
+            hunter = CosmetologistHunter(city, firecrawl=self.firecrawl, site_control=self.site_control)
             contacts = hunter.find_contacts(count, existing_signatures)
             if len(contacts) < count:
                 raise RuntimeError(
@@ -966,6 +1197,9 @@ class HunterRequestHandler(BaseHTTPRequestHandler):
             params = urllib.parse.parse_qs(parsed.query)
             chat_id = (params.get("chat_id") or [""])[0]
             self._send(200, {"ok": True, "settings": self.service.get_settings(chat_id)})
+            return
+        if parsed.path == "/tooling/status":
+            self._send(200, {"ok": True, "tooling": self.service.tooling_status()})
             return
         self._send(404, {"ok": False, "error": "Not found"})
 

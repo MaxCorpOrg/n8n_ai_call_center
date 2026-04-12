@@ -21,8 +21,10 @@
 ## Документация Для Агентов
 - Документация по парсеру контактов и правилам работы агентов:
   - `agent_contact_parser_docs/00_INDEX.md`
+  - `agent_contact_parser_docs/11_SERVER_TOOL_PATHS.md`
 - Готовый агент-сборщик косметологов для `n8n` + Telegram:
   - `docs/cosmetologist_hunter_agent/README_RU.md`
+  - `docs/cosmetologist_hunter_agent/06_SERVER_TOOLING_RU.md`
   - `workflows/COSMETOLOGIST_HUNTER_TELEGRAM_DRAFT.json`
   - `scripts/cosmetologist_hunter_service.py`
 
