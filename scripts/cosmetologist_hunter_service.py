@@ -147,6 +147,47 @@ def normalize_phone(value):
     return ""
 
 
+def normalize_company_name(value):
+    text = fix_text(value or "").lower().replace("ё", "е")
+    text = re.sub(r"[\"'`«»]", " ", text)
+    text = re.sub(r"[^0-9a-zа-я]+", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def normalize_address(value):
+    text = fix_text(value or "").lower().replace("ё", "е")
+    text = re.sub(r"[\"'`«»]", " ", text)
+    text = re.sub(r"[^0-9a-zа-я]+", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def make_company_address_key(company_name, address):
+    company_key = normalize_company_name(company_name)
+    address_key = normalize_address(address)
+    if company_key and address_key:
+        return f"{company_key} | {address_key}"
+    return ""
+
+
+def extract_stored_address(notes_short):
+    text = fix_text(notes_short or "").strip()
+    match = re.match(r"^Адрес:\s*(.+)$", text, re.I)
+    return match.group(1).strip() if match else ""
+
+
+def unique_phones(values):
+    phones = []
+    seen = set()
+    for value in values or []:
+        phone = normalize_phone(value)
+        if phone and phone not in seen:
+            seen.add(phone)
+            phones.append(phone)
+    return phones
+
+
 def fix_text(value):
     if not isinstance(value, str):
         return value
@@ -196,6 +237,17 @@ def build_output_rows(records):
     rows = []
     for row_idx, rec in enumerate(records, start=2):
         row = {header: "" for header in LEADS_HEADERS}
+        address = fix_text(rec.get("address") or "").strip()
+        source = str(rec.get("source") or "").strip()
+        source_url = str(rec.get("source_url") or "").strip()
+        notes_redacted = ""
+        if source or source_url:
+            parts = []
+            if source:
+                parts.append(f"Источник: {source}")
+            if source_url:
+                parts.append(f"URL: {source_url}")
+            notes_redacted = " | ".join(parts)
         row.update(
             {
                 "created_at": timestamp,
@@ -206,12 +258,14 @@ def build_output_rows(records):
                 "company_name": rec.get("company_name") or "Косметолог",
                 "contact_name": "",
                 "phone_primary": rec["phone_primary"],
-                "phone_secondary": "",
+                "phone_secondary": rec.get("phone_secondary") or "",
                 "city": rec.get("city") or "",
                 "segment": "Косметолог",
                 "followup_count": "0",
                 "max_touch_limit": "3",
                 "do_not_call": "false",
+                "notes_short": f"Адрес: {address}" if address else "",
+                "notes_redacted": notes_redacted,
                 "agent_version": "AI_CALL_AGENT_1",
                 "last_updated_by": "system_seed",
             }
@@ -337,6 +391,46 @@ class GoogleSheetsClient:
                     phones.add(phone)
         return phones
 
+    def dedup_signatures_from_sheet(self, spreadsheet_id, sheet_name=None):
+        values = self.read_values(spreadsheet_id, sheet_name)
+        signatures = {
+            "phones": set(),
+            "names": set(),
+            "company_addresses": set(),
+        }
+        if not values:
+            return signatures
+        header = values[0]
+        index_map = {str(name or "").strip(): idx for idx, name in enumerate(header)}
+        phone_primary_idx = index_map.get("phone_primary")
+        phone_secondary_idx = index_map.get("phone_secondary")
+        company_name_idx = index_map.get("company_name")
+        notes_short_idx = index_map.get("notes_short")
+
+        for row in values[1:]:
+            if phone_primary_idx is not None and phone_primary_idx < len(row):
+                phone = normalize_phone(row[phone_primary_idx])
+                if phone:
+                    signatures["phones"].add(phone)
+            if phone_secondary_idx is not None and phone_secondary_idx < len(row):
+                phone = normalize_phone(row[phone_secondary_idx])
+                if phone:
+                    signatures["phones"].add(phone)
+            company_name = ""
+            if company_name_idx is not None and company_name_idx < len(row):
+                company_name = row[company_name_idx]
+                company_key = normalize_company_name(company_name)
+                if company_key:
+                    signatures["names"].add(company_key)
+            notes_short = ""
+            if notes_short_idx is not None and notes_short_idx < len(row):
+                notes_short = row[notes_short_idx]
+            address = extract_stored_address(notes_short)
+            company_address_key = make_company_address_key(company_name, address)
+            if company_address_key:
+                signatures["company_addresses"].add(company_address_key)
+        return signatures
+
     def list_prefixed_sheets(self, title_prefix):
         resp = self.session.get(
             "https://www.googleapis.com/drive/v3/files",
@@ -364,12 +458,15 @@ class GoogleSheetsClient:
                 ordinals.append(int(match.group(1)))
         return (max(ordinals) + 1) if ordinals else 1
 
-    def existing_phones_for_city(self, city):
+    def existing_signatures_for_city(self, city):
         title_prefix = build_title_prefix(city)
-        phones = set(self.phones_from_sheet(self.source_spreadsheet_id, self.source_sheet_name))
+        signatures = self.dedup_signatures_from_sheet(self.source_spreadsheet_id, self.source_sheet_name)
         for item in self.list_prefixed_sheets(title_prefix):
-            phones.update(self.phones_from_sheet(item["id"], self.source_sheet_name))
-        return phones
+            extra = self.dedup_signatures_from_sheet(item["id"], self.source_sheet_name)
+            signatures["phones"].update(extra["phones"])
+            signatures["names"].update(extra["names"])
+            signatures["company_addresses"].update(extra["company_addresses"])
+        return signatures
 
     def copy_sheet(self, title):
         payload = {"name": title}
@@ -514,26 +611,31 @@ class CosmetologistHunter:
             categories = " ".join(fix_text((item or {}).get("name") or "") for item in (obj.get("categories") or []))
             if not (relevant_text(name) or relevant_text(categories)):
                 continue
-            local = set()
+            phones = unique_phones(
+                [
+                    (phone_info or {}).get("value") or (phone_info or {}).get("number") or ""
+                    for phone_info in (obj.get("phones") or [])
+                ]
+            )
+            if not phones:
+                continue
             source_url = url
             item_id = str(obj.get("id") or "").strip()
             seoname = str(obj.get("seoname") or "").strip()
             if item_id and seoname:
                 source_url = f"https://yandex.com/maps/org/{seoname}/{item_id}"
-            for phone_info in obj.get("phones") or []:
-                phone = normalize_phone((phone_info or {}).get("value") or (phone_info or {}).get("number") or "")
-                if phone and phone not in local:
-                    local.add(phone)
-                    out.append(
-                        {
-                            "company_name": name,
-                            "phone_primary": phone,
-                            "source": "yandex",
-                            "source_url": source_url,
-                            "city": self.city,
-                            "score": score_name(name) + 10,
-                        }
-                    )
+            out.append(
+                {
+                    "company_name": name,
+                    "phone_primary": phones[0],
+                    "phone_secondary": phones[1] if len(phones) > 1 else "",
+                    "address": fix_text(obj.get("fullAddress") or obj.get("address") or ""),
+                    "source": "yandex",
+                    "source_url": source_url,
+                    "city": self.city,
+                    "score": score_name(name) + 10,
+                }
+            )
         return out
 
     def parse_2gis_search_url(self, url):
@@ -579,41 +681,74 @@ class CosmetologistHunter:
         relevant = relevant or relevant_text(name) or any(relevant_text(item) for item in rubric_names)
         if not relevant:
             return []
-        local = set()
-        records = []
-        for group in profile.get("contact_groups") or []:
-            for contact in (group or {}).get("contacts") or []:
-                if (contact or {}).get("type") != "phone":
-                    continue
-                phone = normalize_phone((contact or {}).get("value") or (contact or {}).get("text") or "")
-                if phone and phone not in local:
-                    local.add(phone)
-                    records.append(
-                        {
-                            "company_name": name,
-                            "phone_primary": phone,
-                            "source": "2gis",
-                            "source_url": f"https://2gis.ru/moscow/firm/{firm_id}",
-                            "city": self.city,
-                            "score": score_name(name) + (20 if any(alias == "kosmetolog" for alias in rubric_aliases) else 0),
-                        }
-                    )
-        return records
+        phones = unique_phones(
+            [
+                (contact or {}).get("value") or (contact or {}).get("text") or ""
+                for group in (profile.get("contact_groups") or [])
+                for contact in ((group or {}).get("contacts") or [])
+                if (contact or {}).get("type") == "phone"
+            ]
+        )
+        if not phones:
+            return []
+        address = fix_text(
+            profile.get("full_address_name")
+            or profile.get("address_name")
+            or profile.get("address")
+            or profile.get("address_comment")
+            or ""
+        )
+        return [
+            {
+                "company_name": name,
+                "phone_primary": phones[0],
+                "phone_secondary": phones[1] if len(phones) > 1 else "",
+                "address": address,
+                "source": "2gis",
+                "source_url": f"https://2gis.ru/moscow/firm/{firm_id}",
+                "city": self.city,
+                "score": score_name(name) + (20 if any(alias == "kosmetolog" for alias in rubric_aliases) else 0),
+            }
+        ]
 
     def _candidate_buffer_size(self, count):
         return max(count + 10, count * 2)
 
-    def _collect_candidates(self, count, existing_phones):
-        existing = set(existing_phones)
+    def _collect_candidates(self, count, existing_signatures):
+        existing_phones = set(existing_signatures.get("phones") or set())
+        existing_names = set(existing_signatures.get("names") or set())
+        existing_company_addresses = set(existing_signatures.get("company_addresses") or set())
         buffer_size = self._candidate_buffer_size(count)
         candidates = {}
+        seen_names = set()
+        seen_company_addresses = set()
 
         def add_records(items):
             for item in items:
-                phone = item.get("phone_primary") or ""
-                if not phone or phone in existing or phone in candidates:
+                primary_phone = item.get("phone_primary") or ""
+                secondary_phone = item.get("phone_secondary") or ""
+                company_key = normalize_company_name(item.get("company_name") or "")
+                company_address_key = make_company_address_key(item.get("company_name") or "", item.get("address") or "")
+                if not primary_phone:
                     continue
-                candidates[phone] = item
+                if primary_phone in existing_phones or primary_phone in candidates:
+                    continue
+                if secondary_phone and secondary_phone in existing_phones:
+                    continue
+                if company_key and (company_key in existing_names or company_key in seen_names):
+                    continue
+                if company_address_key and (
+                    company_address_key in existing_company_addresses or company_address_key in seen_company_addresses
+                ):
+                    continue
+                candidates[primary_phone] = item
+                existing_phones.add(primary_phone)
+                if secondary_phone:
+                    existing_phones.add(secondary_phone)
+                if company_key:
+                    seen_names.add(company_key)
+                if company_address_key:
+                    seen_company_addresses.add(company_address_key)
 
         for url in self.build_yandex_urls():
             add_records(self.parse_yandex_url(url))
@@ -658,8 +793,8 @@ class CosmetologistHunter:
 
         return list(candidates.values())
 
-    def find_contacts(self, count, existing_phones):
-        records = self._collect_candidates(count, existing_phones)
+    def find_contacts(self, count, existing_signatures):
+        records = self._collect_candidates(count, existing_signatures)
         records.sort(key=lambda item: (-int(item.get("score", 0)), item.get("company_name", ""), item["phone_primary"]))
         return records[:count]
 
@@ -745,9 +880,9 @@ class HunterService:
             title_prefix = build_title_prefix(city)
             ordinal = self.google.next_ordinal(title_prefix)
             title = build_sheet_title(city, ordinal)
-            existing_phones = self.google.existing_phones_for_city(city)
+            existing_signatures = self.google.existing_signatures_for_city(city)
             hunter = CosmetologistHunter(city)
-            contacts = hunter.find_contacts(count, existing_phones)
+            contacts = hunter.find_contacts(count, existing_signatures)
             if len(contacts) < count:
                 raise RuntimeError(
                     f"Недостаточно новых контактов косметологов для города {city}: найдено {len(contacts)}, нужно {count}"
