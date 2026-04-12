@@ -74,6 +74,12 @@ curl -H "Authorization: Bearer <token>" http://127.0.0.1:8787/tooling/status
 - сколько browser clients подключено к хабу;
 - какие серверные пути сейчас считаются каноническими.
 
+Для диагностики последнего fetch-контура есть endpoint:
+
+`GET /debug/fetch-trace?limit=20`
+
+Он показывает, каким backend'ом (`direct`, `firecrawl`, `site_control`) агент реально пытался взять страницу и почему мог отбросить ответ (`empty`, `missing_markers`, `blocking_content`).
+
 ## Развёртывание
 
 Локальный bootstrap-скрипт:

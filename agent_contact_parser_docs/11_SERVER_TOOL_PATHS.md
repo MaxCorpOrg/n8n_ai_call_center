@@ -52,3 +52,12 @@ before assuming browser fallback is available.
 Use:
 
 `client-cosmetologist-browser`
+
+
+## Debug endpoint
+
+Use:
+
+`GET /debug/fetch-trace?limit=20`
+
+It returns the last fetch attempts with the backend name and rejection reason.

@@ -29,6 +29,7 @@
 - дедупликация по `phone_primary`, `phone_secondary`, названию компании и связке `название + адрес`
 - жёсткий приоритет именно на косметологов, а не случайные салоны красоты
 - endpoint диагностики инструментов: `GET /tooling/status`
+- endpoint трассировки fetch-слоя: `GET /debug/fetch-trace?limit=20`
 - рекомендуемый `site-control` client id: `client-cosmetologist-browser`
 
 ## Минимальный сценарий запуска

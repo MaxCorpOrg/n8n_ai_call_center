@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+from collections import deque
 import json
 import os
 import re
@@ -40,6 +41,7 @@ DEFAULT_SITE_CONTROL_SERVER_URL = os.getenv("COSMETOLOGIST_HUNTER_SITE_CONTROL_S
 DEFAULT_SITE_CONTROL_TOKEN = os.getenv("COSMETOLOGIST_HUNTER_SITE_CONTROL_TOKEN", "").strip()
 DEFAULT_SITE_CONTROL_CLIENT_ID = os.getenv("COSMETOLOGIST_HUNTER_SITE_CONTROL_CLIENT_ID", "").strip()
 DEFAULT_PORT = 8787
+MAX_FETCH_TRACE_ITEMS = 120
 
 LEADS_HEADERS = [
     "created_at",
@@ -747,6 +749,46 @@ class CosmetologistHunter:
         self.session.headers.update({"user-agent": "Mozilla/5.0"})
         self.firecrawl = firecrawl or FirecrawlClient()
         self.site_control = site_control or SiteControlKitClient()
+        self.fetch_trace = deque(maxlen=MAX_FETCH_TRACE_ITEMS)
+
+    def _record_fetch_attempt(self, url, backend, html, required_markers, duration_ms, accepted, reason=""):
+        self.fetch_trace.append(
+            {
+                "url": url,
+                "backend": backend,
+                "html_length": len(html or ""),
+                "required_markers": [str(marker or "") for marker in (required_markers or []) if str(marker or "")],
+                "accepted": bool(accepted),
+                "reason": str(reason or "").strip(),
+                "duration_ms": int(duration_ms),
+                "at": now_text(),
+            }
+        )
+
+    def get_fetch_trace(self, limit=30):
+        safe_limit = max(1, int(limit or 30))
+        items = list(self.fetch_trace)
+        return items[-safe_limit:]
+
+    def _preferred_backends(self, url):
+        lower_url = str(url or "").lower()
+        if "2gis.ru" in lower_url:
+            return ["direct"]
+        if "yandex." in lower_url:
+            return ["direct", "firecrawl"]
+        return ["direct", "firecrawl", "site_control"]
+
+    def _backend_timeout(self, url, backend):
+        lower_url = str(url or "").lower()
+        if backend == "direct" and "2gis.ru" in lower_url:
+            return 8
+        if backend == "direct" and "yandex." in lower_url:
+            return 10
+        if backend == "firecrawl":
+            return 30
+        if backend == "site_control":
+            return 25
+        return 20
 
     def _matches_required_markers(self, html, required_markers=None):
         if not html:
@@ -756,25 +798,56 @@ class CosmetologistHunter:
             return True
         return any(marker in html for marker in markers)
 
-    def fetch_html(self, url, required_markers=None):
-        if self.firecrawl.enabled():
-            html = self.firecrawl.scrape_html(url)
-            if self._matches_required_markers(html, required_markers):
-                return html
-        if self.site_control.enabled():
-            html = self.site_control.fetch_html(url)
-            if self._matches_required_markers(html, required_markers):
-                return html
-        try:
-            html = self.session.get(url, timeout=20).text
-        except Exception:
-            return ""
-        if self._matches_required_markers(html, required_markers):
-            return html
+    def _has_blocking_content(self, url, html):
+        text = str(html or "")
+        if not text:
+            return True
+        lower_text = text.lower()
+        lower_url = str(url or "").lower()
+        if "yandex." in lower_url and ("showcaptcha" in lower_text or "form-fb-hint" in lower_text):
+            return True
+        return False
+
+    def _fetch_via_backend(self, backend, url):
+        timeout = self._backend_timeout(url, backend)
+        if backend == "firecrawl" and self.firecrawl.enabled():
+            return self.firecrawl.scrape_html(url, timeout=timeout)
+        if backend == "site_control" and self.site_control.enabled():
+            return self.site_control.fetch_html(url, wait_timeout=timeout)
+        if backend == "direct":
+            try:
+                return self.session.get(url, timeout=timeout).text
+            except Exception:
+                return ""
         return ""
 
-    def build_yandex_urls(self):
-        queries = [f"{query} {self.city}".strip() for query in BASE_QUERIES]
+    def fetch_html(self, url, required_markers=None):
+        for backend in self._preferred_backends(url):
+            started_at = time.time()
+            html = self._fetch_via_backend(backend, url)
+            duration_ms = int((time.time() - started_at) * 1000)
+            if not html:
+                self._record_fetch_attempt(
+                    url, backend, html, required_markers, duration_ms, accepted=False, reason="empty"
+                )
+                continue
+            if self._has_blocking_content(url, html):
+                self._record_fetch_attempt(
+                    url, backend, html, required_markers, duration_ms, accepted=False, reason="blocking_content"
+                )
+                continue
+            if self._matches_required_markers(html, required_markers):
+                self._record_fetch_attempt(
+                    url, backend, html, required_markers, duration_ms, accepted=True, reason="ok"
+                )
+                return html
+            self._record_fetch_attempt(
+                url, backend, html, required_markers, duration_ms, accepted=False, reason="missing_markers"
+            )
+        return ""
+
+    def build_yandex_urls(self, max_queries=None):
+        queries = [f"{query} {self.city}".strip() for query in BASE_QUERIES[: max_queries or len(BASE_QUERIES)]]
         preset = CITY_PRESETS.get(self.city_lc)
         urls = []
         if preset:
@@ -786,11 +859,11 @@ class CosmetologistHunter:
             urls.append(f"https://yandex.com/maps/?text={urllib.parse.quote(query)}")
         return urls
 
-    def build_2gis_urls(self):
+    def build_2gis_urls(self, max_queries=None, max_pages=3):
         preset = CITY_PRESETS.get(self.city_lc)
         urls = []
-        pages = range(1, 7)
-        queries = [f"{query} {self.city}".strip() for query in BASE_QUERIES]
+        pages = range(1, max(2, int(max_pages or 3)) + 1)
+        queries = [f"{query} {self.city}".strip() for query in BASE_QUERIES[: max_queries or len(BASE_QUERIES)]]
         if preset:
             for query in queries:
                 q = urllib.parse.quote(query)
@@ -935,6 +1008,8 @@ class CosmetologistHunter:
         candidates = {}
         seen_names = set()
         seen_company_addresses = set()
+        max_queries = 4 if count <= 20 else 6
+        max_pages = 2 if count <= 20 else 3
 
         def add_records(items):
             for item in items:
@@ -963,15 +1038,10 @@ class CosmetologistHunter:
                 if company_address_key:
                     seen_company_addresses.add(company_address_key)
 
-        for url in self.build_yandex_urls():
-            add_records(self.parse_yandex_url(url))
-            if len(candidates) >= buffer_size:
-                return list(candidates.values())
-
         firm_ids = []
         firm_seen = set()
         max_firm_ids = max(buffer_size * 2, 40)
-        for url in self.build_2gis_urls():
+        for url in self.build_2gis_urls(max_queries=max_queries, max_pages=max_pages):
             for firm_id in self.parse_2gis_search_url(url):
                 if firm_id in firm_seen:
                     continue
@@ -1003,6 +1073,14 @@ class CosmetologistHunter:
                     return list(candidates.values())
         for active in threads:
             active.join()
+
+        if len(candidates) >= buffer_size:
+            return list(candidates.values())
+
+        for url in self.build_yandex_urls(max_queries=max_queries):
+            add_records(self.parse_yandex_url(url))
+            if len(candidates) >= buffer_size:
+                return list(candidates.values())
 
         return list(candidates.values())
 
@@ -1043,12 +1121,21 @@ class HunterService:
         self.preview_dir = Path(preview_dir)
         self.drive_folder_id = str(drive_folder_id or "").strip()
         self.lock = threading.Lock()
+        self.last_fetch_trace = []
 
     def tooling_status(self):
         return {
             "server_tool_root": DEFAULT_SERVER_TOOL_ROOT,
             "firecrawl": self.firecrawl.status(),
             "site_control": self.site_control.status(),
+        }
+
+    def fetch_trace_status(self, limit=30):
+        safe_limit = max(1, min(int(limit or 30), MAX_FETCH_TRACE_ITEMS))
+        items = self.last_fetch_trace[-safe_limit:]
+        return {
+            "items": items,
+            "count": len(items),
         }
 
     def load_settings(self):
@@ -1114,6 +1201,7 @@ class HunterService:
             existing_signatures = self.google.existing_signatures_for_city(city)
             hunter = CosmetologistHunter(city, firecrawl=self.firecrawl, site_control=self.site_control)
             contacts = hunter.find_contacts(count, existing_signatures)
+            self.last_fetch_trace = hunter.get_fetch_trace(limit=MAX_FETCH_TRACE_ITEMS)
             if len(contacts) < count:
                 raise RuntimeError(
                     f"Недостаточно новых контактов косметологов для города {city}: найдено {len(contacts)}, нужно {count}"
@@ -1132,6 +1220,7 @@ class HunterService:
                     "ordinal": ordinal,
                     "preview_path": str(preview_path),
                     "contacts": contacts,
+                    "fetch_trace": self.last_fetch_trace[-20:],
                 }
 
             spreadsheet_id = self.google.copy_sheet(title)
@@ -1200,6 +1289,11 @@ class HunterRequestHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/tooling/status":
             self._send(200, {"ok": True, "tooling": self.service.tooling_status()})
+            return
+        if parsed.path == "/debug/fetch-trace":
+            params = urllib.parse.parse_qs(parsed.query)
+            limit = (params.get("limit") or ["30"])[0]
+            self._send(200, {"ok": True, "fetch_trace": self.service.fetch_trace_status(limit=limit)})
             return
         self._send(404, {"ok": False, "error": "Not found"})
 
