@@ -144,3 +144,5 @@ __pycache__/
 
 # Local secrets/helpers
 Postgres/key.txt
+agent_contact_parser_docs/.secrets/
+.env.cosmetologist_hunter

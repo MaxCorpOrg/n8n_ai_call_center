@@ -1,0 +1,779 @@
+{
+  "name": "COSMETOLOGIST_HUNTER_TELEGRAM_DRAFT",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "55f071d1-2ac0-49f7-9107-c0e6dd1c23d3",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -840,
+        80
+      ],
+      "webhookId": "44eca124-5fad-4fb6-9334-9fe33c1dbac4",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body?.message?.text ?? $json.message?.text }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Text"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body?.message?.voice?.file_id ?? $json.message?.voice?.file_id }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Voice"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "1e54e532-52cc-4369-ae29-48d042fb8d6b",
+      "name": "Switch Telegram Input",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -600,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b9b4c459-20c4-4282-a723-7fe0eab4b819",
+              "name": "call_id",
+              "value": "={{ 'tg-' + ($json.body?.message?.message_id ?? $json.message?.message_id ?? Date.now()) }}",
+              "type": "string"
+            },
+            {
+              "id": "32d0c362-7e00-4302-b9a6-ffc65c4c0b15",
+              "name": "caller",
+              "value": "={{ $json.body?.message?.from?.username || $json.body?.message?.from?.first_name || $json.message?.from?.username || $json.message?.from?.first_name || 'telegram-user' }}",
+              "type": "string"
+            },
+            {
+              "id": "dd10fad3-d0f0-4485-b45c-6fecf442315a",
+              "name": "text",
+              "value": "={{ String($json.body?.message?.text ?? $json.message?.text ?? '').trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "2e562036-e216-4c74-9687-52868e9dc41a",
+              "name": "source",
+              "value": "telegram",
+              "type": "string"
+            },
+            {
+              "id": "43a0826e-9eaf-4ec2-9d47-d1e3e1efafaa",
+              "name": "chat_id",
+              "value": "={{ String($json.body?.message?.chat?.id ?? $json.message?.chat?.id ?? '') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b04f7a41-1050-404c-9798-4c6db705088e",
+      "name": "Set Telegram Context",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -340,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b488208d-a0c7-430e-9208-4c4e4962e4a1",
+              "name": "chat_id",
+              "value": "={{ String($json.body?.message?.chat?.id ?? $json.message?.chat?.id ?? '') }}",
+              "type": "string"
+            },
+            {
+              "id": "4dccf191-d421-4647-9a9c-a49fb89e9f60",
+              "name": "reply_text",
+              "value": "Сейчас поддерживаются только текстовые сообщения. Напишите город и количество контактов текстом.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2d37cf8f-cfb3-4cc6-9276-2021e84fdac6",
+      "name": "Set Voice Not Supported",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -340,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.text }}",
+                    "rightValue": "/start",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Start"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "a4372d5f-0218-4532-bc0e-6a665de3c778",
+      "name": "Switch Start Command",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -80,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2106d2f9-df19-4541-85f4-c2ab295234e1",
+              "name": "chat_id",
+              "value": "={{ $json.chat_id }}",
+              "type": "string"
+            },
+            {
+              "id": "abceeb6f-4c5d-4ec8-8c82-5f30b1901cbf",
+              "name": "reply_text",
+              "value": "Агент-сборщик косметологов готов.\n\nКоманды:\n/settings\n/city <город>\n/count <число>\n\nИли просто напишите: найди 30 косметологов в Казани",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2f862662-8b78-4664-971a-af82436bd95e",
+      "name": "Set Welcome Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        180,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "mistral-small",
+          "mode": "list",
+          "cachedResultName": "mistral-small"
+        },
+        "options": {
+          "maxTokens": 400,
+          "maxRetries": 1
+        }
+      },
+      "id": "e1a86bd5-0c08-433e-976d-36b95fdf4973",
+      "name": "Mistral Test Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        260,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "options": {
+          "systemMessage": "=# Роль\nТы управляющий агент Telegram-панели для сервиса поиска контактов косметологов.\n\n# Что ты делаешь\nТы не ищешь контакты сам. Ты превращаешь входящее сообщение пользователя в структурированную JSON-команду для локального сервиса.\n\n# Допустимые действия\n- help\n- get_settings\n- set_settings\n- run_search\n\n# Цель агента\nСервис должен искать только релевантные контакты по теме косметологии:\n- косметолог\n- врач-косметолог\n- кабинет косметолога\n- клиника косметологии\n- частный косметолог\n- эстетическая косметология\n\nНе смещай задачу в сторону общей бьюти-тематики, если пользователь прямо просит косметологов.\n\n# Правила интерпретации\n1. Если пользователь просит запустить поиск, используй run_search.\n2. Если пользователь меняет город или количество без явного запуска, используй set_settings.\n3. Если пользователь спрашивает текущие параметры, используй get_settings.\n4. Если сообщение похоже на /start, /help, 'что умеешь', 'как работать', используй help.\n5. Если в одном сообщении есть и запуск, и параметры, используй run_search и передай параметры сразу.\n6. Если число не указано, не выдумывай его: верни null в count.\n7. Если город не указан, не выдумывай его: верни пустую строку.\n8. Нормализуй count в целое число от 1 до 300. Если число вне диапазона, обрежь к ближайшей границе.\n9. Возвращай только один JSON-объект без пояснений, markdown и кодовых блоков.\n\n# Формат ответа\n{\n  \"action\": \"help | get_settings | set_settings | run_search\",\n  \"city\": \"Москва\",\n  \"count\": 45,\n  \"reply_hint\": \"краткая фраза о намерении\"\n}\n\n# Примеры\nВход: найди 30 косметологов в Казани\nВыход: {\"action\":\"run_search\",\"city\":\"Казань\",\"count\":30,\"reply_hint\":\"Запуск поиска 30 контактов косметологов в Казани.\"}\n\nВход: /city Санкт-Петербург\nВыход: {\"action\":\"set_settings\",\"city\":\"Санкт-Петербург\",\"count\":null,\"reply_hint\":\"Обновляю город поиска.\"}\n\nВход: /count 60\nВыход: {\"action\":\"set_settings\",\"city\":\"\",\"count\":60,\"reply_hint\":\"Обновляю лимит контактов.\"}\n\nВход: /settings\nВыход: {\"action\":\"get_settings\",\"city\":\"\",\"count\":null,\"reply_hint\":\"Показываю текущие настройки.\"}\n\nВход: /start\nВыход: {\"action\":\"help\",\"city\":\"\",\"count\":null,\"reply_hint\":\"Показываю инструкцию по управлению агентом.\"}"
+        }
+      },
+      "id": "459c3862-81de-4e1a-a1be-62e0fb61229c",
+      "name": "Агент-Сыщик Косметологов TG",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        180,
+        80
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const ctx = $('Set Telegram Context').item.json || {};\nconst rawText = String(ctx.text || '').trim();\nconst rawOutput = String($json.output ?? $json.text ?? $json.response ?? '').trim();\n\nconst clampCount = (value) => {\n  const n = Number(value);\n  if (!Number.isFinite(n)) return null;\n  return Math.min(Math.max(Math.trunc(n), 1), 300);\n};\n\nconst tryParse = (value) => {\n  if (!value) return null;\n  try {\n    return JSON.parse(value);\n  } catch (e) {\n    return null;\n  }\n};\n\nlet parsed = tryParse(rawOutput);\nif (!parsed) {\n  const match = rawOutput.match(/\\{[\\s\\S]*\\}/);\n  if (match) parsed = tryParse(match[0]);\n}\nparsed = parsed && typeof parsed === 'object' ? parsed : {};\n\nconst cityFromText = () => {\n  const cityCmd = rawText.match(/^\\/city\\s+(.+)$/i);\n  if (cityCmd) return cityCmd[1].trim();\n  return '';\n};\n\nconst countFromText = () => {\n  const countCmd = rawText.match(/^\\/count\\s+(\\d{1,3})$/i);\n  if (countCmd) return clampCount(countCmd[1]);\n  const searchCount = rawText.match(/(?:найди|ищи|поиск|собери|контакт(?:ов|а)?|запусти)\\D{0,20}(\\d{1,3})/i);\n  if (searchCount) return clampCount(searchCount[1]);\n  return null;\n};\n\nlet action = String(parsed.action || '').trim();\nif (!action) {\n  if (/^\\/(start|help)\\b/i.test(rawText) || /(что умеешь|как работать|инструкция)/i.test(rawText)) {\n    action = 'help';\n  } else if (/^\\/settings\\b/i.test(rawText)) {\n    action = 'get_settings';\n  } else if (/^\\/(city|count)\\b/i.test(rawText)) {\n    action = 'set_settings';\n  } else if (/(найди|ищи|собери|запусти поиск|новых контакт)/i.test(rawText)) {\n    action = 'run_search';\n  } else {\n    action = 'help';\n  }\n}\n\nlet city = String(parsed.city || '').trim();\nif (!city) city = cityFromText();\n\nlet count = parsed.count ?? null;\nif (count === null || count === '' || count === undefined) count = countFromText();\ncount = clampCount(count);\n\nconst chatId = String(ctx.chat_id || '');\nconst baseUrl = String($env.COSMETOLOGIST_HUNTER_URL || 'http://127.0.0.1:8787').replace(/\\/$/, '');\nconst settingsSetBody = { chat_id: chatId };\nconst runBody = { chat_id: chatId };\nif (city) {\n  settingsSetBody.city = city;\n  runBody.city = city;\n}\nif (count !== null) {\n  settingsSetBody.count = count;\n  runBody.count = count;\n}\n\nreturn [{\n  chat_id: chatId,\n  text: rawText,\n  action,\n  city,\n  count,\n  reply_hint: String(parsed.reply_hint || '').trim(),\n  settings_get_url: `${baseUrl}/settings/get?chat_id=${encodeURIComponent(chatId)}`,\n  settings_set_url: `${baseUrl}/settings/set`,\n  run_url: `${baseUrl}/run`,\n  settings_set_body: settingsSetBody,\n  run_body: runBody,\n}];"
+      },
+      "id": "496bdebf-5d36-409a-ab07-0758d079253d",
+      "name": "Parse Agent Decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_settings",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GetSettings"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "set_settings",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "SetSettings"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "run_search",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "RunSearch"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "f821179c-0433-45e9-875b-262382463faa",
+      "name": "Switch Agent Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        740,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.settings_get_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "77e3ec28-c00e-4059-8c7f-e0adffb05930",
+      "name": "Fetch Current Settings",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1020,
+        -80
+      ],
+      "continueOnFail": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json.body ?? $json;\nconst settings = data.settings ?? {};\nreturn [{\n  chat_id: $('Parse Agent Decision').item.json.chat_id || '',\n  reply_text: [\n    'Текущие настройки агента:',\n    `Город: ${settings.city || 'Москва'}`,\n    `Лимит: ${settings.count || 45}`,\n    settings.source_spreadsheet_id ? `Исходная таблица: ${settings.source_spreadsheet_id}` : '',\n    '',\n    'Команды:',\n    '/city <город>',\n    '/count <число>',\n    '/settings',\n    'Или просто напишите: найди 30 косметологов в Казани',\n  ].filter(Boolean).join('\\n'),\n}];"
+      },
+      "id": "5b4aec11-462c-4685-98ee-c4708a57c7d2",
+      "name": "Build Current Settings Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.settings_set_url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.settings_set_body }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "aeffd42b-c4a0-4c45-be20-50c1a06384d5",
+      "name": "Save Settings",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1020,
+        80
+      ],
+      "continueOnFail": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json.body ?? $json;\nconst settings = data.settings ?? {};\nconst ok = data.ok !== false;\nreturn [{\n  chat_id: $('Parse Agent Decision').item.json.chat_id || '',\n  reply_text: ok\n    ? [\n        'Настройки сохранены.',\n        `Город: ${settings.city || 'Москва'}`,\n        `Лимит: ${settings.count || 45}`,\n        '',\n        'Теперь можно написать:',\n        `найди ${settings.count || 45} косметологов в ${settings.city || 'Москве'}`,\n      ].join('\\n')\n    : `Не удалось сохранить настройки.\\nОшибка: ${data.error || 'неизвестно'}`,\n}];"
+      },
+      "id": "cd377db0-dd90-42b5-9b5a-d1233623f965",
+      "name": "Build Settings Saved Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.run_url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.run_body }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "ab057df1-0921-45db-8188-9e4e6d24bbe3",
+      "name": "Run Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1020,
+        240
+      ],
+      "continueOnFail": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json.body ?? $json;\nconst chatId = $('Parse Agent Decision').item.json.chat_id || '';\nconst contactsCount = Number(data.contacts_count ?? (Array.isArray(data.contacts) ? data.contacts.length : 0));\nlet replyText = '';\nif (data.ok) {\n  replyText = [\n    'Поиск завершён.',\n    data.title ? `Таблица: ${data.title}` : '',\n    contactsCount ? `Контактов: ${contactsCount}` : '',\n    data.google_url ? `Google Sheets: ${data.google_url}` : '',\n    data.local_file ? `Локальный файл: ${data.local_file}` : '',\n    data.preview_path ? `Preview JSON: ${data.preview_path}` : '',\n  ].filter(Boolean).join('\\n');\n} else {\n  replyText = `Поиск не завершился.\\nОшибка: ${data.error || 'неизвестно'}`;\n}\nreturn [{ chat_id: chatId, reply_text: replyText }];"
+      },
+      "id": "0641c30b-32a8-417c-a4f0-759f500474b2",
+      "name": "Build Search Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2a4ea49a-9592-4d15-80f5-f8ed0940ba3b",
+              "name": "chat_id",
+              "value": "={{ $(\"Set Telegram Context\").item.json.chat_id }}",
+              "type": "string"
+            },
+            {
+              "id": "8df2651c-b66d-47ce-8ed5-2456f0ac126c",
+              "name": "reply_text",
+              "value": "Команды агента:\n/settings\n/city <город>\n/count <число>\n\nПримеры:\nнайди 30 косметологов в Москве\nзапусти поиск по Казани на 25 контактов",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d4223038-80de-43a7-ac1c-8aca79579788",
+      "name": "Set Help Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1020,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.reply_text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "710f6cae-7e24-47f2-8c6b-c105c8eb3047",
+      "name": "Telegram Response",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1540,
+        120
+      ],
+      "webhookId": "e1ef802d-516b-42bf-8314-59f2f05f337c"
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Switch Telegram Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Telegram Input": {
+      "main": [
+        [
+          {
+            "node": "Set Telegram Context",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Voice Not Supported",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Telegram Context": {
+      "main": [
+        [
+          {
+            "node": "Switch Start Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Voice Not Supported": {
+      "main": [
+        [
+          {
+            "node": "Telegram Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Start Command": {
+      "main": [
+        [
+          {
+            "node": "Set Welcome Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Агент-Сыщик Косметологов TG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Welcome Message": {
+      "main": [
+        [
+          {
+            "node": "Telegram Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral Test Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Агент-Сыщик Косметологов TG",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Агент-Сыщик Косметологов TG": {
+      "main": [
+        [
+          {
+            "node": "Parse Agent Decision",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse Agent Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Agent Decision": {
+      "main": [
+        [
+          {
+            "node": "Switch Agent Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Agent Action": {
+      "main": [
+        [
+          {
+            "node": "Fetch Current Settings",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Settings",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run Search",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Help Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Current Settings": {
+      "main": [
+        [
+          {
+            "node": "Build Current Settings Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Current Settings Reply": {
+      "main": [
+        [
+          {
+            "node": "Telegram Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Settings": {
+      "main": [
+        [
+          {
+            "node": "Build Settings Saved Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Settings Saved Reply": {
+      "main": [
+        [
+          {
+            "node": "Telegram Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Search": {
+      "main": [
+        [
+          {
+            "node": "Build Search Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Search Reply": {
+      "main": [
+        [
+          {
+            "node": "Telegram Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Help Reply": {
+      "main": [
+        [
+          {
+            "node": "Telegram Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "active": false,
+  "settings": {},
+  "staticData": null,
+  "tags": []
+}

@@ -1,0 +1,16 @@
+[Unit]
+Description=Cosmetologist Hunter Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=max
+WorkingDirectory=/home/max/n8n_ai_call_center
+EnvironmentFile=-/home/max/n8n_ai_call_center/.env.cosmetologist_hunter
+ExecStart=/home/max/n8n_ai_call_center/scripts/run_cosmetologist_hunter_service.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
