@@ -16,3 +16,16 @@
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
 - `GOOGLE_REFRESH_TOKEN`
+
+Отдельно для email-followup локальные секреты сохранены в файле:
+- `/home/max/n8n_ai_call_center/.env.email_followup`
+
+Что там хранится:
+- `EMAIL_FOLLOWUP_SMTP_HOST`
+- `EMAIL_FOLLOWUP_SMTP_PORT`
+- `EMAIL_FOLLOWUP_SMTP_USERNAME`
+- `EMAIL_FOLLOWUP_SMTP_PASSWORD`
+- `EMAIL_FOLLOWUP_FROM_EMAIL`
+- `EMAIL_FOLLOWUP_REPLY_TO`
+
+Файл также исключён из git и не должен раскрываться в Markdown целиком.

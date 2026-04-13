@@ -27,6 +27,10 @@
   - `docs/cosmetologist_hunter_agent/06_SERVER_TOOLING_RU.md`
   - `workflows/COSMETOLOGIST_HUNTER_TELEGRAM_DRAFT.json`
   - `scripts/cosmetologist_hunter_service.py`
+- Отдельный email-followup контур по таблицам `контакты_косметологов_москва_*`:
+  - `docs/email_followup_agent/README_RU.md`
+  - `workflows/EMAIL_FOLLOWUP_AGENT_DRAFT.json`
+  - `scripts/email_followup_service.py`
 
 ## Быстрый запуск
 1. Подготовьте `.env.https` на сервере (на основе `.env.https.example`).
