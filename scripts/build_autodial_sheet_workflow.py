@@ -13,6 +13,7 @@ import requests
 REPO_ROOT = pathlib.Path("/home/max/n8n_ai_call_center")
 REPO_WORKFLOW = REPO_ROOT / "workflows" / "AUTODIAL_DISPATCHER_DRAFT.json"
 LIVE_WORKFLOW_ID = "iZ8OaN4xW0ZtxaCJ"
+LIVE_CALL_LOG_WORKFLOW_ID = "kZSdJrsAHWWIC2l6"
 LIVE_WORKFLOW_TEMP = pathlib.Path("/tmp/autodial_dispatcher_sheet_first_live.json")
 N8N_BASE_URL = "https://www.n-8-n.site"
 N8N_ENV_FILE = pathlib.Path("/home/max/.config/lipolong-eleven-relay.env")
@@ -84,6 +85,34 @@ def sanitize_google_payload_js(js_code: str) -> str:
     js_code = re.sub(r"(client_secret:\s*)'[^']+'", r"\1'{{GOOGLE_CLIENT_SECRET}}'", js_code)
     js_code = re.sub(r"(refresh_token:\s*)'[^']+'", r"\1'{{GOOGLE_REFRESH_TOKEN}}'", js_code)
     return js_code
+
+
+def extract_google_oauth_credentials(js_code: str) -> dict[str, str]:
+    patterns = {
+        "client_id": r"client_id:\s*'([^']+)'",
+        "client_secret": r"client_secret:\s*'([^']+)'",
+        "refresh_token": r"refresh_token:\s*'([^']+)'",
+    }
+    creds = {}
+    for key, pattern in patterns.items():
+        match = re.search(pattern, js_code)
+        if not match:
+            raise RuntimeError(f"Could not extract Google OAuth field {key} from workflow JS payload")
+        creds[key] = match.group(1)
+    return creds
+
+
+def inject_google_oauth_js(js_code: str, creds: dict[str, str]) -> str:
+    js_code = re.sub(r"(client_id:\s*)'[^']+'", rf"\1'{creds['client_id']}'", js_code)
+    js_code = re.sub(r"(client_secret:\s*)'[^']+'", rf"\1'{creds['client_secret']}'", js_code)
+    js_code = re.sub(r"(refresh_token:\s*)'[^']+'", rf"\1'{creds['refresh_token']}'", js_code)
+    return js_code
+
+
+def load_google_oauth_credentials(session: requests.Session) -> dict[str, str]:
+    workflow = fetch_workflow(session, LIVE_CALL_LOG_WORKFLOW_ID)
+    node = find_node(workflow, "Google | Build Payload")
+    return extract_google_oauth_credentials(node["parameters"]["jsCode"])
 
 
 def build_google_sheet_payload_js() -> str:
@@ -757,12 +786,13 @@ return [{
 """.strip()
 
 
-def patch_workflow(workflow: dict) -> dict:
+def patch_workflow(workflow: dict, google_creds: dict[str, str]) -> dict:
     workflow = copy.deepcopy(workflow)
 
     find_node(workflow, "Dispatcher | Schedule Tick")["parameters"]["rule"]["interval"][0]["expression"] = "*/1 * * * *"
     find_node(workflow, "Dispatcher | Build Run Context")["parameters"]["jsCode"] = build_run_context_js()
-    find_node(workflow, "Google | Build Sheet Payload")["parameters"]["jsCode"] = build_google_sheet_payload_js()
+    google_payload = find_node(workflow, "Google | Build Sheet Payload")
+    google_payload["parameters"]["jsCode"] = inject_google_oauth_js(build_google_sheet_payload_js(), google_creds)
     find_node(workflow, "Dispatcher | Parse Sheet Rows")["parameters"]["jsCode"] = parse_sheet_rows_js()
     find_node(workflow, "Dispatcher | Build Outbound Request")["parameters"]["jsCode"] = build_outbound_request_js()
     find_node(workflow, "Postgres | Mark Outbound Failure")["parameters"]["jsCode"] = build_outbound_failure_js()
@@ -873,7 +903,8 @@ def repo_payload_from_live(workflow: dict) -> dict:
 def main() -> None:
     session = api_session()
     live_before = fetch_workflow(session, LIVE_WORKFLOW_ID)
-    live_after = patch_workflow(live_before)
+    google_creds = load_google_oauth_credentials(session)
+    live_after = patch_workflow(live_before, google_creds)
     repo_workflow = repo_payload_from_live(live_after)
 
     LIVE_WORKFLOW_TEMP.write_text(json.dumps(live_after, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -885,10 +916,10 @@ def main() -> None:
     (backup_dir / "autodial_live_after.json").write_text(json.dumps(live_after, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     live_put_payload = {
-        "name": repo_workflow["name"],
-        "nodes": repo_workflow["nodes"],
-        "connections": repo_workflow["connections"],
-        "settings": repo_workflow["settings"],
+        "name": live_after["name"],
+        "nodes": live_after["nodes"],
+        "connections": live_after["connections"],
+        "settings": live_after["settings"],
     }
     response = put_workflow(session, LIVE_WORKFLOW_ID, live_put_payload)
     summary = {

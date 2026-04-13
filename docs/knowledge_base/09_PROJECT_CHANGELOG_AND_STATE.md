@@ -528,3 +528,19 @@
 - Причина: исходный файл был в формате `.xlsx`, и текущий `call_log` через Google Sheets API не может писать напрямую в Excel-файл на Google Drive.
 - Live workflow `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` переведен на новую Google Sheet.
 - Целевой лист сохранен прежним: `Лиды_обзвон`.
+
+### 2026-04-13 — Исправлен live AUTODIAL_DISPATCHER после переключения таблицы
+
+- Найдена и исправлена причина, по которой автодозвон не стартовал в окне `10:00-14:00 MSK`.
+- Root cause: live workflow `AUTODIAL_DISPATCHER (sheet-first draft)` публиковался с буквальными placeholder-строками `{{GOOGLE_CLIENT_ID}}`, `{{GOOGLE_CLIENT_SECRET}}`, `{{GOOGLE_REFRESH_TOKEN}}` в ноде `Google | Build Sheet Payload`.
+- Из-за этого шаг `Google | Refresh Access Token` возвращал `invalid_client`, чтение таблицы падало, а dispatcher ошибочно завершал цикл как `exhausted` с `total_leads = 0`.
+- Исправлен генератор [build_autodial_sheet_workflow.py](/home/max/n8n_ai_call_center/scripts/build_autodial_sheet_workflow.py):
+  - live-публикация теперь берёт Google OAuth из рабочего live `ELEVEN_TOOL_CALL_LOG_BRIDGE`,
+  - в git-репозитории по-прежнему сохраняется санитизированный draft без секретов,
+  - live workflow больше не затирается санитизированной версией.
+- Проверка после фикса:
+  - `Google | Refresh Access Token` вернул `access_token`,
+  - `Google | Fetch Sheet Rows` прочитал новую таблицу `1FUHh8lS8pEx58eRK2Rt6AYn3cy6ogWSO32vZWqYw_Fc`,
+  - `Dispatcher | Parse Sheet Rows` увидел `46` лидов и `45` eligible,
+  - `Postgres | Claim Next Lead` поставил `row_2` в `dialing`,
+  - `Dispatcher | Request Outbound Call` успешно инициировал звонок в ElevenLabs (`conversation_id` выдан).
