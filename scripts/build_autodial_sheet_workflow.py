@@ -86,6 +86,21 @@ def sanitize_google_payload_js(js_code: str) -> str:
     return js_code
 
 
+def build_google_sheet_payload_js() -> str:
+    return """
+return [{
+  spreadsheet_id: '1FUHh8lS8pEx58eRK2Rt6AYn3cy6ogWSO32vZWqYw_Fc',
+  target_sheet_gid: '199760593',
+  fallback_sheet_name: 'Лиды_обзвон',
+  metadata_url: 'https://sheets.googleapis.com/v4/spreadsheets/1FUHh8lS8pEx58eRK2Rt6AYn3cy6ogWSO32vZWqYw_Fc?fields=sheets.properties(sheetId,title)',
+  oauth_url: 'https://oauth2.googleapis.com/token',
+  client_id: '{{GOOGLE_CLIENT_ID}}',
+  client_secret: '{{GOOGLE_CLIENT_SECRET}}',
+  refresh_token: '{{GOOGLE_REFRESH_TOKEN}}',
+}];
+""".strip()
+
+
 def build_run_context_js() -> str:
     return """
 const now = new Date();
@@ -121,10 +136,10 @@ return [{
   call_window_start: '10:00',
   call_window_end: '14:00',
   dial_timeout_minutes: 1,
-  spreadsheet_id: '1pLrCNeQ_thipr5-fajPusgNZZSd5NHEZFmGkegfpIqI',
+  spreadsheet_id: '1FUHh8lS8pEx58eRK2Rt6AYn3cy6ogWSO32vZWqYw_Fc',
   sheet_gid: '199760593',
   fallback_sheet_name: 'Лиды_обзвон',
-  sheet_url: 'https://docs.google.com/spreadsheets/d/1pLrCNeQ_thipr5-fajPusgNZZSd5NHEZFmGkegfpIqI/edit?gid=199760593#gid=199760593',
+  sheet_url: 'https://docs.google.com/spreadsheets/d/1FUHh8lS8pEx58eRK2Rt6AYn3cy6ogWSO32vZWqYw_Fc/edit?gid=199760593#gid=199760593',
   sheet_range: 'A1:AM',
 }];
 """.strip()
@@ -747,6 +762,7 @@ def patch_workflow(workflow: dict) -> dict:
 
     find_node(workflow, "Dispatcher | Schedule Tick")["parameters"]["rule"]["interval"][0]["expression"] = "*/1 * * * *"
     find_node(workflow, "Dispatcher | Build Run Context")["parameters"]["jsCode"] = build_run_context_js()
+    find_node(workflow, "Google | Build Sheet Payload")["parameters"]["jsCode"] = build_google_sheet_payload_js()
     find_node(workflow, "Dispatcher | Parse Sheet Rows")["parameters"]["jsCode"] = parse_sheet_rows_js()
     find_node(workflow, "Dispatcher | Build Outbound Request")["parameters"]["jsCode"] = build_outbound_request_js()
     find_node(workflow, "Postgres | Mark Outbound Failure")["parameters"]["jsCode"] = build_outbound_failure_js()

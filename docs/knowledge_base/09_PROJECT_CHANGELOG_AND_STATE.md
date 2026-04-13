@@ -10,6 +10,18 @@
 
 ## 2) Последние важные изменения
 
+### 2026-04-13 — Автодозвон и call_log переведены на новую рабочую таблицу обзвона
+- Для live-обзвона и live `call_log` источник переключён на новую Google Sheet:
+  - `https://docs.google.com/spreadsheets/d/1FUHh8lS8pEx58eRK2Rt6AYn3cy6ogWSO32vZWqYw_Fc/edit?gid=199760593#gid=199760593`
+- Сохранён прежний `gid = 199760593`, поэтому логика выбора вкладки по `gid` осталась валидной.
+- Синхронизированы:
+  - `AUTODIAL_DISPATCHER`
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE`
+  - draft-файлы workflow в репозитории
+  - документация по `call_log` и автодозвону
+- Важное правило сохранено:
+  - dispatcher и `call_log` должны смотреть в один и тот же `spreadsheet_id`, иначе автодозвон снова начнёт читать не ту очередь.
+
 ### 2026-04-11 — По логам `8–9 апреля` усилены machine-handling и ограничения автодозвона
 - Сняты и перепроверены разговоры ElevenLabs за `2026-04-08` и `2026-04-09`.
 - Подтверждены проблемные паттерны:
@@ -200,7 +212,7 @@
   - `backups/2026-04-06_outbound_provider_fix/VOICE_INBOUND_AGENT_before_provider_fix.json`
 
 ### 2026-04-06 — Исправлен критичный рассинхрон таблиц для автодозвона
-- Найден и исправлен баг в `AUTODIAL_DISPATCHER`: workflow читал старый `spreadsheet_id` `1E-VCKAv4vF_SFLY8DgW0UC80FvAC_DDIxbSbi8GC8kU`, тогда как live `call_log` и рабочая таблица уже были переведены на `1pLrCNeQ_thipr5-fajPusgNZZSd5NHEZFmGkegfpIqI`.
+- Найден и исправлен баг в `AUTODIAL_DISPATCHER`: workflow читал старый `spreadsheet_id` `1E-VCKAv4vF_SFLY8DgW0UC80FvAC_DDIxbSbi8GC8kU`, тогда как live `call_log` и рабочая таблица уже были переведены на тогдашнюю рабочую Google Sheet `1pLrCNeQ_thipr5-fajPusgNZZSd5NHEZFmGkegfpIqI`.
 - Из-за этого dispatcher мог корректно стартовать по расписанию, но смотреть не в ту таблицу и не видеть актуальную очередь обзвона.
 - Репозиторный draft и документация приведены к одному источнику истины:
   - `https://docs.google.com/spreadsheets/d/1pLrCNeQ_thipr5-fajPusgNZZSd5NHEZFmGkegfpIqI/edit`
