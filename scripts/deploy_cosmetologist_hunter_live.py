@@ -124,6 +124,7 @@ return [{{
   run_url: {json.dumps(cfg['COSMETOLOGIST_HUNTER_LIVE_URL'].rstrip('/') + '/run')},
   tooling_status_url: {json.dumps(cfg['COSMETOLOGIST_HUNTER_LIVE_URL'].rstrip('/') + '/tooling/status')},
   fetch_trace_url: {json.dumps(cfg['COSMETOLOGIST_HUNTER_LIVE_URL'].rstrip('/') + '/debug/fetch-trace?limit=8')},
+  debug_summary_url: {json.dumps(cfg['COSMETOLOGIST_HUNTER_LIVE_URL'].rstrip('/') + '/debug/summary')} + '?chat_id=' + encodeURIComponent(chatId) + '&estimate_cap=30&refresh=1',
   mistral_api_url: 'https://api.mistral.ai/v1/chat/completions',
   mistral_api_key: {json.dumps(cfg['MISTRAL_API_KEY'])},
   mistral_model: 'mistral-medium-latest',
@@ -249,12 +250,14 @@ return [{
     build_debug_reply_js = r"""
 const tooling = $('Service | Get Tooling Status').item.json.body ?? $('Service | Get Tooling Status').item.json ?? {};
 const tracePayload = $('Service | Get Fetch Trace').item.json.body ?? $('Service | Get Fetch Trace').item.json ?? {};
+const summaryPayload = $('Service | Get Debug Summary').item.json.body ?? $('Service | Get Debug Summary').item.json ?? {};
 const source = $('Telegram | Normalize Update').item.json || {};
 const toolingData = tooling.tooling ?? {};
 const firecrawl = toolingData.firecrawl ?? {};
 const siteControl = toolingData.site_control ?? {};
 const trace = tracePayload.fetch_trace ?? {};
 const items = Array.isArray(trace.items) ? trace.items : [];
+const summary = summaryPayload.summary ?? {};
 
 const lines = [
   'Debug-статус агента:',
@@ -265,6 +268,8 @@ const lines = [
   siteControl.server_url ? `Site Control URL: ${siteControl.server_url}` : '',
   `Browser clients: ${siteControl.connected_clients ?? 0}`,
   siteControl.selected_client_id ? `Active client: ${siteControl.selected_client_id}` : '',
+  summary.city ? `Город оценки: ${summary.city}` : '',
+  Number.isFinite(Number(summary.estimated_available)) ? `Оценка новых контактов: ${summary.estimated_available} из ${summary.estimate_cap || 30}` : '',
   '',
   'Последние fetch-попытки:',
 ];
@@ -393,7 +398,14 @@ return [{
             'headerParameters': {'parameters': [{'name': 'Authorization', 'value': "={{ 'Bearer ' + $(\"Telegram | Normalize Update\").item.json.service_auth_token }}"}]},
             'options': {'response': {'response': {'neverError': True}}},
         }, [680, 40], type_version=4.2),
-        node('Telegram | Build Debug Reply', 'n8n-nodes-base.code', {'jsCode': build_debug_reply_js}, [940, 40], type_version=2),
+        node('Service | Get Debug Summary', 'n8n-nodes-base.httpRequest', {
+            'method': 'GET',
+            'url': '={{ $("Telegram | Normalize Update").item.json.debug_summary_url }}',
+            'sendHeaders': True,
+            'headerParameters': {'parameters': [{'name': 'Authorization', 'value': "={{ 'Bearer ' + $(\"Telegram | Normalize Update\").item.json.service_auth_token }}"}]},
+            'options': {'response': {'response': {'neverError': True}}},
+        }, [940, 40], type_version=4.2),
+        node('Telegram | Build Debug Reply', 'n8n-nodes-base.code', {'jsCode': build_debug_reply_js}, [1180, 40], type_version=2),
         node('Command | Parse City', 'n8n-nodes-base.code', {'jsCode': parse_city_js}, [420, 120], type_version=2),
         node('Command | Parse Count', 'n8n-nodes-base.code', {'jsCode': parse_count_js}, [420, 280], type_version=2),
         node('AI | Request Mistral', 'n8n-nodes-base.httpRequest', {
@@ -472,7 +484,8 @@ return [{
         },
         'Telegram | Build Help Reply': {'main': [[{'node': 'Telegram | Send Message', 'type': 'main', 'index': 0}]]},
         'Service | Get Tooling Status': {'main': [[{'node': 'Service | Get Fetch Trace', 'type': 'main', 'index': 0}]]},
-        'Service | Get Fetch Trace': {'main': [[{'node': 'Telegram | Build Debug Reply', 'type': 'main', 'index': 0}]]},
+        'Service | Get Fetch Trace': {'main': [[{'node': 'Service | Get Debug Summary', 'type': 'main', 'index': 0}]]},
+        'Service | Get Debug Summary': {'main': [[{'node': 'Telegram | Build Debug Reply', 'type': 'main', 'index': 0}]]},
         'Telegram | Build Debug Reply': {'main': [[{'node': 'Telegram | Send Message', 'type': 'main', 'index': 0}]]},
         'Command | Parse City': {'main': [[{'node': 'Switch | Save Source', 'type': 'main', 'index': 0}]]},
         'Command | Parse Count': {'main': [[{'node': 'Switch | Save Source', 'type': 'main', 'index': 0}]]},

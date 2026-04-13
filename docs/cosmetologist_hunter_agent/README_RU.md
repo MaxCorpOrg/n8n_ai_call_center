@@ -16,7 +16,7 @@
 1. Telegram-бот принимает команду или обычное текстовое сообщение.
 2. Mistral интерпретирует намерение: показать настройки, поменять город, поменять лимит или запустить поиск.
 3. `n8n` вызывает локальный сервис `cosmetologist_hunter_service.py`.
-4. Сервис ищет новые контакты косметологов по источникам `2GIS` и `Yandex Maps`.
+4. Сервис ищет новые контакты косметологов по источникам `2GIS`, `Yandex Maps` и `Prodoctorov`.
 5. Для загрузки страниц сервис может использовать серверный `Firecrawl`, а при необходимости и `site-control-kit` как browser fallback.
 6. Результат записывается в новую Google-таблицу и в локальный `.xlsx` в формате вашего call center.
 7. Telegram возвращает ссылку на Google Sheets и путь к локальному файлу.
@@ -30,6 +30,7 @@
 - жёсткий приоритет именно на косметологов, а не случайные салоны красоты
 - endpoint диагностики инструментов: `GET /tooling/status`
 - endpoint трассировки fetch-слоя: `GET /debug/fetch-trace?limit=20`
+- endpoint debug summary: `GET /debug/summary?chat_id=<id>&estimate_cap=30&refresh=1`
 - рекомендуемый `site-control` client id: `client-cosmetologist-browser`
 
 ## Минимальный сценарий запуска

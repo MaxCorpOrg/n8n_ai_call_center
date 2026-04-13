@@ -18,6 +18,23 @@ from openpyxl import load_workbook
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+
+def load_env_file_if_exists(path):
+    env_path = Path(path)
+    if not env_path.exists():
+        return
+    for raw in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip())
+
+
+for candidate in (PROJECT_ROOT / ".env.cosmetologist_hunter", Path.cwd() / ".env.cosmetologist_hunter"):
+    load_env_file_if_exists(candidate)
+
 DEFAULT_TABLES_DIR = PROJECT_ROOT / " Таблицы_контактов "
 DEFAULT_RUNTIME_DIR = PROJECT_ROOT / ".runtime" / "cosmetologist_hunter"
 
@@ -87,6 +104,7 @@ LEADS_HEADERS = [
 
 CITY_PRESETS = {
     "москва": {
+        "prodoctorov_city": "moskva",
         "yandex_urls": [
             "https://yandex.com/maps/213/moscow/search/{query}/?ll=37.385272%2C55.584227&z=8.9",
         ],
@@ -123,6 +141,10 @@ STRICT_RUBRIC_ALIASES = {
     "ehpilyaciya",
     "permanentnyjj_makiyazh",
 }
+GOOGLE_AUTH_RETRY_MARKERS = (
+    "Method doesn't allow unregistered callers",
+    "PERMISSION_DENIED",
+)
 
 
 def now_text():
@@ -200,6 +222,53 @@ def unique_phones(values):
             seen.add(phone)
             phones.append(phone)
     return phones
+
+
+def extract_json_object_after(html, needle):
+    text = str(html or "")
+    idx = text.find(needle)
+    if idx == -1:
+        return {}
+    payload = text[idx + len(needle) :]
+    brace = 0
+    in_string = False
+    escaped = False
+    end = None
+    for index, char in enumerate(payload):
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+        else:
+            if char == '"':
+                in_string = True
+            elif char == "{":
+                brace += 1
+            elif char == "}":
+                brace -= 1
+                if brace == 0:
+                    end = index + 1
+                    break
+    if not end:
+        return {}
+    try:
+        return json.loads(payload[:end])
+    except Exception:
+        return {}
+
+
+def walk_json_like(root):
+    stack = [root]
+    while stack:
+        current = stack.pop()
+        yield current
+        if isinstance(current, dict):
+            stack.extend(current.values())
+        elif isinstance(current, list):
+            stack.extend(current)
 
 
 def fix_text(value):
@@ -425,9 +494,8 @@ class SiteControlKitClient:
         try:
             body = self._get("/api/clients")
         except Exception:
-            self._clients_cache = []
             self._clients_cache_at = time.time()
-            return []
+            return self._clients_cache
         clients = body.get("clients")
         self._clients_cache = clients if isinstance(clients, list) else []
         self._clients_cache_at = time.time()
@@ -549,11 +617,37 @@ class GoogleSheetsClient:
         self._access_token = resp.json()["access_token"]
         return self._access_token
 
+    def refresh_access_token(self):
+        self._access_token = None
+        return self.access_token()
+
     def auth_headers(self, json_body=False):
         headers = {"Authorization": f"Bearer {self.access_token()}"}
         if json_body:
             headers["Content-Type"] = "application/json"
         return headers
+
+    def _should_retry_auth(self, response):
+        if response is None:
+            return False
+        text = ""
+        try:
+            text = response.text or ""
+        except Exception:
+            text = ""
+        return response.status_code in {401, 403} and any(marker in text for marker in GOOGLE_AUTH_RETRY_MARKERS)
+
+    def request_with_auth(self, method, url, *, json_body=False, retry_on_auth=True, **kwargs):
+        headers = dict(kwargs.pop("headers", {}) or {})
+        headers.update(self.auth_headers(json_body=json_body))
+        response = self.session.request(method, url, headers=headers, **kwargs)
+        if retry_on_auth and self._should_retry_auth(response):
+            self.refresh_access_token()
+            headers = dict(kwargs.pop("headers", {}) or {})
+            headers.update(self.auth_headers(json_body=json_body))
+            response = self.session.request(method, url, headers=headers, **kwargs)
+        response.raise_for_status()
+        return response
 
     def read_values(self, spreadsheet_id, sheet_name=None):
         title = sheet_name or self.source_sheet_name
@@ -562,8 +656,7 @@ class GoogleSheetsClient:
             f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}/values/"
             f"{range_encoded}?majorDimension=ROWS"
         )
-        resp = self.session.get(url, headers=self.auth_headers(), timeout=60)
-        resp.raise_for_status()
+        resp = self.request_with_auth("GET", url, timeout=60)
         return resp.json().get("values", [])
 
     def phones_from_sheet(self, spreadsheet_id, sheet_name=None):
@@ -623,7 +716,8 @@ class GoogleSheetsClient:
         return signatures
 
     def list_prefixed_sheets(self, title_prefix):
-        resp = self.session.get(
+        resp = self.request_with_auth(
+            "GET",
             "https://www.googleapis.com/drive/v3/files",
             params={
                 "q": (
@@ -635,10 +729,8 @@ class GoogleSheetsClient:
                 "supportsAllDrives": "true",
                 "includeItemsFromAllDrives": "true",
             },
-            headers=self.auth_headers(),
             timeout=60,
         )
-        resp.raise_for_status()
         return resp.json().get("files", [])
 
     def next_ordinal(self, title_prefix):
@@ -663,30 +755,30 @@ class GoogleSheetsClient:
         payload = {"name": title}
         if self.drive_folder_id:
             payload["parents"] = [self.drive_folder_id]
-        resp = self.session.post(
+        resp = self.request_with_auth(
+            "POST",
             f"https://www.googleapis.com/drive/v3/files/{self.source_spreadsheet_id}/copy",
             params={"supportsAllDrives": "true"},
-            headers=self.auth_headers(json_body=True),
             json=payload,
             timeout=60,
+            json_body=True,
         )
-        resp.raise_for_status()
         spreadsheet_id = resp.json()["id"]
         self.rename_sheet_title(spreadsheet_id, title)
         return spreadsheet_id
 
     def rename_sheet_title(self, spreadsheet_id, title):
-        patch_resp = self.session.patch(
+        self.request_with_auth(
+            "PATCH",
             f"https://www.googleapis.com/drive/v3/files/{spreadsheet_id}",
             params={"supportsAllDrives": "true"},
-            headers=self.auth_headers(json_body=True),
             json={"name": title},
             timeout=60,
+            json_body=True,
         )
-        patch_resp.raise_for_status()
-        batch_resp = self.session.post(
+        self.request_with_auth(
+            "POST",
             f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}:batchUpdate",
-            headers=self.auth_headers(json_body=True),
             json={
                 "requests": [
                     {
@@ -698,45 +790,44 @@ class GoogleSheetsClient:
                 ]
             },
             timeout=60,
+            json_body=True,
         )
-        batch_resp.raise_for_status()
 
     def clear_data_rows(self, spreadsheet_id, sheet_name=None):
         title = sheet_name or self.source_sheet_name
         range_encoded = urllib.parse.quote(f"{title}!A2:AM", safe="")
-        resp = self.session.post(
+        self.request_with_auth(
+            "POST",
             f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}/values/{range_encoded}:clear",
-            headers=self.auth_headers(json_body=True),
             json={},
             timeout=60,
+            json_body=True,
         )
-        resp.raise_for_status()
 
     def append_rows(self, spreadsheet_id, rows, sheet_name=None):
         title = sheet_name or self.source_sheet_name
         range_encoded = urllib.parse.quote(f"{title}!A2:AM", safe="")
-        resp = self.session.post(
+        resp = self.request_with_auth(
+            "POST",
             (
                 f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}/values/"
                 f"{range_encoded}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS"
             ),
-            headers=self.auth_headers(json_body=True),
             json={"majorDimension": "ROWS", "values": rows},
             timeout=60,
+            json_body=True,
         )
-        resp.raise_for_status()
         return resp.json()
 
     def export_xlsx(self, spreadsheet_id, local_path):
         local_path = Path(local_path)
         local_path.parent.mkdir(parents=True, exist_ok=True)
-        resp = self.session.get(
+        resp = self.request_with_auth(
+            "GET",
             f"https://www.googleapis.com/drive/v3/files/{spreadsheet_id}/export",
             params={"mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
-            headers=self.auth_headers(),
             timeout=120,
         )
-        resp.raise_for_status()
         local_path.write_bytes(resp.content)
         return str(local_path)
 
@@ -774,6 +865,8 @@ class CosmetologistHunter:
         lower_url = str(url or "").lower()
         if "2gis.ru" in lower_url:
             return ["direct"]
+        if "prodoctorov.ru" in lower_url:
+            return ["direct"]
         if "yandex." in lower_url:
             return ["direct", "firecrawl"]
         return ["direct", "firecrawl", "site_control"]
@@ -782,6 +875,8 @@ class CosmetologistHunter:
         lower_url = str(url or "").lower()
         if backend == "direct" and "2gis.ru" in lower_url:
             return 8
+        if backend == "direct" and "prodoctorov.ru" in lower_url:
+            return 12
         if backend == "direct" and "yandex." in lower_url:
             return 10
         if backend == "firecrawl":
@@ -875,6 +970,18 @@ class CosmetologistHunter:
             q = urllib.parse.quote(query)
             for page in pages:
                 urls.append(f"https://2gis.ru/search/{q}/page/{page}")
+        return urls
+
+    def build_prodoctorov_urls(self, max_pages=3):
+        preset = CITY_PRESETS.get(self.city_lc) or {}
+        city_slug = str(preset.get("prodoctorov_city") or "").strip()
+        if not city_slug:
+            return []
+        max_pages = max(1, int(max_pages or 3))
+        urls = []
+        for page in range(1, max_pages + 1):
+            suffix = "" if page == 1 else f"?page={page}"
+            urls.append(f"https://prodoctorov.ru/{city_slug}/kosmetolog/{suffix}")
         return urls
 
     def parse_yandex_url(self, url):
@@ -997,6 +1104,73 @@ class CosmetologistHunter:
             }
         ]
 
+    def parse_prodoctorov_list_url(self, url):
+        text = self.fetch_html(url, required_markers=["/vrach/", "window.__INITIAL_STATE__"])
+        if not text:
+            return []
+        links = []
+        seen = set()
+        for match in re.finditer(r'/[a-z0-9_-]+/vrach/\d+-[^"#?]+/', text, re.I):
+            raw = match.group(0).replace("%23", "#")
+            cleaned = raw.split("#", 1)[0]
+            if cleaned in seen:
+                continue
+            seen.add(cleaned)
+            links.append(urllib.parse.urljoin("https://prodoctorov.ru", cleaned))
+        return links
+
+    def parse_prodoctorov_profile(self, url):
+        text = self.fetch_html(url, required_markers=["window.__INITIAL_STATE__", '"doctor_specialities"'])
+        if not text:
+            return []
+        state = extract_json_object_after(text, "window.__INITIAL_STATE__ = ")
+        if not state:
+            return []
+        doctor = state.get("doctor") or {}
+        first_name = fix_text(doctor.get("firstname") or "").strip()
+        second_name = fix_text(doctor.get("secondname") or "").strip()
+        surname = fix_text(doctor.get("surname") or "").strip()
+        full_name = " ".join(part for part in [surname, first_name, second_name] if part).strip() or "Косметолог"
+        speciality_names = [
+            fix_text((item or {}).get("name") or "")
+            for item in (state.get("doctor_specialities") or [])
+        ]
+        if not any("космет" in item.lower() for item in speciality_names):
+            return []
+
+        records = []
+        seen = set()
+        for item in (state.get("lpu_addresses") or []):
+            lpu = (item or {}).get("lpu") or {}
+            lpu_name = fix_text(lpu.get("name") or (item or {}).get("name") or "").strip()
+            address = fix_text((item or {}).get("address") or lpu.get("address") or "").strip()
+            phones = unique_phones(
+                [
+                    (item or {}).get("phone") or "",
+                    ((lpu.get("lpuphone") or {}) if isinstance(lpu.get("lpuphone"), dict) else {}).get("phone") or "",
+                ]
+            )
+            if not phones:
+                continue
+            company_name = full_name if full_name else (lpu_name or "Косметолог")
+            key = (company_name, address, phones[0])
+            if key in seen:
+                continue
+            seen.add(key)
+            records.append(
+                {
+                    "company_name": company_name,
+                    "phone_primary": phones[0],
+                    "phone_secondary": phones[1] if len(phones) > 1 else "",
+                    "address": address,
+                    "source": "prodoctorov",
+                    "source_url": url,
+                    "city": self.city,
+                    "score": 85 if "космет" in " ".join(speciality_names).lower() else 65,
+                }
+            )
+        return records
+
     def _candidate_buffer_size(self, count):
         return max(count + 10, count * 2)
 
@@ -1056,10 +1230,13 @@ class CosmetologistHunter:
         lock = threading.Lock()
 
         def worker(fid):
-            records = self.parse_2gis_firm(fid)
-            if records:
-                with lock:
-                    add_records(records)
+            try:
+                records = self.parse_2gis_firm(fid)
+                if records:
+                    with lock:
+                        add_records(records)
+            except Exception:
+                return
 
         for firm_id in firm_ids:
             thread = threading.Thread(target=worker, args=(firm_id,))
@@ -1076,6 +1253,44 @@ class CosmetologistHunter:
 
         if len(candidates) >= buffer_size:
             return list(candidates.values())
+
+        profile_links = []
+        profile_seen = set()
+        max_profile_links = max(buffer_size * 2, 40)
+        for url in self.build_prodoctorov_urls(max_pages=max_pages):
+            for profile_url in self.parse_prodoctorov_list_url(url):
+                if profile_url in profile_seen:
+                    continue
+                profile_seen.add(profile_url)
+                profile_links.append(profile_url)
+                if len(profile_links) >= max_profile_links:
+                    break
+            if len(profile_links) >= max_profile_links:
+                break
+
+        threads = []
+
+        def profile_worker(profile_url):
+            try:
+                records = self.parse_prodoctorov_profile(profile_url)
+                if records:
+                    with lock:
+                        add_records(records)
+            except Exception:
+                return
+
+        for profile_url in profile_links:
+            thread = threading.Thread(target=profile_worker, args=(profile_url,))
+            thread.start()
+            threads.append(thread)
+            if len(threads) >= 6:
+                for active in threads:
+                    active.join()
+                threads = []
+                if len(candidates) >= buffer_size:
+                    return list(candidates.values())
+        for active in threads:
+            active.join()
 
         for url in self.build_yandex_urls(max_queries=max_queries):
             add_records(self.parse_yandex_url(url))
@@ -1122,6 +1337,7 @@ class HunterService:
         self.drive_folder_id = str(drive_folder_id or "").strip()
         self.lock = threading.Lock()
         self.last_fetch_trace = []
+        self._debug_summary_cache = {}
 
     def tooling_status(self):
         return {
@@ -1137,6 +1353,29 @@ class HunterService:
             "items": items,
             "count": len(items),
         }
+
+    def debug_summary(self, chat_id="", city="", estimate_cap=30, refresh=False):
+        settings = self.get_settings(chat_id)
+        resolved_city = str(city or settings.get("city") or "Москва").strip()
+        estimate_cap = max(1, min(int(estimate_cap or 30), 120))
+        cache_key = (resolved_city.lower(), estimate_cap)
+        cached = self._debug_summary_cache.get(cache_key) or {}
+        if not refresh and cached and (time.time() - float(cached.get("at_ts") or 0)) < 120:
+            return cached.get("payload") or {}
+        existing_signatures = self.google.existing_signatures_for_city(resolved_city)
+        hunter = CosmetologistHunter(resolved_city, firecrawl=self.firecrawl, site_control=self.site_control)
+        contacts = hunter.find_contacts(estimate_cap, existing_signatures)
+        payload = {
+            "city": resolved_city,
+            "estimate_cap": estimate_cap,
+            "estimated_available": len(contacts),
+            "sample": contacts[:3],
+        }
+        self._debug_summary_cache[cache_key] = {
+            "at_ts": time.time(),
+            "payload": payload,
+        }
+        return payload
 
     def load_settings(self):
         return load_json_file(self.settings_path, {})
@@ -1265,7 +1504,10 @@ class HunterRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(raw)))
         self.end_headers()
-        self.wfile.write(raw)
+        try:
+            self.wfile.write(raw)
+        except BrokenPipeError:
+            return
 
     def _read_json(self):
         length = int(self.headers.get("Content-Length", "0") or 0)
@@ -1275,27 +1517,49 @@ class HunterRequestHandler(BaseHTTPRequestHandler):
         return json.loads(body) if body else {}
 
     def do_GET(self):
-        if not self._authorized():
-            self._send(401, {"ok": False, "error": "Unauthorized"})
-            return
-        parsed = urllib.parse.urlparse(self.path)
-        if parsed.path == "/health":
-            self._send(200, {"ok": True, "service": "cosmetologist_hunter"})
-            return
-        if parsed.path == "/settings/get":
-            params = urllib.parse.parse_qs(parsed.query)
-            chat_id = (params.get("chat_id") or [""])[0]
-            self._send(200, {"ok": True, "settings": self.service.get_settings(chat_id)})
-            return
-        if parsed.path == "/tooling/status":
-            self._send(200, {"ok": True, "tooling": self.service.tooling_status()})
-            return
-        if parsed.path == "/debug/fetch-trace":
-            params = urllib.parse.parse_qs(parsed.query)
-            limit = (params.get("limit") or ["30"])[0]
-            self._send(200, {"ok": True, "fetch_trace": self.service.fetch_trace_status(limit=limit)})
-            return
-        self._send(404, {"ok": False, "error": "Not found"})
+        try:
+            if not self._authorized():
+                self._send(401, {"ok": False, "error": "Unauthorized"})
+                return
+            parsed = urllib.parse.urlparse(self.path)
+            if parsed.path == "/health":
+                self._send(200, {"ok": True, "service": "cosmetologist_hunter"})
+                return
+            if parsed.path == "/settings/get":
+                params = urllib.parse.parse_qs(parsed.query)
+                chat_id = (params.get("chat_id") or [""])[0]
+                self._send(200, {"ok": True, "settings": self.service.get_settings(chat_id)})
+                return
+            if parsed.path == "/tooling/status":
+                self._send(200, {"ok": True, "tooling": self.service.tooling_status()})
+                return
+            if parsed.path == "/debug/fetch-trace":
+                params = urllib.parse.parse_qs(parsed.query)
+                limit = (params.get("limit") or ["30"])[0]
+                self._send(200, {"ok": True, "fetch_trace": self.service.fetch_trace_status(limit=limit)})
+                return
+            if parsed.path == "/debug/summary":
+                params = urllib.parse.parse_qs(parsed.query)
+                chat_id = (params.get("chat_id") or [""])[0]
+                city = (params.get("city") or [""])[0]
+                estimate_cap = (params.get("estimate_cap") or ["30"])[0]
+                refresh = ((params.get("refresh") or ["0"])[0]).strip().lower() in {"1", "true", "yes", "on"}
+                self._send(
+                    200,
+                    {
+                        "ok": True,
+                        "summary": self.service.debug_summary(
+                            chat_id=chat_id,
+                            city=city,
+                            estimate_cap=estimate_cap,
+                            refresh=refresh,
+                        ),
+                    },
+                )
+                return
+            self._send(404, {"ok": False, "error": "Not found"})
+        except Exception as exc:
+            self._send(500, {"ok": False, "error": str(exc)})
 
     def do_POST(self):
         try:
