@@ -122,6 +122,8 @@ return [{{
   settings_get_url: {json.dumps(cfg['COSMETOLOGIST_HUNTER_LIVE_URL'].rstrip('/') + '/settings/get')} + '?chat_id=' + encodeURIComponent(chatId),
   settings_set_url: {json.dumps(cfg['COSMETOLOGIST_HUNTER_LIVE_URL'].rstrip('/') + '/settings/set')},
   run_url: {json.dumps(cfg['COSMETOLOGIST_HUNTER_LIVE_URL'].rstrip('/') + '/run')},
+  tooling_status_url: {json.dumps(cfg['COSMETOLOGIST_HUNTER_LIVE_URL'].rstrip('/') + '/tooling/status')},
+  fetch_trace_url: {json.dumps(cfg['COSMETOLOGIST_HUNTER_LIVE_URL'].rstrip('/') + '/debug/fetch-trace?limit=8')},
   mistral_api_url: 'https://api.mistral.ai/v1/chat/completions',
   mistral_api_key: {json.dumps(cfg['MISTRAL_API_KEY'])},
   mistral_model: 'mistral-medium-latest',
@@ -134,6 +136,7 @@ const text = String($json.text || '').trim();
 let command_kind = 'freeform';
 if (/^\/(start|help)\b/i.test(text)) command_kind = 'help';
 else if (/^\/settings\b/i.test(text)) command_kind = 'settings';
+else if (/^\/debug\b/i.test(text)) command_kind = 'debug';
 else if (/^\/city\s+.+/i.test(text)) command_kind = 'city';
 else if (/^\/count\s+\d{1,3}/i.test(text)) command_kind = 'count';
 return [{ ...$json, command_kind }];
@@ -231,6 +234,7 @@ return [{
     '',
     'Команды:',
     '/settings',
+    '/debug',
     '/city <город>',
     '/count <число>',
     '',
@@ -239,6 +243,49 @@ return [{
     'собери ещё 45 новых косметологов в Москве',
   ].join('\n'),
   telegram_send_url: $json.telegram_send_url,
+}];
+""".strip()
+
+    build_debug_reply_js = r"""
+const tooling = $('Service | Get Tooling Status').item.json.body ?? $('Service | Get Tooling Status').item.json ?? {};
+const tracePayload = $('Service | Get Fetch Trace').item.json.body ?? $('Service | Get Fetch Trace').item.json ?? {};
+const source = $('Telegram | Normalize Update').item.json || {};
+const toolingData = tooling.tooling ?? {};
+const firecrawl = toolingData.firecrawl ?? {};
+const siteControl = toolingData.site_control ?? {};
+const trace = tracePayload.fetch_trace ?? {};
+const items = Array.isArray(trace.items) ? trace.items : [];
+
+const lines = [
+  'Debug-статус агента:',
+  '',
+  `Firecrawl: ${firecrawl.enabled ? 'on' : 'off'}`,
+  firecrawl.base_url ? `Firecrawl URL: ${firecrawl.base_url}` : '',
+  `Site Control: ${siteControl.enabled ? 'on' : 'off'}`,
+  siteControl.server_url ? `Site Control URL: ${siteControl.server_url}` : '',
+  `Browser clients: ${siteControl.connected_clients ?? 0}`,
+  siteControl.selected_client_id ? `Active client: ${siteControl.selected_client_id}` : '',
+  '',
+  'Последние fetch-попытки:',
+];
+
+if (!items.length) {
+  lines.push('Пока нет trace-данных. Запусти поиск и повтори /debug.');
+} else {
+  for (const item of items.slice(-5)) {
+    const backend = String(item.backend || '-');
+    const accepted = item.accepted ? 'ok' : 'skip';
+    const reason = String(item.reason || '');
+    const duration = Number(item.duration_ms ?? 0);
+    const length = Number(item.html_length ?? 0);
+    lines.push(`- ${backend}: ${accepted}, ${duration}ms, len=${length}${reason ? `, ${reason}` : ''}`);
+  }
+}
+
+return [{
+  chat_id: source.chat_id,
+  telegram_send_url: source.telegram_send_url,
+  reply_text: lines.filter(Boolean).join('\n'),
 }];
 """.strip()
 
@@ -330,8 +377,23 @@ return [{
         node('Switch | Input Kind', 'n8n-nodes-base.switch', {'rules': {'values': [switch_condition_bool('={{ $json.is_text }}', True, 'text')]}, 'options': {'fallbackOutput': 'extra'}}, [-320, 200], type_version=3.2),
         node('Telegram | Build Unsupported Reply', 'n8n-nodes-base.code', {'jsCode': build_unsupported_reply_js}, [-80, 360], type_version=2),
         node('Command | Classify', 'n8n-nodes-base.code', {'jsCode': classify_command_js}, [-80, 120], type_version=2),
-        node('Switch | Quick Command', 'n8n-nodes-base.switch', {'rules': {'values': [switch_condition_equals('={{ $json.command_kind }}', 'help'), switch_condition_equals('={{ $json.command_kind }}', 'settings'), switch_condition_equals('={{ $json.command_kind }}', 'city'), switch_condition_equals('={{ $json.command_kind }}', 'count')]}, 'options': {'fallbackOutput': 'extra'}}, [160, 120], type_version=3.2),
+        node('Switch | Quick Command', 'n8n-nodes-base.switch', {'rules': {'values': [switch_condition_equals('={{ $json.command_kind }}', 'help'), switch_condition_equals('={{ $json.command_kind }}', 'settings'), switch_condition_equals('={{ $json.command_kind }}', 'debug'), switch_condition_equals('={{ $json.command_kind }}', 'city'), switch_condition_equals('={{ $json.command_kind }}', 'count')]}, 'options': {'fallbackOutput': 'extra'}}, [160, 120], type_version=3.2),
         node('Telegram | Build Help Reply', 'n8n-nodes-base.code', {'jsCode': build_help_reply_js}, [420, -80], type_version=2),
+        node('Service | Get Tooling Status', 'n8n-nodes-base.httpRequest', {
+            'method': 'GET',
+            'url': '={{ $("Telegram | Normalize Update").item.json.tooling_status_url }}',
+            'sendHeaders': True,
+            'headerParameters': {'parameters': [{'name': 'Authorization', 'value': "={{ 'Bearer ' + $(\"Telegram | Normalize Update\").item.json.service_auth_token }}"}]},
+            'options': {'response': {'response': {'neverError': True}}},
+        }, [420, 40], type_version=4.2),
+        node('Service | Get Fetch Trace', 'n8n-nodes-base.httpRequest', {
+            'method': 'GET',
+            'url': '={{ $("Telegram | Normalize Update").item.json.fetch_trace_url }}',
+            'sendHeaders': True,
+            'headerParameters': {'parameters': [{'name': 'Authorization', 'value': "={{ 'Bearer ' + $(\"Telegram | Normalize Update\").item.json.service_auth_token }}"}]},
+            'options': {'response': {'response': {'neverError': True}}},
+        }, [680, 40], type_version=4.2),
+        node('Telegram | Build Debug Reply', 'n8n-nodes-base.code', {'jsCode': build_debug_reply_js}, [940, 40], type_version=2),
         node('Command | Parse City', 'n8n-nodes-base.code', {'jsCode': parse_city_js}, [420, 120], type_version=2),
         node('Command | Parse Count', 'n8n-nodes-base.code', {'jsCode': parse_count_js}, [420, 280], type_version=2),
         node('AI | Request Mistral', 'n8n-nodes-base.httpRequest', {
@@ -402,12 +464,16 @@ return [{
             'main': [
                 [{'node': 'Telegram | Build Help Reply', 'type': 'main', 'index': 0}],
                 [{'node': 'Service | Get Settings', 'type': 'main', 'index': 0}],
+                [{'node': 'Service | Get Tooling Status', 'type': 'main', 'index': 0}],
                 [{'node': 'Command | Parse City', 'type': 'main', 'index': 0}],
                 [{'node': 'Command | Parse Count', 'type': 'main', 'index': 0}],
                 [{'node': 'AI | Request Mistral', 'type': 'main', 'index': 0}],
             ]
         },
         'Telegram | Build Help Reply': {'main': [[{'node': 'Telegram | Send Message', 'type': 'main', 'index': 0}]]},
+        'Service | Get Tooling Status': {'main': [[{'node': 'Service | Get Fetch Trace', 'type': 'main', 'index': 0}]]},
+        'Service | Get Fetch Trace': {'main': [[{'node': 'Telegram | Build Debug Reply', 'type': 'main', 'index': 0}]]},
+        'Telegram | Build Debug Reply': {'main': [[{'node': 'Telegram | Send Message', 'type': 'main', 'index': 0}]]},
         'Command | Parse City': {'main': [[{'node': 'Switch | Save Source', 'type': 'main', 'index': 0}]]},
         'Command | Parse Count': {'main': [[{'node': 'Switch | Save Source', 'type': 'main', 'index': 0}]]},
         'AI | Request Mistral': {'main': [[{'node': 'AI | Parse Decision', 'type': 'main', 'index': 0}]]},
