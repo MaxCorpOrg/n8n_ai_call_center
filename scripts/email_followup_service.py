@@ -4,6 +4,7 @@ import json
 import os
 import re
 import smtplib
+import socket
 import ssl
 import time
 import urllib.parse
@@ -53,7 +54,15 @@ DEFAULT_FIRECRAWL_API_KEY = (
 )
 DEFAULT_MAX_SHEETS_PER_RUN = int(os.getenv("EMAIL_FOLLOWUP_MAX_SHEETS_PER_RUN", "25").strip() or "25")
 DEFAULT_MAX_RECORDS_PER_RUN = int(os.getenv("EMAIL_FOLLOWUP_MAX_RECORDS_PER_RUN", "20").strip() or "20")
-DEFAULT_REQUEST_TIMEOUT = int(os.getenv("EMAIL_FOLLOWUP_HTTP_TIMEOUT_SEC", "30").strip() or "30")
+DEFAULT_REQUEST_TIMEOUT = int(os.getenv("EMAIL_FOLLOWUP_HTTP_TIMEOUT_SEC", "15").strip() or "15")
+RESOLVER_TOTAL_TIMEOUT = int(
+    os.getenv("EMAIL_FOLLOWUP_RESOLVER_TOTAL_TIMEOUT_SEC", "25").strip() or "25"
+)
+RESOLVER_SEARCH_LIMIT = int(os.getenv("EMAIL_FOLLOWUP_RESOLVER_SEARCH_LIMIT", "4").strip() or "4")
+RESOLVER_MAX_VISITS = int(os.getenv("EMAIL_FOLLOWUP_RESOLVER_MAX_VISITS", "4").strip() or "4")
+RESOLVER_CONTACT_URL_LIMIT = int(
+    os.getenv("EMAIL_FOLLOWUP_RESOLVER_CONTACT_URL_LIMIT", "4").strip() or "4"
+)
 DEFAULT_PRODUCT_NAME = os.getenv("EMAIL_FOLLOWUP_PRODUCT_NAME", "LipoLong").strip() or "LipoLong"
 DEFAULT_PRODUCT_SITE = os.getenv("EMAIL_FOLLOWUP_PRODUCT_SITE", "https://lipolong.com").strip() or "https://lipolong.com"
 DEFAULT_MATERIAL_URL = (
@@ -70,6 +79,8 @@ DEFAULT_SUBJECT_TEMPLATE = (
 )
 
 TRUTHY = {"1", "true", "yes", "y", "on", "да"}
+DNS_CHECK_TIMEOUT = 8
+DNS_CACHE = {}
 EMAIL_PATTERN = re.compile(r"[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}", re.IGNORECASE)
 SEARCH_RESULT_LINK_PATTERN = re.compile(
     r'<a[^>]+class="[^"]*result__a[^"]*"[^>]+href="([^"]+)"', re.IGNORECASE
@@ -239,6 +250,78 @@ def is_valid_email(email):
     if ".." in email:
         return False
     return bool(EMAIL_PATTERN.fullmatch(email.strip()))
+
+
+def email_domain(email):
+    _, _, domain = str(email or "").strip().rpartition("@")
+    return domain.strip().lower().strip(".")
+
+
+def resolve_domain_via_doh(domain):
+    cached = DNS_CACHE.get(domain)
+    if cached:
+        return cached
+    endpoint = "https://dns.google/resolve"
+    answers_by_type = {}
+    saw_nxdomain = False
+    for record_type in ("MX", "A", "AAAA"):
+        try:
+            response = requests.get(
+                endpoint,
+                params={"name": domain, "type": record_type},
+                timeout=DNS_CHECK_TIMEOUT,
+            )
+            response.raise_for_status()
+            body = response.json()
+        except Exception:
+            answers_by_type[record_type] = None
+            continue
+        status = body.get("Status")
+        answers = body.get("Answer") or []
+        if status == 3:
+            saw_nxdomain = True
+        answers_by_type[record_type] = answers
+    result = {
+        "mx": bool(answers_by_type.get("MX")),
+        "a": bool(answers_by_type.get("A")),
+        "aaaa": bool(answers_by_type.get("AAAA")),
+        "nxdomain": saw_nxdomain,
+    }
+    DNS_CACHE[domain] = result
+    return result
+
+
+def check_email_domain_resolves(email):
+    domain = email_domain(email)
+    if not domain:
+        return False, "empty_domain"
+    doh = resolve_domain_via_doh(domain)
+    if doh["mx"] or doh["a"] or doh["aaaa"]:
+        return True, ""
+    if doh["nxdomain"]:
+        return False, "domain_not_found"
+    try:
+        socket.getaddrinfo(domain, None)
+        return True, ""
+    except socket.gaierror:
+        return False, "domain_not_found"
+    except Exception:
+        return False, "domain_lookup_failed"
+
+
+def resolver_deadline(timeout_seconds):
+    return time.monotonic() + max(int(timeout_seconds or 0), 1)
+
+
+def remaining_seconds(deadline):
+    return max(0.0, float(deadline or 0) - time.monotonic())
+
+
+def request_timeout_for(deadline, fallback):
+    remaining = remaining_seconds(deadline)
+    if remaining <= 0:
+        return 0
+    return max(3, min(int(fallback or DEFAULT_REQUEST_TIMEOUT), int(remaining) or 1))
 
 
 def normalize_company_name(value):
@@ -495,29 +578,35 @@ class WebsiteEmailResolver:
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "Mozilla/5.0"})
 
-    def fetch_html(self, url):
+    def fetch_html(self, url, deadline=None):
         clean = clean_url(url)
         if not clean:
             return ""
+        timeout = request_timeout_for(deadline, DEFAULT_REQUEST_TIMEOUT) if deadline else DEFAULT_REQUEST_TIMEOUT
+        if deadline and timeout <= 0:
+            return ""
         if self.firecrawl.enabled():
-            html = self.firecrawl.scrape_html(clean, timeout=45)
+            html = self.firecrawl.scrape_html(clean, timeout=min(timeout, 20))
             if html:
                 return html
         try:
-            response = self.session.get(clean, timeout=DEFAULT_REQUEST_TIMEOUT)
+            response = self.session.get(clean, timeout=timeout)
             response.raise_for_status()
             return response.text or ""
         except Exception:
             return ""
 
-    def search_urls(self, queries, limit=8):
+    def search_urls(self, queries, limit=RESOLVER_SEARCH_LIMIT, deadline=None):
         found = []
         for query in dedupe_keep_order(queries):
+            timeout = request_timeout_for(deadline, DEFAULT_REQUEST_TIMEOUT) if deadline else DEFAULT_REQUEST_TIMEOUT
+            if deadline and timeout <= 0:
+                break
             try:
                 response = self.session.get(
                     "https://duckduckgo.com/html/",
                     params={"q": query},
-                    timeout=DEFAULT_REQUEST_TIMEOUT,
+                    timeout=timeout,
                 )
                 response.raise_for_status()
             except Exception:
@@ -543,7 +632,7 @@ class WebsiteEmailResolver:
                     return found
         return found
 
-    def same_domain_contact_urls(self, base_url, html, limit=6):
+    def same_domain_contact_urls(self, base_url, html, limit=RESOLVER_CONTACT_URL_LIMIT):
         base = clean_url(base_url)
         parsed_base = urllib.parse.urlparse(base)
         base_root = approx_root_domain(parsed_base.netloc)
@@ -603,6 +692,7 @@ class WebsiteEmailResolver:
         return score
 
     def resolve(self, row):
+        deadline = resolver_deadline(RESOLVER_TOTAL_TIMEOUT)
         explicit_urls = []
         for field in ("website_url", "website", "site_url", "site", "url", "domain"):
             value = clean_url(row.get(field))
@@ -622,20 +712,26 @@ class WebsiteEmailResolver:
             phone_queries.append(f'"{company}" "{city}" email')
             phone_queries.append(f'"{company}" "{city}" контакты')
 
-        url_candidates = dedupe_keep_order(explicit_urls + self.search_urls(phone_queries))
+        url_candidates = dedupe_keep_order(
+            explicit_urls + self.search_urls(phone_queries, limit=RESOLVER_SEARCH_LIMIT, deadline=deadline)
+        )[:RESOLVER_SEARCH_LIMIT]
         if not url_candidates:
             return {}
 
         for candidate_url in url_candidates:
+            if remaining_seconds(deadline) <= 0:
+                break
             visited = set()
             queue = [candidate_url]
             first_html = ""
-            while queue and len(visited) < 8:
+            while queue and len(visited) < RESOLVER_MAX_VISITS:
+                if remaining_seconds(deadline) <= 0:
+                    break
                 current_url = queue.pop(0)
                 if current_url in visited:
                     continue
                 visited.add(current_url)
-                html = self.fetch_html(current_url)
+                html = self.fetch_html(current_url, deadline=deadline)
                 if not html:
                     continue
                 if not first_html:
@@ -842,13 +938,14 @@ class EmailFollowupService:
 
     def build_email(self, row, to_email):
         contact_name = str(row.get("contact_name") or "").strip()
-        company_name = str(row.get("company_name") or "").strip() or "вашей компании"
+        company_name_raw = str(row.get("company_name") or "").strip()
+        company_name_for_subject = company_name_raw or "клиники"
         subject = DEFAULT_SUBJECT_TEMPLATE.format(
             product_name=DEFAULT_PRODUCT_NAME,
-            company_name=company_name,
-            contact_name=contact_name or company_name,
+            company_name=company_name_for_subject,
+            contact_name=contact_name or company_name_for_subject,
         )
-        salutation = contact_name or company_name or "Коллеги"
+        salutation = contact_name or company_name_raw or "Коллеги"
         text_body = (
             f"Здравствуйте, {salutation}!\n\n"
             f"Отправляем информацию по продукту {DEFAULT_PRODUCT_NAME}, как и договаривались.\n\n"
@@ -890,6 +987,11 @@ class EmailFollowupService:
             return {"action": "skipped", "reason": "dnc", "lead_key": state["lead_key"]}
         if not self.has_email_signal(row):
             return {"action": "skipped", "reason": "no_email_signal", "lead_key": state["lead_key"]}
+        send_status = str(row.get("email_send_status") or "").strip().lower()
+        if send_status == "sent" and row.get("email_sent_at") and not force_resend:
+            return {"action": "skipped", "reason": "already_sent", "lead_key": state["lead_key"]}
+        if send_status == "manual_review" and not force_resend:
+            return {"action": "skipped", "reason": "manual_review_pending", "lead_key": state["lead_key"]}
         if is_placeholder_company_name(company_name):
             updates = {
                 "email_send_status": "manual_review",
@@ -906,10 +1008,6 @@ class EmailFollowupService:
                 "company_name": company_name,
             }
 
-        send_status = str(row.get("email_send_status") or "").strip().lower()
-        if send_status == "sent" and row.get("email_sent_at") and not force_resend:
-            return {"action": "skipped", "reason": "already_sent", "lead_key": state["lead_key"]}
-
         email_address, email_status = self.extract_row_email(row)
         source_url = str(row.get("email_source_url") or "").strip()
         verification_status = email_status
@@ -924,6 +1022,7 @@ class EmailFollowupService:
                 updates = {
                     "email_verified_at": now_iso(),
                     "email_verification_status": "not_found",
+                    "email_send_status": "manual_review",
                     "email_last_error": "Email не найден на сайте по номеру или названию компании",
                 }
                 if not dry_run:
@@ -937,6 +1036,33 @@ class EmailFollowupService:
                     "company_name": row.get("company_name", ""),
                     "phone_primary": row.get("phone_primary", ""),
                 }
+
+        domain_ok, domain_reason = check_email_domain_resolves(email_address)
+        if not domain_ok:
+            status = "domain_not_found" if domain_reason == "domain_not_found" else "domain_check_failed"
+            error_text = (
+                "Домен email не существует или не резолвится"
+                if domain_reason == "domain_not_found"
+                else "Не удалось проверить домен email"
+            )
+            updates = {
+                "contact_email": email_address,
+                "email_verified_at": now_iso(),
+                "email_verification_status": status,
+                "email_last_error": error_text,
+                "email_send_status": "manual_review",
+            }
+            if not dry_run:
+                self.google.batch_update_row_fields(
+                    spreadsheet_id, sheet_name, header_map, target_row_number, updates
+                )
+            return {
+                "action": "needs_review",
+                "reason": "email_domain_not_found" if domain_reason == "domain_not_found" else "email_domain_check_failed",
+                "lead_key": state["lead_key"],
+                "company_name": row.get("company_name", ""),
+                "email": email_address,
+            }
 
         verify_updates = {
             "contact_email": email_address,

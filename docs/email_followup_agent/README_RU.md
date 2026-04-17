@@ -13,6 +13,7 @@
 
 - Workflow draft:
   - `/home/max/n8n_ai_call_center/workflows/EMAIL_FOLLOWUP_AGENT_DRAFT.json`
+  - `/home/max/n8n_ai_call_center/workflows/EMAIL_FOLLOWUP_AGENT_MANUAL_DRAFT.json`
 - Сервис:
   - `/home/max/n8n_ai_call_center/scripts/email_followup_service.py`
 - Run script:
@@ -77,6 +78,15 @@ python3 scripts/email_followup_service.py run --dry-run --limit-sheets 1 --max-r
 4. В `n8n` должен быть разрешён доступ к env в нодах: `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`.
 5. На host нужен firewall rule для Docker bridge:
    `ufw allow proto tcp from 172.18.0.0/16 to any port 8791 comment 'email_followup_docker_bridge'`
+6. Cron-workflow должен быть только schedule-only, без manual webhook внутри.
+7. Для ручного запуска используется отдельный manual-only workflow с webhook path:
+   `email-followup-live/run`
+8. У manual webhook должен быть задан `webhookId`, иначе `n8n 2.6.4` может зарегистрировать только служебный namespaced path вместо короткого production-path.
+9. Для стабильного runtime стоит ограничить сетевой резолвинг:
+   `EMAIL_FOLLOWUP_HTTP_TIMEOUT_SEC=15`
+   `EMAIL_FOLLOWUP_RESOLVER_TOTAL_TIMEOUT_SEC=25`
+   `EMAIL_FOLLOWUP_RESOLVER_SEARCH_LIMIT=4`
+   `EMAIL_FOLLOWUP_RESOLVER_MAX_VISITS=4`
 
 Проверка:
 
@@ -105,6 +115,18 @@ systemctl restart email_followup.service
 curl -X POST 'http://127.0.0.1:8791/run' \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer <EMAIL_FOLLOWUP_AUTH_TOKEN>' \
+  -d '{
+    "dry_run": true,
+    "limit_sheets": 1,
+    "max_records": 5
+  }'
+```
+
+Ручной запуск через `n8n` production webhook:
+
+```bash
+curl -X POST 'https://www.n-8-n.site/webhook/email-followup-live/run' \
+  -H 'Content-Type: application/json' \
   -d '{
     "dry_run": true,
     "limit_sheets": 1,
