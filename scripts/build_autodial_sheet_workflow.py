@@ -157,7 +157,7 @@ return [{
   within_window: withinWindow,
   campaign_key: campaignKey,
   job_id: jobId,
-  daily_call_limit: 15,
+  daily_live_limit: 15,
   daily_attempt_limit_per_lead: 2,
   monthly_touch_limit_per_phone: 1,
   max_unreachable_total: 3,
@@ -219,7 +219,7 @@ const [mskDate, mskTime] = mskFmt.split(' ');
 const nowTs = parseTs(`${mskDate}T${mskTime}+03:00`) || now.getTime();
 const campaignKey = String($node['Dispatcher | Build Run Context'].json.campaign_key || 'lipolong_contacts_msk');
 const jobId = String($node['Dispatcher | Build Run Context'].json.job_id || `autodial.${Date.now()}`);
-const dailyCallLimit = Number($node['Dispatcher | Build Run Context'].json.daily_call_limit || 15);
+const dailyLiveLimit = Number($node['Dispatcher | Build Run Context'].json.daily_live_limit || 15);
 const dailyAttemptLimit = Number($node['Dispatcher | Build Run Context'].json.daily_attempt_limit_per_lead || 2);
 const monthlyTouchLimitPerPhone = Number($node['Dispatcher | Build Run Context'].json.monthly_touch_limit_per_phone || 1);
 const maxUnreachableTotal = Number($node['Dispatcher | Build Run Context'].json.max_unreachable_total || 3);
@@ -400,7 +400,7 @@ for (const row of rows) {
 
 const states = Array.from(byLead.values());
 const totalLeads = states.length;
-const dailyCallCount = rows.filter((row) => row.is_autodial_attempt && row.row_date === mskDate).length;
+const dailyLiveCount = states.filter((s) => s.live_success_today).length;
 const activeDialing = states.filter((s) => {
   if (!s.latest || !s.latest.is_autodial_attempt) return false;
   const nextTs = effectiveNextCallTs(s.latest, s);
@@ -415,8 +415,8 @@ const wrapFinish = (reason, eligibleCount = 0) => ([{
   msk_datetime: mskFmt,
   msk_date: mskDate,
   msk_time: mskTime,
-  daily_call_count: dailyCallCount,
-  daily_call_limit: dailyCallLimit,
+  daily_live_count: dailyLiveCount,
+  daily_live_limit: dailyLiveLimit,
   active_dial_count: activeDialing.length,
   eligible_count: eligibleCount,
   total_leads: totalLeads,
@@ -424,7 +424,7 @@ const wrapFinish = (reason, eligibleCount = 0) => ([{
   outcome_rows_json: JSON.stringify(outcomeRows),
 }]);
 
-if (dailyCallCount >= dailyCallLimit) {
+if (dailyLiveCount >= dailyLiveLimit) {
   return wrapFinish('daily_limit_reached');
 }
 
@@ -486,8 +486,8 @@ if (retireCandidates.length > 0) {
     msk_datetime: mskFmt,
     msk_date: mskDate,
     msk_time: mskTime,
-    daily_call_count: dailyCallCount,
-    daily_call_limit: dailyCallLimit,
+    daily_live_count: dailyLiveCount,
+    daily_live_limit: dailyLiveLimit,
     active_dial_count: 0,
     eligible_count: dialCandidates.length,
     total_leads: totalLeads,
@@ -652,8 +652,8 @@ return [{
   msk_datetime: mskFmt,
   msk_date: mskDate,
   msk_time: mskTime,
-  daily_call_count: dailyCallCount,
-  daily_call_limit: dailyCallLimit,
+  daily_live_count: dailyLiveCount,
+  daily_live_limit: dailyLiveLimit,
   active_dial_count: 0,
   eligible_count: dialCandidates.length,
   total_leads: totalLeads,
@@ -785,8 +785,8 @@ return [{
   msk_datetime: String(data.msk_datetime || ''),
   msk_date: String(data.msk_date || ''),
   msk_time: String(data.msk_time || ''),
-  daily_call_count: Number(data.daily_call_count || 0),
-  daily_call_limit: Number(data.daily_call_limit || 15),
+  daily_live_count: Number(data.daily_live_count || 0),
+  daily_live_limit: Number(data.daily_live_limit || 15),
   active_dial_count: Number(data.active_dial_count || 0),
   eligible_count: Number(data.eligible_count || 0),
   total_leads: Number(data.total_leads || 0),
