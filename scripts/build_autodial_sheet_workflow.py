@@ -356,6 +356,7 @@ for (const row of rows) {
       call_record_url: row.call_record_url || '',
       created_at: row.created_at || '',
       updated_at: row.updated_at || '',
+      row_date: row.row_date || '',
       is_live_connect: row.is_live_success === true,
     });
   }
@@ -406,6 +407,19 @@ for (const row of rows) {
 const states = Array.from(byLead.values());
 const totalLeads = states.length;
 const dailyLiveCount = states.filter((s) => s.live_success_today).length;
+const recentProviderFailureCount = outcomeRows.filter((row) => {
+  const rowTs = row.updated_at ? parseTs(row.updated_at) : (row.created_at ? parseTs(row.created_at) : null);
+  if (!rowTs) return false;
+  return row.source_system === 'autodial_dispatcher'
+    && String(row.call_result || '').toLowerCase() === 'outbound_request_failed'
+    && rowTs >= (nowTs - 15 * 60 * 1000);
+}).length;
+const todayTechnicalWasteCount = outcomeRows.filter((row) => {
+  const result = String(row.call_result || '').toLowerCase();
+  return row.row_date === mskDate
+    && ['outbound_request_failed', 'busy', 'no_answer', 'timeout'].includes(result)
+    && row.is_live_connect !== true;
+}).length;
 const activeDialing = states.filter((s) => {
   if (!s.latest || !s.latest.is_autodial_attempt) return false;
   const nextTs = effectiveNextCallTs(s.latest, s);
@@ -422,6 +436,8 @@ const wrapFinish = (reason, eligibleCount = 0) => ([{
   msk_time: mskTime,
   daily_live_count: dailyLiveCount,
   daily_live_limit: dailyLiveLimit,
+  recent_provider_failure_count: recentProviderFailureCount,
+  today_technical_waste_count: todayTechnicalWasteCount,
   active_dial_count: activeDialing.length,
   eligible_count: eligibleCount,
   total_leads: totalLeads,
@@ -435,6 +451,14 @@ if (dailyLiveCount >= dailyLiveLimit) {
 
 if (activeDialing.length > 0) {
   return wrapFinish('active_dialing');
+}
+
+if (recentProviderFailureCount >= 3) {
+  return wrapFinish('provider_circuit_breaker');
+}
+
+if (dailyLiveCount === 0 && todayTechnicalWasteCount >= 20) {
+  return wrapFinish('tech_waste_limit_reached');
 }
 
 const retireCandidates = [];
@@ -796,6 +820,18 @@ return [{
   active_dial_count: Number(data.active_dial_count || 0),
   eligible_count: Number(data.eligible_count || 0),
   total_leads: Number(data.total_leads || 0),
+  recent_provider_failure_count: Number(data.recent_provider_failure_count || 0),
+  today_technical_waste_count: Number(data.today_technical_waste_count || 0),
+  table_finished: String(data.reason || '') === 'exhausted',
+  message: ({
+    outside_call_window: 'Вне окна обзвона 10:00–14:00 МСК.',
+    daily_limit_reached: 'Достигнут дневной лимит живых разговоров.',
+    active_dialing: 'Есть активный звонок в работе, новый старт пока не нужен.',
+    provider_circuit_breaker: 'Автодозвон поставлен на паузу: подряд накопились технические outbound-фейлы.',
+    tech_waste_limit_reached: 'Автодозвон остановлен: слишком много технических пустых попыток без живых разговоров.',
+    no_due_rows: 'Подходящих номеров на текущий момент нет.',
+    exhausted: 'Таблица обзвона исчерпана: все доступные номера уже обработаны.',
+  })[String(data.reason || 'no_due_rows')] || 'Автодозвон пропущен по текущим условиям.',
 }];
 """.strip()
 
