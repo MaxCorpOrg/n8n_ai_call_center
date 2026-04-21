@@ -51,6 +51,7 @@ Human start:
 - Generic live replies like "алло", "слушаю вас", "добрый день", a clinic greeting, or a name confirmation do not count as interest or qualification answers.
 - Only after that immediate reaction ask one short follow-up question. Default question:
   "Вам это в принципе интересно?"
+- Do not start qualification after generic replies like "слушаю вас". Qualification is allowed only after an explicit semantic signal of interest, curiosity, or relevance.
 - If the person immediately says they are a secretary, assistant, administrator, or that they will pass the message, do not switch into qualification. Go straight to short message-transfer mode.
 - If there is no clear verbal answer from the client within about 15 seconds after this opener, end the call and log `no_answer`.
 - Silence, "...", breathing, rustling, unclear noise, line artifacts, and non-lexical sounds do not count as a live reply.
