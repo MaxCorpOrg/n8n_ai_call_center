@@ -35,6 +35,20 @@
    - `https://api.elevenlabs.io/v1/convai/sip-trunk/outbound-call`
 5. Ответ ElevenLabs возвращается обратно в `n8n` как обычный JSON.
 
+## Текущее поведение retry
+- С `2026-04-21` relay делает очень узкий безопасный retry для плавающих upstream-сбоев.
+- Retry срабатывает только в трёх случаях:
+  - network exception при запросе в upstream;
+  - HTTP `5xx` от upstream;
+  - JSON-ответ ElevenLabs с сообщением:
+    - `max auth retry attemps reached`
+    - `max auth retry attempts reached`
+- Параметры по умолчанию:
+  - `RELAY_RETRY_COUNT=1`
+  - `RELAY_RETRY_DELAY_MS=1500`
+- Это не меняет бизнес-логику автодозвона и не трогает `n8n`.
+- Relay просто делает ещё одну быструю попытку пережить короткий upstream-сбой, а если не помогло, возвращает ошибку как раньше.
+
 ## Важный сетевой нюанс
 - Live `n8n` находится не на relay-сервере.
 - `n-8-n.site` резолвится в `147.45.213.87`, а relay живет на `151.241.228.232`.

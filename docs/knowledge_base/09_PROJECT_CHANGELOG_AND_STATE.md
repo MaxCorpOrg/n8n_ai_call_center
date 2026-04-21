@@ -579,3 +579,4 @@
 - Live agent обновлён через ElevenLabs API, backup сохранён в:
   - `backups/2026-04-14_music_silence_fix/`
 - `2026-04-21`: автодозвон переведён на жёсткий дневной лимит `15` исходящих звонков, а не `15` живых успешных контактов. Лимит считается по lock-строкам `autodial_dispatcher / dialing`, то есть по фактически инициированным outbound-вызовам.
+- `2026-04-21`: relay на сервере `151.241.228.232` обновлён до версии с узким retry для плавающих upstream-сбоев (`network exception`, `HTTP 5xx`, `max auth retry attemps reached`). Бэкап старого runtime-файла сохранён как `/opt/eleven_outbound_relay.py.bak-2026-04-21-091832`.
