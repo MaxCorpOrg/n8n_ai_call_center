@@ -157,7 +157,7 @@ return [{
   within_window: withinWindow,
   campaign_key: campaignKey,
   job_id: jobId,
-  daily_success_limit: 15,
+  daily_call_limit: 15,
   daily_attempt_limit_per_lead: 2,
   monthly_touch_limit_per_phone: 1,
   max_unreachable_total: 3,
@@ -219,7 +219,7 @@ const [mskDate, mskTime] = mskFmt.split(' ');
 const nowTs = parseTs(`${mskDate}T${mskTime}+03:00`) || now.getTime();
 const campaignKey = String($node['Dispatcher | Build Run Context'].json.campaign_key || 'lipolong_contacts_msk');
 const jobId = String($node['Dispatcher | Build Run Context'].json.job_id || `autodial.${Date.now()}`);
-const dailySuccessLimit = Number($node['Dispatcher | Build Run Context'].json.daily_success_limit || 15);
+const dailyCallLimit = Number($node['Dispatcher | Build Run Context'].json.daily_call_limit || 15);
 const dailyAttemptLimit = Number($node['Dispatcher | Build Run Context'].json.daily_attempt_limit_per_lead || 2);
 const monthlyTouchLimitPerPhone = Number($node['Dispatcher | Build Run Context'].json.monthly_touch_limit_per_phone || 1);
 const maxUnreachableTotal = Number($node['Dispatcher | Build Run Context'].json.max_unreachable_total || 3);
@@ -400,7 +400,7 @@ for (const row of rows) {
 
 const states = Array.from(byLead.values());
 const totalLeads = states.length;
-const dailySuccessCount = states.filter((s) => s.live_success_today).length;
+const dailyCallCount = rows.filter((row) => row.is_autodial_attempt && row.row_date === mskDate).length;
 const activeDialing = states.filter((s) => {
   if (!s.latest || !s.latest.is_autodial_attempt) return false;
   const nextTs = effectiveNextCallTs(s.latest, s);
@@ -415,8 +415,8 @@ const wrapFinish = (reason, eligibleCount = 0) => ([{
   msk_datetime: mskFmt,
   msk_date: mskDate,
   msk_time: mskTime,
-  daily_success_count: dailySuccessCount,
-  daily_success_limit: dailySuccessLimit,
+  daily_call_count: dailyCallCount,
+  daily_call_limit: dailyCallLimit,
   active_dial_count: activeDialing.length,
   eligible_count: eligibleCount,
   total_leads: totalLeads,
@@ -424,7 +424,7 @@ const wrapFinish = (reason, eligibleCount = 0) => ([{
   outcome_rows_json: JSON.stringify(outcomeRows),
 }]);
 
-if (dailySuccessCount >= dailySuccessLimit) {
+if (dailyCallCount >= dailyCallLimit) {
   return wrapFinish('daily_limit_reached');
 }
 
@@ -486,8 +486,8 @@ if (retireCandidates.length > 0) {
     msk_datetime: mskFmt,
     msk_date: mskDate,
     msk_time: mskTime,
-    daily_success_count: dailySuccessCount,
-    daily_success_limit: dailySuccessLimit,
+    daily_call_count: dailyCallCount,
+    daily_call_limit: dailyCallLimit,
     active_dial_count: 0,
     eligible_count: dialCandidates.length,
     total_leads: totalLeads,
@@ -652,8 +652,8 @@ return [{
   msk_datetime: mskFmt,
   msk_date: mskDate,
   msk_time: mskTime,
-  daily_success_count: dailySuccessCount,
-  daily_success_limit: dailySuccessLimit,
+  daily_call_count: dailyCallCount,
+  daily_call_limit: dailyCallLimit,
   active_dial_count: 0,
   eligible_count: dialCandidates.length,
   total_leads: totalLeads,
@@ -773,6 +773,27 @@ return [payload];
 """.strip()
 
 
+def finish_skip_js() -> str:
+    return """
+const data = $json || {};
+return [{
+  ok: true,
+  action: 'skipped',
+  reason: String(data.reason || 'no_due_rows'),
+  campaign_key: String(data.campaign_key || 'lipolong_contacts_msk'),
+  job_id: String(data.job_id || ''),
+  msk_datetime: String(data.msk_datetime || ''),
+  msk_date: String(data.msk_date || ''),
+  msk_time: String(data.msk_time || ''),
+  daily_call_count: Number(data.daily_call_count || 0),
+  daily_call_limit: Number(data.daily_call_limit || 15),
+  active_dial_count: Number(data.active_dial_count || 0),
+  eligible_count: Number(data.eligible_count || 0),
+  total_leads: Number(data.total_leads || 0),
+}];
+""".strip()
+
+
 def finish_dead_number_js() -> str:
     return """
 const data = $json || {};
@@ -794,6 +815,8 @@ def patch_workflow(workflow: dict, google_creds: dict[str, str]) -> dict:
     google_payload = find_node(workflow, "Google | Build Sheet Payload")
     google_payload["parameters"]["jsCode"] = inject_google_oauth_js(build_google_sheet_payload_js(), google_creds)
     find_node(workflow, "Dispatcher | Parse Sheet Rows")["parameters"]["jsCode"] = parse_sheet_rows_js()
+    find_node(workflow, "Dispatcher | Finish Outside Window")["parameters"]["jsCode"] = finish_skip_js()
+    find_node(workflow, "Dispatcher | Finish Exhausted")["parameters"]["jsCode"] = finish_skip_js()
     find_node(workflow, "Dispatcher | Build Outbound Request")["parameters"]["jsCode"] = build_outbound_request_js()
     find_node(workflow, "Postgres | Mark Outbound Failure")["parameters"]["jsCode"] = build_outbound_failure_js()
 
