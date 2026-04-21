@@ -189,6 +189,7 @@ const normalizePhone = (input) => {
   if (digits.length >= 11 && digits.length <= 15) return `+${digits}`;
   return String(input || '').trim();
 };
+const isDialablePhone = (input) => /^\+\d{11,15}$/.test(String(input || '').trim());
 const asBool = (v) => ['1', 'true', 'yes', 'да'].includes(asText(v).toLowerCase());
 const parseTs = (v) => {
   if (!v) return null;
@@ -253,6 +254,10 @@ const makeRow = (rowValues, sheetRowNumber) => {
   obj.max_touch_limit = Number(obj.max_touch_limit || 0) || maxAttemptsPerLead;
   obj.lead_key = obj.source_record_key || obj.lead_id || obj.phone_primary || obj.phone_secondary || `row_${sheetRowNumber}`;
   obj.phone_key = obj.phone_primary || obj.phone_secondary || '';
+  obj.dial_phone = isDialablePhone(obj.phone_primary)
+    ? obj.phone_primary
+    : (isDialablePhone(obj.phone_secondary) ? obj.phone_secondary : '');
+  obj.has_dialable_phone = !!obj.dial_phone;
   obj.result_key = String(obj.call_result || '').toLowerCase();
   obj.created_ts = parseTs(obj.created_at) || parseTs(obj.updated_at) || null;
   obj.updated_ts = parseTs(obj.updated_at) || obj.created_ts || null;
@@ -441,6 +446,7 @@ for (const state of states) {
   const latestResult = String(latest.result_key || '').toLowerCase();
   if (latest.do_not_call || latest.final_reason === 'number_unreachable' || finalResults.has(latestResult)) continue;
   if (state.live_success_today) continue;
+  if (!latest.has_dialable_phone) continue;
 
   const callbackOverride = latestResult === 'callback_scheduled' || String(latest.next_step || '').toLowerCase() === 'callback';
   const nextCallTs = effectiveNextCallTs(latest, state);
@@ -564,7 +570,7 @@ const selected = {
   sheet_row_number: Number(latest.sheet_row_number || 0),
   company_name: String(latest.company_name || ''),
   contact_name: String(latest.contact_name || ''),
-  phone_primary: String(latest.phone_primary || ''),
+  phone_primary: String(latest.dial_phone || latest.phone_primary || ''),
   phone_secondary: String(latest.phone_secondary || ''),
   city: String(latest.city || ''),
   segment: String(latest.segment || ''),
