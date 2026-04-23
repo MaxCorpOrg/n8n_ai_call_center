@@ -69,13 +69,16 @@
 - Междометия и звуки вроде `м-м-м`, `угу`, `ага` сразу после IVR/hold не считаются достаточным живым стартом для qualification.
 - Если секретарь или администратор принял сообщение для передачи, это нельзя логировать как `no_answer`; нужен `send_kp_pending_callback` с пометкой, что сообщение передано ответственному специалисту.
 - Если клиент говорит `не звоните нам больше`, агент обязан завершить разговор как `dnc`.
+- Точные конкретные значения `lead_id`, `caller`, `phone_primary`, `source_record_key`, `company_name`, `contact_name` и `request_id` подставляются в текущий контекст звонка ещё на старте разговора.
 - В каждом `call_log` агент обязан передавать минимальный паспорт звонка:
-  - `caller = system__called_number`
-  - `phone_primary = system__called_number`
-  - `source_record_key = system__conversation_id`
-  - `eleven_conv_id = system__conversation_id`
-  - `lead_id = system__called_number`, если более точный `lead_id` неизвестен
-- Эти поля нужно передавать как реальные текущие значения звонка, а не как буквальные строки `system__called_number` и `system__conversation_id`.
+  - `lead_id = {{lead_id}}`
+  - `caller = {{caller}}`
+  - `phone_primary = {{phone_primary}}`
+  - `source_record_key = {{source_record_key}}`
+  - `company_name = {{company_name}}`, если доступно
+  - `contact_name = {{contact_name}}`, если доступно
+- Для `eleven_conv_id` используй реальный текущий conversation id, а не буквальную строку `system__conversation_id`.
+- Эти поля нужно передавать как реальные текущие значения звонка, а не как буквальные имена переменных вроде `system__called_number`, `system__conversation_id` или `{{lead_id}}`.
 - Нельзя отправлять голый `call_log`, где есть только `call_result`, `next_step` и `notes_short`.
 - После `manager_call`, `send_kp_pending_callback`, отправки SMS или успешной передачи контактов запрещена фраза `Могу ли я чем-то еще помочь?`; после подтверждения следующего шага агент должен коротко завершать разговор.
 

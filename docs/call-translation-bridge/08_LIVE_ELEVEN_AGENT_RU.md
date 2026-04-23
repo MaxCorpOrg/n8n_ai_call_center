@@ -87,8 +87,10 @@
 - `...`, дыхание, шорох, line noise и неразборчивые куски речи не считаются живым ответом.
 - Междометия и звуки вроде `м-м-м`, `угу`, `ага` сразу после IVR/hold тоже не считаются достаточным живым стартом для qualification.
 - Если секретарь, оператор или message-service после принятия сообщения спрашивает `что ещё добавить?` или `это всё?`, агент отвечает только `Нет, этого достаточно. Спасибо.` и сразу завершает звонок.
-- В каждом `call_log` агент обязан передавать идентификаторы звонка: `caller = system__called_number`, `phone_primary = system__called_number`, `source_record_key = system__conversation_id`, `eleven_conv_id = system__conversation_id`; пустой `call_log` без этих полей недопустим.
-- Эти поля должны передаваться как реальные значения текущего звонка, а не как буквальные строки `system__called_number` и `system__conversation_id`.
+- В live-контур на старте outbound-звонка прокидываются runtime-идентификаторы: `lead_id`, `caller`, `phone_primary`, `source_record_key`, `company_name`, `contact_name`, `request_id`.
+- В каждом `call_log` агент обязан передавать эти реальные значения текущего звонка; пустой `call_log` без идентификаторов недопустим.
+- Для `eleven_conv_id` агент должен использовать реальный текущий conversation id, а не буквальную строку `system__conversation_id`.
+- Строки-плейсхолдеры вроде `system__called_number`, `system__conversation_id` и `{{lead_id}}` считаются дефектом и не должны попадать в Sheet.
 - Жёстко запрещены реплики:
   - `Здравствуйте. Чем могу быть полезна?`
   - `Я вас слушаю`
