@@ -265,7 +265,8 @@ const makeRow = (rowValues, sheetRowNumber) => {
   obj.row_month = obj.row_date.slice(0, 7);
   obj.next_call_ts = parseTs(obj.next_call_at);
   obj.is_autodial_attempt = obj.source_system === 'autodial_dispatcher' && obj.result_key === 'dialing';
-  obj.is_live_success = obj.source_system === 'elevenlabs' && !!obj.eleven_conv_id && !failureResults.has(obj.result_key) && obj.result_key !== 'dialing' && obj.result_key !== '';
+  obj.has_valid_conv_id = /^conv_[a-z0-9]+$/i.test(String(obj.eleven_conv_id || '').trim());
+  obj.is_live_success = obj.source_system === 'elevenlabs' && obj.has_valid_conv_id && !failureResults.has(obj.result_key) && obj.result_key !== 'dialing' && obj.result_key !== '';
   obj.has_monthly_touch = obj.source_system !== 'xlsx_import' && obj.row_month === mskMonth && (obj.is_live_success || monthlyTouchResults.has(obj.result_key));
   return obj;
 };

@@ -44,6 +44,9 @@
   - из-за этого `AUTODIAL_DISPATCHER` местами начинал передавать в outbound номер как identity лида, и traceability снова ломалась уже до `call_log`;
   - live parser dispatcher обновлён: теперь он канонизирует историю по `phone_primary` обратно к seed-строке `xlsx_import` и восстанавливает `canonical lead_key`, `source_record_key` и `sheet_row_number`;
   - после этого в свежих execution исторические `elevenlabs/autodial_dispatcher` outcome-строки снова резолвятся к `row_*`, а не к телефону.
+- Дополнительно ужесточён сам счётчик живых разговоров:
+  - в дневной live-limit теперь попадают только строки `elevenlabs` с валидным `eleven_conv_id` формата `conv_...`;
+  - мусорные строки вида `system__conversation_id`, `Алло!` и похожие псевдо-идентификаторы больше не считаются живым разговором.
 - Важное ограничение:
   - попытка жёстко привязать live `call_log` tool-schema к Eleven dynamic variables через API на этом шаге не была успешно завершена;
   - поэтому рабочий live-фикс сейчас опирается на runtime-идентификаторы в outbound, очистку плейсхолдеров в bridge и canonicalization внутри dispatcher, а не на автоматически пересобранную tool-schema.

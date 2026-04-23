@@ -21,7 +21,7 @@
 
 Технически dispatcher считает живой контакт так:
 - строка `source_system = elevenlabs`
-- есть `eleven_conv_id`
+- есть валидный `eleven_conv_id` формата `conv_...`
 - `call_result` не входит в неуспешные статусы:
   - `busy`
   - `no_answer`
