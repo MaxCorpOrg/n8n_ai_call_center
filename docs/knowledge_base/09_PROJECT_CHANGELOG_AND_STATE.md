@@ -39,6 +39,14 @@
 - Поверх этого добавлен более структурный fix:
   - в outbound-запуск разговора прокидываются runtime-идентификаторы через `conversation_initiation_client_data`;
   - `call_log` bridge теперь вычищает буквальные плейсхолдеры (`system__called_number`, `system__conversation_id`, `{{lead_id}}` и т.п.) и не пишет их в Sheet как будто это реальные значения.
+- На этом же этапе найден более глубокий корень проблемы:
+  - часть appended outcome-строк в Google Sheet уже хранила `lead_id/source_record_key` как номер телефона, а не как стабильный `row_*`;
+  - из-за этого `AUTODIAL_DISPATCHER` местами начинал передавать в outbound номер как identity лида, и traceability снова ломалась уже до `call_log`;
+  - live parser dispatcher обновлён: теперь он канонизирует историю по `phone_primary` обратно к seed-строке `xlsx_import` и восстанавливает `canonical lead_key`, `source_record_key` и `sheet_row_number`;
+  - после этого в свежих execution исторические `elevenlabs/autodial_dispatcher` outcome-строки снова резолвятся к `row_*`, а не к телефону.
+- Важное ограничение:
+  - попытка жёстко привязать live `call_log` tool-schema к Eleven dynamic variables через API на этом шаге не была успешно завершена;
+  - поэтому рабочий live-фикс сейчас опирается на runtime-идентификаторы в outbound, очистку плейсхолдеров в bridge и canonicalization внутри dispatcher, а не на автоматически пересобранную tool-schema.
 
 ### 2026-04-13 — Автодозвон и call_log переведены на новую рабочую таблицу обзвона
 - Для live-обзвона и live `call_log` источник переключён на новую Google Sheet:

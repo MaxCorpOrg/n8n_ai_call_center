@@ -288,6 +288,31 @@ const rows = values.slice(1)
   .map((rowValues, idx) => makeRow(rowValues, idx + 2))
   .filter((row) => Object.values(row).some((v) => String(v ?? '').trim() !== ''));
 
+const seedByPhone = new Map();
+for (const row of rows) {
+  if (row.source_system === 'xlsx_import' && row.phone_key && !seedByPhone.has(row.phone_key)) {
+    seedByPhone.set(row.phone_key, row);
+  }
+}
+
+for (const row of rows) {
+  const seed = row.phone_key ? seedByPhone.get(row.phone_key) : null;
+  const seedLeadKey = String(seed?.lead_key || '').trim();
+  const seedSourceRecordKey = String(seed?.source_record_key || seedLeadKey || '').trim();
+  row.canonical_lead_key = seedLeadKey || row.lead_key || `row_${row.sheet_row_number}`;
+  row.canonical_source_record_key = seedSourceRecordKey || row.source_record_key || row.canonical_lead_key;
+  row.canonical_sheet_row_number = Number(seed?.sheet_row_number || row.sheet_row_number || 0);
+  if (!row.company_name && seed?.company_name) row.company_name = seed.company_name;
+  if (!row.contact_name && seed?.contact_name) row.contact_name = seed.contact_name;
+  if (!row.city && seed?.city) row.city = seed.city;
+  if (!row.segment && seed?.segment) row.segment = seed.segment;
+  if (!row.lpr_role && seed?.lpr_role) row.lpr_role = seed.lpr_role;
+  if (!row.preferred_channel && seed?.preferred_channel) row.preferred_channel = seed.preferred_channel;
+  if (!row.manager_owner && seed?.manager_owner) row.manager_owner = seed.manager_owner;
+  if (!row.phone_secondary && seed?.phone_secondary) row.phone_secondary = seed.phone_secondary;
+  if (!row.phone_primary && seed?.phone_primary) row.phone_primary = seed.phone_primary;
+}
+
 const seedRows = [];
 const outcomeRows = [];
 const byLead = new Map();
@@ -296,10 +321,10 @@ const byPhoneMonth = new Map();
 for (const row of rows) {
   if (row.source_system === 'xlsx_import') {
     seedRows.push({
-      sheet_row_number: row.sheet_row_number,
-      lead_key: row.lead_key,
+      sheet_row_number: row.canonical_sheet_row_number || row.sheet_row_number,
+      lead_key: row.canonical_lead_key || row.lead_key,
       source_system: row.source_system,
-      source_record_key: row.source_record_key,
+      source_record_key: row.canonical_source_record_key || row.source_record_key,
       company_name: row.company_name || '',
       contact_name: row.contact_name || '',
       phone_primary: row.phone_primary || '',
@@ -323,10 +348,10 @@ for (const row of rows) {
     });
   } else {
     outcomeRows.push({
-      sheet_row_number: row.sheet_row_number,
-      lead_key: row.lead_key,
+      sheet_row_number: row.canonical_sheet_row_number || row.sheet_row_number,
+      lead_key: row.canonical_lead_key || row.lead_key,
       source_system: row.source_system,
-      source_record_key: row.source_record_key,
+      source_record_key: row.canonical_source_record_key || row.source_record_key,
       company_name: row.company_name || '',
       contact_name: row.contact_name || '',
       phone_primary: row.phone_primary || '',
@@ -374,7 +399,7 @@ for (const row of rows) {
     byPhoneMonth.set(row.phone_key, phoneState);
   }
 
-  const key = String(row.lead_key || '').trim();
+  const key = String(row.canonical_lead_key || row.lead_key || '').trim();
   if (!key) continue;
   const state = byLead.get(key) || {
     lead_key: key,
@@ -527,7 +552,7 @@ if (retireCandidates.length > 0) {
       lead_id: String(state.lead_key || ''),
       client_ref: String(state.lead_key || ''),
       source_system: 'autodial_dispatcher',
-      source_record_key: String(latest.source_record_key || state.lead_key || ''),
+      source_record_key: String(latest.canonical_source_record_key || latest.source_record_key || state.lead_key || ''),
       company_name: String(latest.company_name || ''),
       contact_name: String(latest.contact_name || ''),
       caller: String(latest.phone_primary || ''),
@@ -590,8 +615,8 @@ const selected = {
   job_id: jobId,
   lead_key: selectedState.lead_key,
   client_ref: selectedState.lead_key,
-  source_record_key: String(latest.source_record_key || selectedState.lead_key),
-  sheet_row_number: Number(latest.sheet_row_number || 0),
+  source_record_key: String(latest.canonical_source_record_key || latest.source_record_key || selectedState.lead_key),
+  sheet_row_number: Number(latest.canonical_sheet_row_number || latest.sheet_row_number || 0),
   company_name: String(latest.company_name || ''),
   contact_name: String(latest.contact_name || ''),
   phone_primary: String(latest.dial_phone || latest.phone_primary || ''),
