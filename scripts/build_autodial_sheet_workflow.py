@@ -158,6 +158,9 @@ return [{
   campaign_key: campaignKey,
   job_id: jobId,
   daily_live_limit: 15,
+  daily_dialing_limit: 50,
+  daily_nonhuman_limit: 10,
+  daily_provider_failure_limit: 8,
   daily_attempt_limit_per_lead: 2,
   monthly_touch_limit_per_phone: 1,
   max_unreachable_total: 3,
@@ -221,6 +224,9 @@ const nowTs = parseTs(`${mskDate}T${mskTime}+03:00`) || now.getTime();
 const campaignKey = String($node['Dispatcher | Build Run Context'].json.campaign_key || 'lipolong_contacts_msk');
 const jobId = String($node['Dispatcher | Build Run Context'].json.job_id || `autodial.${Date.now()}`);
 const dailyLiveLimit = Number($node['Dispatcher | Build Run Context'].json.daily_live_limit || 15);
+const dailyDialingLimit = Number($node['Dispatcher | Build Run Context'].json.daily_dialing_limit || 50);
+const dailyNonHumanLimit = Number($node['Dispatcher | Build Run Context'].json.daily_nonhuman_limit || 10);
+const dailyProviderFailureLimit = Number($node['Dispatcher | Build Run Context'].json.daily_provider_failure_limit || 8);
 const dailyAttemptLimit = Number($node['Dispatcher | Build Run Context'].json.daily_attempt_limit_per_lead || 2);
 const monthlyTouchLimitPerPhone = Number($node['Dispatcher | Build Run Context'].json.monthly_touch_limit_per_phone || 1);
 const maxUnreachableTotal = Number($node['Dispatcher | Build Run Context'].json.max_unreachable_total || 3);
@@ -235,6 +241,7 @@ const finalResults = new Set(['dnc', 'not_target', 'order_test', 'manager_call']
 const unreachableResults = new Set(['no_answer', 'timeout']);
 const retryResults = new Set(['busy', 'no_answer', 'timeout', 'callback_scheduled', 'send_kp_pending_callback', 'refusal_soft', 'outbound_request_failed', 'dialing']);
 const monthlyTouchResults = new Set(['refusal_soft', 'send_kp_pending_callback', 'order_test', 'manager_call', 'not_target', 'dnc']);
+const nonHumanConversationResults = new Set(['busy', 'no_answer', 'send_kp_pending_callback']);
 
 const makeRow = (rowValues, sheetRowNumber) => {
   const obj = { sheet_row_number: sheetRowNumber };
@@ -433,12 +440,24 @@ for (const row of rows) {
 const states = Array.from(byLead.values());
 const totalLeads = states.length;
 const dailyLiveCount = states.filter((s) => s.live_success_today).length;
+const dailyDialingCount = outcomeRows.filter((row) => row.source_system === 'autodial_dispatcher' && row.result_key === 'dialing' && row.row_date === mskDate).length;
 const recentProviderFailureCount = outcomeRows.filter((row) => {
   const rowTs = row.updated_at ? parseTs(row.updated_at) : (row.created_at ? parseTs(row.created_at) : null);
   if (!rowTs) return false;
   return row.source_system === 'autodial_dispatcher'
     && String(row.call_result || '').toLowerCase() === 'outbound_request_failed'
     && rowTs >= (nowTs - 15 * 60 * 1000);
+}).length;
+const todayProviderFailureCount = outcomeRows.filter((row) => {
+  return row.source_system === 'autodial_dispatcher'
+    && row.row_date === mskDate
+    && String(row.call_result || '').toLowerCase() === 'outbound_request_failed';
+}).length;
+const dailyNonHumanConversationCount = outcomeRows.filter((row) => {
+  return row.source_system === 'elevenlabs'
+    && row.row_date === mskDate
+    && row.has_valid_conv_id === true
+    && nonHumanConversationResults.has(String(row.call_result || '').toLowerCase());
 }).length;
 const todayTechnicalWasteCount = outcomeRows.filter((row) => {
   const result = String(row.call_result || '').toLowerCase();
@@ -462,7 +481,13 @@ const wrapFinish = (reason, eligibleCount = 0) => ([{
   msk_time: mskTime,
   daily_live_count: dailyLiveCount,
   daily_live_limit: dailyLiveLimit,
+  daily_dialing_count: dailyDialingCount,
+  daily_dialing_limit: dailyDialingLimit,
+  daily_nonhuman_conversation_count: dailyNonHumanConversationCount,
+  daily_nonhuman_limit: dailyNonHumanLimit,
   recent_provider_failure_count: recentProviderFailureCount,
+  today_provider_failure_count: todayProviderFailureCount,
+  daily_provider_failure_limit: dailyProviderFailureLimit,
   today_technical_waste_count: todayTechnicalWasteCount,
   active_dial_count: activeDialing.length,
   eligible_count: eligibleCount,
@@ -475,12 +500,24 @@ if (dailyLiveCount >= dailyLiveLimit) {
   return wrapFinish('daily_limit_reached');
 }
 
+if (dailyDialingCount >= dailyDialingLimit) {
+  return wrapFinish('daily_dialing_limit_reached');
+}
+
+if (dailyNonHumanConversationCount >= dailyNonHumanLimit) {
+  return wrapFinish('nonhuman_conversation_limit_reached');
+}
+
 if (activeDialing.length > 0) {
   return wrapFinish('active_dialing');
 }
 
 if (recentProviderFailureCount >= 3) {
   return wrapFinish('provider_circuit_breaker');
+}
+
+if (todayProviderFailureCount >= dailyProviderFailureLimit) {
+  return wrapFinish('daily_provider_failure_limit_reached');
 }
 
 if (dailyLiveCount === 0 && todayTechnicalWasteCount >= 20) {
@@ -843,17 +880,26 @@ return [{
   msk_time: String(data.msk_time || ''),
   daily_live_count: Number(data.daily_live_count || 0),
   daily_live_limit: Number(data.daily_live_limit || 15),
+  daily_dialing_count: Number(data.daily_dialing_count || 0),
+  daily_dialing_limit: Number(data.daily_dialing_limit || 50),
+  daily_nonhuman_conversation_count: Number(data.daily_nonhuman_conversation_count || 0),
+  daily_nonhuman_limit: Number(data.daily_nonhuman_limit || 10),
   active_dial_count: Number(data.active_dial_count || 0),
   eligible_count: Number(data.eligible_count || 0),
   total_leads: Number(data.total_leads || 0),
   recent_provider_failure_count: Number(data.recent_provider_failure_count || 0),
+  today_provider_failure_count: Number(data.today_provider_failure_count || 0),
+  daily_provider_failure_limit: Number(data.daily_provider_failure_limit || 8),
   today_technical_waste_count: Number(data.today_technical_waste_count || 0),
   table_finished: String(data.reason || '') === 'exhausted',
   message: ({
     outside_call_window: 'Вне окна обзвона 10:00–14:00 МСК.',
     daily_limit_reached: 'Достигнут дневной лимит живых разговоров.',
+    daily_dialing_limit_reached: 'Достигнут дневной лимит попыток автодозвона.',
+    nonhuman_conversation_limit_reached: 'Автодозвон остановлен: накопилось слишком много коротких нецелевых non-human разговоров.',
     active_dialing: 'Есть активный звонок в работе, новый старт пока не нужен.',
     provider_circuit_breaker: 'Автодозвон поставлен на паузу: подряд накопились технические outbound-фейлы.',
+    daily_provider_failure_limit_reached: 'Автодозвон остановлен: превышен дневной лимит технических outbound-фейлов.',
     tech_waste_limit_reached: 'Автодозвон остановлен: слишком много технических пустых попыток без живых разговоров.',
     no_due_rows: 'Подходящих номеров на текущий момент нет.',
     exhausted: 'Таблица обзвона исчерпана: все доступные номера уже обработаны.',
