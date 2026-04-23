@@ -19,8 +19,11 @@
 
 ```json
 {
-  "lead_id": "lead_001",
+  "lead_id": "+79050000001",
   "caller": "+79050000001",
+  "phone_primary": "+79050000001",
+  "source_record_key": "conv_abc123",
+  "eleven_conv_id": "conv_abc123",
   "call_result": "callback_scheduled",
   "next_step": "callback",
   "next_call_at": "2026-02-27T10:30:00+03:00",
@@ -28,7 +31,9 @@
 }
 ```
 
-Дополнительно поддерживаются: `client_ref`, `company_name`, `contact_name`, `interest_level`, `objection_text`, `manager_owner`, `call_record_url`, `eleven_conv_id`, `agent_version` и др.
+Для живых agent-call'ов поля `caller`, `phone_primary`, `source_record_key` и `eleven_conv_id` нужно считать обязательными, иначе строку потом трудно однозначно сопоставить со звонком.
+
+Дополнительно поддерживаются: `client_ref`, `company_name`, `contact_name`, `interest_level`, `objection_text`, `manager_owner`, `call_record_url`, `agent_version` и др.
 
 ## 3) Ответ webhook
 

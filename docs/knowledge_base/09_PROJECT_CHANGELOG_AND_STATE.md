@@ -28,6 +28,13 @@
   - таблица обзвона по-прежнему live-привязана к:
     `https://docs.google.com/spreadsheets/d/1FUHh8lS8pEx58eRK2Rt6AYn3cy6ogWSO32vZWqYw_Fc/edit?gid=199760593#gid=199760593`
 
+### 2026-04-23 — Усилена трассируемость `call_log` и исправлен реальный live-кейс без идентификаторов
+- Найден разговор `conv_3401kptc3wxcerrtqt28nam3hfxf`, который записался в Sheet без `lead_id`, `phone_primary`, `source_record_key` и `eleven_conv_id`.
+- Причина: live-агент вызвал `call_log` почти пустым payload'ом, передав только `interest_level`, `call_result`, `next_step` и `notes_short`.
+- После этого добавлены два слоя защиты:
+  - в live prompt агент теперь обязан всегда передавать минимальный паспорт звонка в `call_log`;
+  - в `ELEVEN_TOOL_CALL_LOG_BRIDGE` усилены fallback-правила нормализации, чтобы частично заполненный payload не терял номер и conversation id, если они есть.
+
 ### 2026-04-13 — Автодозвон и call_log переведены на новую рабочую таблицу обзвона
 - Для live-обзвона и live `call_log` источник переключён на новую Google Sheet:
   - `https://docs.google.com/spreadsheets/d/1FUHh8lS8pEx58eRK2Rt6AYn3cy6ogWSO32vZWqYw_Fc/edit?gid=199760593#gid=199760593`
