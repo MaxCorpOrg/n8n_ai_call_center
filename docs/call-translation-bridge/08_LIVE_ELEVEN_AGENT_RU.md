@@ -4,13 +4,14 @@
 
 Этот документ фиксирует текущее рабочее состояние live-агента ElevenLabs для телефонии LipoLong.
 
-Актуальность снимка: `2026-04-11`.
+Актуальность снимка: `2026-04-25`.
 
 ## Идентификаторы
 
 - Agent name: `AI_CALL_AGENT_1`
 - Agent ID: `agent_8801kgybyekned2a8yae6rp8hk3q`
-- Branch ID: `agtbrch_7801kgybyg9nesrbv64y078pazq0`
+- Stable live branch: `Main` -> `agtbrch_7801kgybyg9nesrbv64y078pazq0` (`100%` live traffic)
+- Test branch: `staging-safe-test-2026-04-25` -> `agtbrch_6001kq1w2xtkfp8sp9fgkxejm3t9` (`0%` live traffic)
 
 ## Что подключено
 
@@ -28,7 +29,7 @@
   - `voicemail_detection`
 - Tool IDs:
   - `tool_1601km62rxpqegqr52m9gk9sftr3` -> `context_fetch`
-  - `tool_0901km62rxpre578kd1zvd7q7g04` -> `call_log`
+  - `tool_8601km62h97qft5b3nfprvxnvdkd` -> `call_log`
   - `tool_1701km86jmcpek4rj2j1rbhxqtfr` -> `send_sms_info`
 
 ## Текущий старт разговора
@@ -91,7 +92,8 @@
 - В каждом `call_log` агент обязан передавать эти реальные значения текущего звонка; пустой `call_log` без идентификаторов недопустим.
 - Для `eleven_conv_id` агент должен использовать реальный текущий conversation id, а не буквальную строку `system__conversation_id`.
 - Строки-плейсхолдеры вроде `system__called_number`, `system__conversation_id` и `{{lead_id}}` считаются дефектом и не должны попадать в Sheet.
-- Для `call_log` live tool-schema дополнительно должна быть привязана к dynamic variables, чтобы `lead_id`, `caller`, `phone_primary`, `source_record_key`, `company_name`, `contact_name` и `eleven_conv_id` подставлялись автоматически, а не только по инструкции в prompt.
+- Для stable live `Main` жёсткая dynamic-variable привязка `call_log` сейчас специально не используется: ручные SIP/manual tests могут стартовать без полного набора runtime-полей и тогда агент падает ещё до нормального `accepted_time`.
+- Эксперименты с dynamic-variable schema для `call_log` допустимы только на test/staging-ветке и только после отдельной проверки, что manual/SIP path тоже получает все нужные поля на старте.
 - После SMS / message handoff / secretary-transfer агент не должен заканчивать фразами вроде `Если появятся вопросы, буду рада помочь`; нужен только короткий деловой close.
 - Жёстко запрещены реплики:
   - `Здравствуйте. Чем могу быть полезна?`
@@ -129,6 +131,7 @@
 - `pronunciation_dictionary_locators` без проверки новой версии словаря
 - webhook URL tools
 - `tool_ids` и built-in tools без live-проверки через API
+- live traffic routing между `Main` и test/staging-ветками
 - правило `send_sms_info`: `на этот номер` -> `system__called_number`
 - human-answer gate и пустой `first_message`
 - server-side relay/autodeploy/backups, если задача касается только разговорной логики агента
@@ -148,3 +151,8 @@
   - машинные фразы `абонент сейчас не может ответить / телефон занят / недоступен` переводятся сразу в `busy/no_answer`, без ответной речи;
   - message-service больше не должен запускать sales-dialogue и оставляет только короткий callback-месседж;
   - запрещены реплики в стиле ресепшена и повтор машинных фраз.
+- `2026-04-25`: найдено, что post-answer drop был не из-за prompt, а из-за сломанного live tool binding:
+  - старый `call_log` tool id оказался удалённым;
+  - первая замена на новый `call_log` сделала manual/SIP calls невалидными из-за обязательных dynamic variables на старте;
+  - stable `Main` восстановлен с рабочим tightened prompt (`turn_timeout = 10.0`, ожидание `10s/4s`) и с relaxed `call_log`, который не валит manual test до начала разговора;
+  - отдельная ветка `staging-safe-test-2026-04-25` выделена под будущие эксперименты без риска для live.

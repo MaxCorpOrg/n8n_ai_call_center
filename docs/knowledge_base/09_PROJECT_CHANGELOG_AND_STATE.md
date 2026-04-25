@@ -10,6 +10,33 @@
 
 ## 2) Последние важные изменения
 
+### 2026-04-25 — Восстановлен stable live Main, возвращён tightened prompt и введена безопасная branch-дисциплина
+- После серии test-звонков с instant drop подтверждено, что причина была не в самом prompt:
+  - сначала live-agent ссылался на удалённый `call_log` tool id и часть звонков вообще не доходила до нормальной agent-version/branch;
+  - затем временная замена на новый `call_log` с жёсткой dynamic-variable schema ломала manual/SIP test на старте разговора с ошибкой `Missing required dynamic variables in tools`, ещё до полноценного `accepted_time`.
+- В результате stable live был собран заново на `Main`:
+  - branch `Main` `agtbrch_7801kgybyg9nesrbv64y078pazq0` снова получает `100%` live traffic;
+  - опубликована новая stable version `agtvrsn_3201kq1w28bnf00rhgss8kkt9j3c`;
+  - в `Main` возвращён последний tightened prompt до rollback:
+    - `turn_timeout = 10.0`;
+    - ожидание после machine/hold/ringback = `10` секунд;
+    - ожидание после opener без ясного ответа = `4` секунды;
+    - короткий voicemail/message-service callback сохранён.
+- При этом live `call_log` переведён на валидный relaxed tool:
+  - `tool_8601km62h97qft5b3nfprvxnvdkd` -> `call_log`;
+  - на stable live убрана жёсткая dynamic-variable schema у `call_log`, чтобы manual/SIP test не падал ещё до начала разговора;
+  - runtime-идентификаторы по-прежнему передаются и должны использоваться агентом, но schema-level enforcement теперь не включается напрямую на `Main`.
+- Для будущих безопасных тестов заведена отдельная ветка ElevenLabs:
+  - `staging-safe-test-2026-04-25` -> `agtbrch_6001kq1w2xtkfp8sp9fgkxejm3t9`;
+  - она держится на `0%` live traffic и предназначена для prompt/tool experiments без риска для продового обзвона.
+- На стороне GitHub тоже разведены роли веток:
+  - `origin/main` остаётся продовой базой;
+  - создана отдельная staging-ветка `origin/codex/eleven-agent-staging` для будущих безопасных изменений и PR-потока.
+- Новое операционное правило:
+  - backup перед live patch обязателен;
+  - любые risky-изменения `tool_ids`, `call_log`, built-in tools и dynamic-variable schema сначала делать только на Eleven staging-ветке;
+  - в live `Main` продвигать только уже проверенную конфигурацию.
+
 ### 2026-04-21 — В автодозвоне убран холостой цикл с пустыми номерами
 - По live-логам обнаружено, что часть `outbound_request_failed` рождалась не из-за разговора и не из-за лимитов, а из-за строк без нормального `E.164` номера.
 - Это приводило к пустому `to_number`, после чего `VOICE_INBOUND_AGENT` завершался на `validation_failed` ещё до реального outbound-вызова.

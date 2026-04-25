@@ -25,6 +25,11 @@
 - backup LLM configuration;
 - правила перебивания.
 
+Но безопасный порядок теперь такой:
+- сначала делать правки на отдельной test/staging-ветке ElevenLabs;
+- только после проверки переводить `Main` в live;
+- не править `Main` напрямую, если задача затрагивает `tool_ids`, `call_log` или смешанное состояние `tool_ids + tools`.
+
 ## 3. Что трогать нельзя без отдельного решения
 
 - пустой `first_message`, если задача не про механику `human-answer gate`
@@ -35,6 +40,8 @@
 
 ## 4. Что уже настроено
 
+- stable live-ветка ElevenLabs: `Main` (`agtbrch_7801kgybyg9nesrbv64y078pazq0`) и сейчас она получает `100%` live traffic;
+- отдельная test/staging-ветка для экспериментов: `staging-safe-test-2026-04-25` (`agtbrch_6001kq1w2xtkfp8sp9fgkxejm3t9`) и она держится на `0%` live traffic;
 - live-agent работает через `human-answer gate`;
 - `first_message = ""`;
 - первая живая реплика агента должна сразу быть полным business-opener;
@@ -68,6 +75,8 @@
 - follow-up сценарий без почты и без `@username`;
 - правило `на этот номер` -> использовать `system__called_number`, не пересобирать номер из речи;
 - активные live-tools: `context_fetch`, `call_log`, `send_sms_info`, `end_call`.
+- stable live `call_log` сейчас привязан к валидному relaxed tool id `tool_8601km62h97qft5b3nfprvxnvdkd`;
+- на stable live нельзя возвращать жёсткую dynamic-variable schema для `call_log`, пока ручные SIP/manual tests не гарантируют наличие `lead_id`, `request_id`, `source_record_key`, `phone_primary` и других runtime-полей уже на старте звонка;
 - sales-логика усилена без изменения `first_message`:
   - `не интересно` и `перезвоните позже` не должны завершать разговор автоматически;
   - ближний callback фиксируется с уточнением `первая половина / вторая половина дня`;
@@ -94,7 +103,10 @@
 8. Не начал ли агент говорить поверх IVR, записи разговора, музыки ожидания или гудков.
 9. Не отвечает ли агент машинными фразами на `абонент сейчас не может ответить` и похожие сообщения.
 10. Не вернулись ли старые opener-фразы про закупки в первый или второй агентский ход.
+11. Не уехал ли live traffic с `Main` на экспериментальную ветку.
+12. Не появилась ли у `call_log` жёсткая dynamic-variable привязка, которая ломает ручной SIP/manual test ещё до `accepted_time`.
+13. Есть ли свежий backup branch/config до live patch.
 
 ## 6. Основной риск
 
-Самая опасная ошибка — случайно снести `human-answer gate`, потерять `tool_ids` или сломать состав live-tools, после чего агент начнет снова говорить в автоответчики, перестанет писать `call_log`, потеряет `context_fetch` или перестанет корректно отправлять SMS через `send_sms_info`.
+Самая опасная ошибка — случайно снести `human-answer gate`, потерять `tool_ids`, сломать состав live-tools или включить на stable live слишком строгую dynamic-variable schema для `call_log`, после чего агент начнет снова говорить в автоответчики, перестанет писать `call_log`, потеряет `context_fetch`, перестанет корректно отправлять SMS через `send_sms_info` или вообще будет рваться сразу после ответа на manual/SIP test.
