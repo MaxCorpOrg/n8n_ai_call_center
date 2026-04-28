@@ -7,7 +7,10 @@
 Он делает три вещи:
 - находит в Google Sheets таблицы `контакты_косметологов_москва_*`;
 - ищет строки, где клиенту нужно отправить информацию по продукту на почту;
-- проверяет/исправляет email, при необходимости ищет его на сайте по номеру и названию компании, после чего отправляет письмо.
+- проверяет/исправляет email, при необходимости ищет его на сайте по номеру и названию компании, после чего отправляет письмо;
+- обрабатывает bounce-ответы из почты, помечает проблемные адреса и ведет локальный blacklist доменов;
+- повторно пытается автоисправить email при `domain_not_found`, ищет альтернативу по номеру/компании и фильтрует placeholder-адреса;
+- умеет отправлять короткий операционный отчет в Telegram.
 
 ## Файлы
 
@@ -34,8 +37,10 @@
    - потом в `notes_short` / `notes_redacted`;
    - затем в “неправильных” полях вроде `phone_primary` или `source_record_key`, если туда случайно попал email;
    - если email нет или он битый, ищет сайт через поиск по номеру/компании и вытаскивает email уже со страницы сайта.
-6. Дописывает техколонки в лист и обновляет запись.
-7. Отправляет письмо через SMTP.
+6. Перед новой отправкой может разобрать bounce-сообщения из почты через IMAP и пометить уже умершие адреса.
+7. Дописывает техколонки в лист и обновляет запись.
+8. Отправляет письмо через SMTP.
+9. По итогам прогона может отправить краткий отчет в Telegram.
 
 ## Какие колонки сервис добавляет
 
@@ -49,6 +54,10 @@
 - `email_sent_at`
 - `email_sent_to`
 - `email_last_error`
+- `email_bounced_at`
+- `email_bounce_reason`
+- `email_blacklisted_at`
+- `email_blacklist_reason`
 
 Это сделано специально, чтобы не ломать текущие `call_log` и `AUTODIAL_DISPATCHER`.
 
@@ -87,6 +96,9 @@ python3 scripts/email_followup_service.py run --dry-run --limit-sheets 1 --max-r
    `EMAIL_FOLLOWUP_RESOLVER_TOTAL_TIMEOUT_SEC=25`
    `EMAIL_FOLLOWUP_RESOLVER_SEARCH_LIMIT=4`
    `EMAIL_FOLLOWUP_RESOLVER_MAX_VISITS=4`
+10. Для более агрессивного поиска email по номеру можно включить:
+   `EMAIL_FOLLOWUP_USE_JINA_SEARCH_FALLBACK=true`
+   `EMAIL_FOLLOWUP_INFER_EMAIL_FROM_DOMAIN=true`
 
 Проверка:
 
@@ -107,6 +119,7 @@ systemctl restart email_followup.service
 
 - `GET /health`
 - `POST /run`
+- `POST /process-bounces`
 - `POST /send-test`
 
 Пример ручного запуска:
@@ -141,11 +154,21 @@ cd /home/max/n8n_ai_call_center
 python3 scripts/email_followup_service.py send-test --to-email your_test_email@example.com
 ```
 
+Ручная обработка bounce-писем:
+
+```bash
+cd /home/max/n8n_ai_call_center
+python3 scripts/email_followup_service.py process-bounces --limit-sheets 25 --limit-messages 20
+```
+
 ## Что ещё нужно руками
 
 - заполнить `.env.email_followup`;
 - дать рабочие Google OAuth credentials;
 - задать SMTP credentials;
+- задать IMAP credentials для обработки bounce;
+- для Telegram-отчета указать bot token и `chat_id` либо переиспользовать существующего бота и передать его токен в env;
+- убедиться, что у сервера есть исходящий доступ к `https://api.telegram.org`;
 - импортировать `EMAIL_FOLLOWUP_AGENT_DRAFT.json` в `n8n`.
 
 ## Где лежат локальные секреты
@@ -162,5 +185,17 @@ python3 scripts/email_followup_service.py send-test --to-email your_test_email@e
 - `EMAIL_FOLLOWUP_SMTP_PASSWORD`
 - `EMAIL_FOLLOWUP_FROM_EMAIL`
 - `EMAIL_FOLLOWUP_REPLY_TO`
+- `EMAIL_FOLLOWUP_IMAP_HOST`
+- `EMAIL_FOLLOWUP_IMAP_PORT`
+- `EMAIL_FOLLOWUP_IMAP_USERNAME`
+- `EMAIL_FOLLOWUP_IMAP_PASSWORD`
+- `EMAIL_FOLLOWUP_BOUNCE_STATE_PATH`
+- `EMAIL_FOLLOWUP_DOMAIN_BLACKLIST_PATH`
+- `EMAIL_FOLLOWUP_TELEGRAM_REPORTS_ENABLED`
+- `EMAIL_FOLLOWUP_TELEGRAM_BOT_TOKEN`
+- `EMAIL_FOLLOWUP_TELEGRAM_CHAT_ID`
+- `EMAIL_FOLLOWUP_TELEGRAM_THREAD_ID`
+- `EMAIL_FOLLOWUP_USE_JINA_SEARCH_FALLBACK`
+- `EMAIL_FOLLOWUP_INFER_EMAIL_FROM_DOMAIN`
 
 В Markdown и handoff-документах хранить только путь и имена переменных, без самого пароля.
