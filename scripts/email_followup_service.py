@@ -101,6 +101,10 @@ DEFAULT_DOMAIN_BLACKLIST_PATH = (
     or str(PROJECT_ROOT / ".runtime" / "email_followup_domain_blacklist.json")
 )
 DEFAULT_TELEGRAM_BOT_TOKEN = os.getenv("EMAIL_FOLLOWUP_TELEGRAM_BOT_TOKEN", "").strip()
+DEFAULT_TELEGRAM_API_BASE = (
+    os.getenv("EMAIL_FOLLOWUP_TELEGRAM_API_BASE", "https://api.telegram.org").strip().rstrip("/")
+    or "https://api.telegram.org"
+)
 DEFAULT_TELEGRAM_CHAT_ID = os.getenv("EMAIL_FOLLOWUP_TELEGRAM_CHAT_ID", "").strip()
 DEFAULT_TELEGRAM_THREAD_ID = os.getenv("EMAIL_FOLLOWUP_TELEGRAM_THREAD_ID", "").strip()
 DEFAULT_TELEGRAM_REPORTS_ENABLED = os.getenv("EMAIL_FOLLOWUP_TELEGRAM_REPORTS_ENABLED", "false").strip()
@@ -1095,6 +1099,7 @@ class DomainBlacklist:
 class TelegramReporter:
     def __init__(self):
         self.bot_token = DEFAULT_TELEGRAM_BOT_TOKEN
+        self.api_base = DEFAULT_TELEGRAM_API_BASE
         self.chat_id = DEFAULT_TELEGRAM_CHAT_ID
         self.thread_id = DEFAULT_TELEGRAM_THREAD_ID
         self.reports_enabled = as_bool(DEFAULT_TELEGRAM_REPORTS_ENABLED)
@@ -1116,7 +1121,7 @@ class TelegramReporter:
         if self.thread_id:
             payload["message_thread_id"] = int(self.thread_id)
         response = self.session.post(
-            f"https://api.telegram.org/bot{self.bot_token}/sendMessage",
+            f"{self.api_base}/bot{self.bot_token}/sendMessage",
             json=payload,
             timeout=20,
         )
