@@ -141,6 +141,7 @@ DIRECTORY_HOSTS = {
     "2gis.ru",
     "avito.ru",
     "docdoc.ru",
+    "doct.ru",
     "dreamjob.ru",
     "flamp.ru",
     "hh.ru",
@@ -150,6 +151,7 @@ DIRECTORY_HOSTS = {
     "rabota.ru",
     "spr.ru",
     "superjob.ru",
+    "taplink.ws",
     "www.2gis.ru",
     "yandex.ru",
     "yandex.com",
@@ -162,12 +164,15 @@ DIRECTORY_HOSTS = {
     "zarplata.ru",
     "vk.com",
     "t.me",
+    "taplink.ws",
     "telegram.me",
     "wa.me",
     "whatsapp.com",
     "instagram.com",
     "facebook.com",
     "ok.ru",
+    "taplink.ws",
+    "yclients.com",
 }
 PROTECTED_PUBLIC_EMAIL_DOMAINS = {
     "gmail.com",
@@ -196,6 +201,7 @@ EXCLUDED_EMAIL_ROOT_DOMAINS = {
     "2gis.ru",
     "avito.ru",
     "docdoc.ru",
+    "doct.ru",
     "dreamjob.ru",
     "facebook.com",
     "flamp.ru",
@@ -208,11 +214,13 @@ EXCLUDED_EMAIL_ROOT_DOMAINS = {
     "rabota.ru",
     "spr.ru",
     "superjob.ru",
+    "taplink.ws",
     "telegram.me",
     "t.me",
     "vk.com",
     "wa.me",
     "whatsapp.com",
+    "yclients.com",
     "yell.ru",
     "youla.ru",
     "zarplata.ru",
@@ -264,6 +272,20 @@ EXTRA_HEADERS = [
     "email_blacklisted_at",
     "email_blacklist_reason",
 ]
+STATE_OVERRIDE_FIELDS = {
+    "contact_email",
+    "email_source_url",
+    "email_verified_at",
+    "email_verification_status",
+    "email_send_status",
+    "email_sent_at",
+    "email_sent_to",
+    "email_last_error",
+    "email_bounced_at",
+    "email_bounce_reason",
+    "email_blacklisted_at",
+    "email_blacklist_reason",
+}
 FATAL_BOUNCE_TYPES = {
     "domain_not_found",
     "mailbox_not_found",
@@ -1907,6 +1929,12 @@ class EmailFollowupService:
                     continue
                 if str(value or "").strip():
                     merged[key] = str(value).strip()
+        # Stateful operational columns must respect explicit clearing in newer rows,
+        # otherwise old imported values (for example a directory email) can leak back in.
+        for source in (state.get("latest_row") or {}, state.get("latest_event_row") or {}):
+            for key in STATE_OVERRIDE_FIELDS:
+                if key in source:
+                    merged[key] = str(source.get(key) or "").strip()
         merged["_seed_row_number"] = (state.get("seed_row") or {}).get("_row_number", 0)
         merged["_latest_row_number"] = (state.get("latest_row") or {}).get("_row_number", 0)
         merged["_event_row_number"] = (state.get("latest_event_row") or {}).get("_row_number", 0)
