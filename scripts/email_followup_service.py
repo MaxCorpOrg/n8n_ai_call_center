@@ -123,6 +123,7 @@ SEARCH_RESULT_LINK_PATTERN = re.compile(
 )
 HREF_PATTERN = re.compile(r'href=["\']([^"\']+)["\']', re.IGNORECASE)
 EMAIL_SIGNAL_PATTERN = re.compile(r"(почт|e-mail|email|на\s+почту|mail)", re.IGNORECASE)
+TWO_GIS_FIRM_LINK_PATTERN = re.compile(r'href=["\'](/[^"\']+/firm/\d+[^"\']*)["\']', re.IGNORECASE)
 DIRECTORY_HOSTS = {
     "2gis.ru",
     "www.2gis.ru",
@@ -474,6 +475,35 @@ def normalize_company_name(value):
     return re.sub(r"[^a-zа-я0-9]+", "", str(value or "").lower())
 
 
+def company_search_aliases(value):
+    raw = str(value or "").strip()
+    if not raw:
+        return []
+    aliases = []
+    for separator in (",", ";", "/", "|"):
+        if separator in raw:
+            aliases.append(raw.split(separator, 1)[0].strip())
+    for separator in (" — ", " – ", " - "):
+        if separator in raw:
+            aliases.append(raw.split(separator, 1)[0].strip())
+    aliases.append(raw)
+    result = []
+    seen = set()
+    for item in aliases:
+        normalized = normalize_company_name(item)
+        if len(normalized) < 4:
+            continue
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        result.append(item.strip())
+    return result
+
+
+def company_match_keys(value):
+    return [normalize_company_name(item) for item in company_search_aliases(value)]
+
+
 PLACEHOLDER_COMPANY_NAMES_NORMALIZED = {
     normalize_company_name(item) for item in PLACEHOLDER_COMPANY_NAMES
 }
@@ -756,6 +786,38 @@ class WebsiteEmailResolver:
                 urls.append(candidate)
         return dedupe_keep_order(urls)
 
+    def search_urls_via_2gis_phone(self, row, limit=RESOLVER_SEARCH_LIMIT, deadline=None):
+        urls = []
+        for phone_field in ("phone_primary", "phone_secondary"):
+            phone = normalize_phone(row.get(phone_field))
+            if not phone:
+                continue
+            digits = re.sub(r"\D+", "", phone)
+            if not digits:
+                continue
+            timeout = request_timeout_for(deadline, DEFAULT_REQUEST_TIMEOUT) if deadline else DEFAULT_REQUEST_TIMEOUT
+            if deadline and timeout <= 0:
+                break
+            search_url = f"https://2gis.ru/search/{digits}"
+            try:
+                response = self.session.get(search_url, timeout=timeout)
+                response.raise_for_status()
+            except Exception:
+                continue
+            search_html = response.text or ""
+            for match in TWO_GIS_FIRM_LINK_PATTERN.finditer(search_html):
+                relative_url = match.group(1)
+                candidate = clean_url(urllib.parse.urljoin("https://2gis.ru", unescape(relative_url)))
+                if not candidate:
+                    continue
+                detail_html = self.fetch_2gis_detail_html(candidate, deadline=deadline)
+                if detail_html and self.page_matches(detail_html, row):
+                    urls.extend(self.external_site_urls(candidate, detail_html, limit=limit))
+                urls.append(candidate)
+                if len(dedupe_keep_order(urls)) >= limit:
+                    return dedupe_keep_order(urls)[:limit]
+        return dedupe_keep_order(urls)[:limit]
+
     def search_urls_via_jina(self, query, limit=RESOLVER_SEARCH_LIMIT, deadline=None):
         if not self.use_jina_search_fallback:
             return []
@@ -788,6 +850,51 @@ class WebsiteEmailResolver:
             if is_valid_email(candidate):
                 return candidate
         return ""
+
+    def is_2gis_challenge_html(self, html):
+        lowered = str(html or "").lower()
+        if not lowered:
+            return False
+        return any(
+            token in lowered
+            for token in ("servicepipe.ru", "get_cookie_spsn", "id_captcha_frame_div", "back_location=https%3a%2f%2f2gis.ru")
+        )
+
+    def fetch_2gis_detail_html(self, url, deadline=None):
+        timeout = request_timeout_for(deadline, DEFAULT_REQUEST_TIMEOUT) if deadline else DEFAULT_REQUEST_TIMEOUT
+        if deadline and timeout <= 0:
+            return ""
+
+        def load_once(current_timeout):
+            response = requests.get(
+                url,
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=current_timeout,
+            )
+            response.raise_for_status()
+            return response.text or ""
+
+        try:
+            html = load_once(timeout)
+        except Exception:
+            return ""
+        if not self.is_2gis_challenge_html(html):
+            return html
+
+        retry_delay = 10
+        if deadline:
+            retry_delay = min(retry_delay, max(0, int(remaining_seconds(deadline)) - 2))
+        if retry_delay <= 0:
+            return html
+        time.sleep(retry_delay)
+
+        timeout = request_timeout_for(deadline, DEFAULT_REQUEST_TIMEOUT) if deadline else DEFAULT_REQUEST_TIMEOUT
+        if deadline and timeout <= 0:
+            return html
+        try:
+            return load_once(timeout)
+        except Exception:
+            return html
 
     def fetch_html(self, url, deadline=None):
         clean = clean_url(url)
@@ -871,11 +978,24 @@ class WebsiteEmailResolver:
         candidates.extend(defaults)
         return dedupe_keep_order(candidates)[:limit]
 
+    def decode_directory_outbound_url(self, url):
+        clean = clean_url(url)
+        parsed = urllib.parse.urlparse(clean)
+        host = parsed.netloc.lower()
+        if host_matches(host, {"link.2gis.ru"}):
+            unescaped = unescape(clean)
+            marker = unescaped.find("?http")
+            if marker != -1:
+                return clean_url(unescaped[marker + 1 :])
+        return ""
+
     def external_site_urls(self, base_url, html, limit=RESOLVER_CONTACT_URL_LIMIT):
         base = clean_url(base_url)
         parsed_base = urllib.parse.urlparse(base)
         base_root = approx_root_domain(parsed_base.netloc)
-        candidates = []
+        primary = []
+        social = []
+        secondary = []
         for raw_href in HREF_PATTERN.findall(html or ""):
             href = unescape(raw_href).strip()
             if not href or href.startswith("#") or href.startswith("mailto:") or href.startswith("tel:"):
@@ -883,6 +1003,9 @@ class WebsiteEmailResolver:
             absolute = clean_url(urllib.parse.urljoin(base, href))
             if not absolute:
                 continue
+            outbound = self.decode_directory_outbound_url(absolute)
+            if outbound:
+                absolute = outbound
             parsed = urllib.parse.urlparse(absolute)
             if parsed.scheme not in {"http", "https"}:
                 continue
@@ -893,15 +1016,20 @@ class WebsiteEmailResolver:
                 continue
             if approx_root_domain(host) == base_root:
                 continue
-            candidates.append(absolute)
-        return dedupe_keep_order(candidates)[:limit]
+            if host_matches(host, {"youtube.com", "www.youtube.com", "vk.com", "t.me", "telegram.me", "max.ru"}):
+                social.append(absolute)
+            elif host_matches(host, {"go.checkscan.ru", "redirect.2gis.com"}):
+                secondary.append(absolute)
+            else:
+                primary.append(absolute)
+        return dedupe_keep_order(primary + social + secondary)[:limit]
 
     def page_matches(self, html, row):
         if not html:
             return False
         body = str(html or "")
         body_digits = re.sub(r"\D+", "", body)
-        company_key = normalize_company_name(row.get("company_name"))
+        body_key = normalize_company_name(body)
         for phone_field in ("phone_primary", "phone_secondary"):
             phone = normalize_phone(row.get(phone_field))
             if not phone:
@@ -909,8 +1037,9 @@ class WebsiteEmailResolver:
             digits = re.sub(r"\D+", "", phone)
             if digits and (digits in body_digits or digits[-10:] in body_digits):
                 return True
-        if company_key and company_key in normalize_company_name(body):
-            return True
+        for company_key in company_match_keys(row.get("company_name")):
+            if company_key and company_key in body_key:
+                return True
         return False
 
     def score_email(self, email_address, page_url):
@@ -937,23 +1066,30 @@ class WebsiteEmailResolver:
             if value:
                 explicit_urls.append(value)
 
+        company = str(row.get("company_name") or "").strip()
+        city = str(row.get("city") or "").strip()
+        company_queries = []
+        for company_alias in company_search_aliases(company):
+            company_queries.append(f'"{company_alias}" email')
+            company_queries.append(f'"{company_alias}" контакты')
+            if city:
+                company_queries.append(f'"{company_alias}" "{city}" email')
+                company_queries.append(f'"{company_alias}" "{city}" контакты')
+
         phone_queries = []
         for phone_field in ("phone_primary", "phone_secondary"):
             for phone_variant in phone_search_variants(row.get(phone_field)):
                 phone_queries.append(f'"{phone_variant}" "{row.get("company_name", "").strip()}" email')
                 phone_queries.append(f'"{phone_variant}" "{row.get("company_name", "").strip()}" контакты')
                 phone_queries.append(f'"{phone_variant}" email')
-        company = str(row.get("company_name") or "").strip()
-        city = str(row.get("city") or "").strip()
-        if company:
-            phone_queries.append(f'"{company}" email')
-            phone_queries.append(f'"{company}" контакты')
-            phone_queries.append(f'"{company}" "{city}" email')
-            phone_queries.append(f'"{company}" "{city}" контакты')
 
-        url_candidates = dedupe_keep_order(
-            explicit_urls + self.search_urls(phone_queries, limit=RESOLVER_SEARCH_LIMIT, deadline=deadline)
-        )[:RESOLVER_SEARCH_LIMIT]
+        url_candidates = dedupe_keep_order(explicit_urls + self.search_urls_via_2gis_phone(row, limit=RESOLVER_SEARCH_LIMIT, deadline=deadline))
+        if len(url_candidates) < RESOLVER_SEARCH_LIMIT:
+            url_candidates = dedupe_keep_order(
+                url_candidates
+                + self.search_urls(company_queries + phone_queries, limit=RESOLVER_SEARCH_LIMIT, deadline=deadline)
+            )
+        url_candidates = url_candidates[:RESOLVER_SEARCH_LIMIT]
         if not url_candidates:
             return {}
 
@@ -979,9 +1115,10 @@ class WebsiteEmailResolver:
                     continue
                 if not first_html:
                     first_html = html
-                    for extra_url in self.same_domain_contact_urls(candidate_url, first_html):
-                        if extra_url not in visited:
-                            queue.append((extra_url, inherited_match))
+                    if not current_is_directory:
+                        for extra_url in self.same_domain_contact_urls(candidate_url, first_html):
+                            if extra_url not in visited:
+                                queue.append((extra_url, inherited_match))
                 if current_is_directory and matched_page:
                     for external_url in self.external_site_urls(current_url, html):
                         if external_url not in visited:
@@ -996,6 +1133,8 @@ class WebsiteEmailResolver:
                             "resolution_status": "inferred_from_domain",
                         }
                 emails = [item for item in extract_emails(html) if not is_placeholder_email(item)]
+                if current_is_directory:
+                    emails = [item for item in emails if not host_matches(email_domain(item), DIRECTORY_HOSTS)]
                 if not emails:
                     continue
                 if not matched_page and current_url != candidate_url:
