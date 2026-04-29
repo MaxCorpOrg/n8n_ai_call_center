@@ -3,6 +3,7 @@ import argparse
 import email
 import imaplib
 import json
+import mimetypes
 import os
 import re
 import smtplib
@@ -22,6 +23,9 @@ import requests
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_ATTACHMENT_FALLBACK = (
+    PROJECT_ROOT / "Документация по скриптам " / "КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ (2).pdf"
+)
 
 
 def load_env_file_if_exists(path):
@@ -75,6 +79,15 @@ DEFAULT_MANAGER_PHONE = os.getenv("EMAIL_FOLLOWUP_MANAGER_PHONE", "8 999 556-67-
 DEFAULT_MANAGER_TELEGRAM = (
     os.getenv("EMAIL_FOLLOWUP_MANAGER_TELEGRAM", "@Vorgesar_Peptides").strip() or "@Vorgesar_Peptides"
 )
+DEFAULT_ATTACHMENT_PATH = (
+    os.getenv("EMAIL_FOLLOWUP_ATTACHMENT_PATH", "").strip()
+    or str(DEFAULT_ATTACHMENT_FALLBACK)
+)
+DEFAULT_ATTACHMENT_NAME = (
+    os.getenv("EMAIL_FOLLOWUP_ATTACHMENT_NAME", "").strip()
+    or Path(DEFAULT_ATTACHMENT_PATH).name
+)
+DEFAULT_SPREADSHEET_IDS = []
 DEFAULT_REPLY_TO = os.getenv("EMAIL_FOLLOWUP_REPLY_TO", "").strip()
 DEFAULT_SUBJECT_TEMPLATE = (
     os.getenv("EMAIL_FOLLOWUP_SUBJECT_TEMPLATE", "Информация по {product_name} для {company_name}").strip()
@@ -126,15 +139,27 @@ EMAIL_SIGNAL_PATTERN = re.compile(r"(почт|e-mail|email|на\s+почту|mai
 TWO_GIS_FIRM_LINK_PATTERN = re.compile(r'href=["\'](/[^"\']+/firm/\d+[^"\']*)["\']', re.IGNORECASE)
 DIRECTORY_HOSTS = {
     "2gis.ru",
+    "avito.ru",
+    "docdoc.ru",
+    "dreamjob.ru",
+    "flamp.ru",
+    "hh.ru",
+    "joblab.ru",
+    "napopravku.ru",
+    "prodoctorov.ru",
+    "rabota.ru",
+    "spr.ru",
+    "superjob.ru",
     "www.2gis.ru",
     "yandex.ru",
     "yandex.com",
     "yandex.by",
     "maps.yandex.ru",
     "yandex.com.tr",
-    "prodoctorov.ru",
     "zoon.ru",
-    "flamp.ru",
+    "yell.ru",
+    "youla.ru",
+    "zarplata.ru",
     "vk.com",
     "t.me",
     "telegram.me",
@@ -167,6 +192,45 @@ PLACEHOLDER_EMAIL_DOMAINS = {
     "yourcompany.com",
     "domain.com",
 }
+EXCLUDED_EMAIL_ROOT_DOMAINS = {
+    "2gis.ru",
+    "avito.ru",
+    "docdoc.ru",
+    "dreamjob.ru",
+    "facebook.com",
+    "flamp.ru",
+    "hh.ru",
+    "instagram.com",
+    "joblab.ru",
+    "napopravku.ru",
+    "ok.ru",
+    "prodoctorov.ru",
+    "rabota.ru",
+    "spr.ru",
+    "superjob.ru",
+    "telegram.me",
+    "t.me",
+    "vk.com",
+    "wa.me",
+    "whatsapp.com",
+    "yell.ru",
+    "youla.ru",
+    "zarplata.ru",
+    "zoon.ru",
+}
+SUSPICIOUS_EMAIL_LOCALPART_TOKENS = (
+    "bounce",
+    "do-not-reply",
+    "donotreply",
+    "mailer-daemon",
+    "no-reply",
+    "noreply",
+    "notification",
+    "notifications",
+    "postmaster",
+    "robot",
+    "sentry",
+)
 GARBAGE_PHONE_VALUES = {
     "system__called_number",
     "алло",
@@ -264,6 +328,13 @@ def now_iso():
 
 def as_bool(value):
     return str(value or "").strip().lower() in TRUTHY
+
+
+def parse_csv_list(value):
+    return [item for item in (part.strip() for part in re.split(r"[\n,;]+", str(value or ""))) if item]
+
+
+DEFAULT_SPREADSHEET_IDS = parse_csv_list(os.getenv("EMAIL_FOLLOWUP_SPREADSHEET_IDS", ""))
 
 
 def normalize_phone(value):
@@ -368,6 +439,19 @@ def is_placeholder_email(email):
         return True
     compact = re.sub(r"[^a-z0-9]+", "", domain.lower())
     if any(token in compact for token in ("example", "yourdomain", "yourcompany")):
+        return True
+    return False
+
+
+def is_excluded_business_email(email):
+    clean = normalize_email_candidate(email).lower()
+    if not clean or "@" not in clean:
+        return True
+    local_part, _, domain = clean.partition("@")
+    root_domain = approx_root_domain(domain)
+    if root_domain in EXCLUDED_EMAIL_ROOT_DOMAINS:
+        return True
+    if any(token in local_part for token in SUSPICIOUS_EMAIL_LOCALPART_TOKENS):
         return True
     return False
 
@@ -682,6 +766,19 @@ class GoogleSheetsClient:
         )
         items = response.json().get("files") or []
         return sorted(items, key=lambda item: (item.get("name", ""), item.get("createdTime", "")))
+
+    def get_drive_file(self, file_id):
+        response = self.request_with_auth(
+            "GET",
+            f"https://www.googleapis.com/drive/v3/files/{file_id}",
+            params={
+                "fields": "id,name,createdTime,modifiedTime",
+                "supportsAllDrives": "true",
+                "includeItemsFromAllDrives": "true",
+            },
+            timeout=60,
+        )
+        return response.json()
 
     def get_spreadsheet_metadata(self, spreadsheet_id):
         response = self.request_with_auth(
@@ -1047,6 +1144,8 @@ class WebsiteEmailResolver:
         page_root = approx_root_domain(parsed.netloc)
         local_part, _, domain = email_address.partition("@")
         score = 0
+        if is_excluded_business_email(email_address):
+            return -50
         if approx_root_domain(domain) == page_root:
             score += 8
         if local_part in {"info", "mail", "hello", "office", "sales", "contact", "admin"}:
@@ -1132,7 +1231,11 @@ class WebsiteEmailResolver:
                             "search_url": candidate_url,
                             "resolution_status": "inferred_from_domain",
                         }
-                emails = [item for item in extract_emails(html) if not is_placeholder_email(item)]
+                emails = [
+                    item
+                    for item in extract_emails(html)
+                    if not is_placeholder_email(item) and not is_excluded_business_email(item)
+                ]
                 if current_is_directory:
                     emails = [item for item in emails if not host_matches(email_domain(item), DIRECTORY_HOSTS)]
                 if not emails:
@@ -1168,7 +1271,7 @@ class SmtpEmailSender:
     def enabled(self):
         return bool(self.host and self.from_email)
 
-    def send(self, to_email, subject, text_body, html_body=""):
+    def send(self, to_email, subject, text_body, html_body="", attachments=None):
         if not self.enabled():
             raise RuntimeError("SMTP не настроен")
         message = EmailMessage()
@@ -1180,6 +1283,21 @@ class SmtpEmailSender:
         message.set_content(text_body)
         if html_body:
             message.add_alternative(html_body, subtype="html")
+        for attachment in attachments or []:
+            path = Path(str(attachment.get("path") or "")).expanduser()
+            if not path.exists() or not path.is_file():
+                raise RuntimeError(f"Не найден файл вложения: {path}")
+            mime_type, _ = mimetypes.guess_type(path.name)
+            if mime_type and "/" in mime_type:
+                maintype, subtype = mime_type.split("/", 1)
+            else:
+                maintype, subtype = "application", "octet-stream"
+            message.add_attachment(
+                path.read_bytes(),
+                maintype=maintype,
+                subtype=subtype,
+                filename=str(attachment.get("filename") or path.name),
+            )
 
         if self.use_ssl:
             context = ssl.create_default_context()
@@ -1264,6 +1382,9 @@ class TelegramReporter:
             json=payload,
             timeout=20,
         )
+        if not response.ok:
+            detail = response.text.strip()
+            raise RuntimeError(f"Telegram sendMessage failed ({response.status_code}): {detail[:500]}")
         response.raise_for_status()
         return response.json()
 
@@ -1293,6 +1414,8 @@ class TelegramReporter:
                 )
             ),
         ]
+        if summary.get("limit_reached"):
+            lines.append("Run cap reached before full scan: yes")
         if "bounces_processed" in summary:
             lines.append(
                 "Bounces: {processed} | Matched: {matched} | Blacklisted domains: {blacklisted}".format(
@@ -1301,6 +1424,27 @@ class TelegramReporter:
                     blacklisted=summary.get("blacklisted_domains_added", 0),
                 )
             )
+        sheet_summaries = list(summary.get("sheet_summaries") or [])
+        if sheet_summaries:
+            lines.append("")
+            lines.append("Sheets:")
+            for item in sheet_summaries[:12]:
+                name = str(item.get("spreadsheet_name") or item.get("spreadsheet_id") or "-").strip()
+                status = str(item.get("status") or "").strip()
+                if status == "updated":
+                    lines.append(
+                        "- {name}: sent {sent}, review {review}, blocked {blocked}, errors {errors}".format(
+                            name=name,
+                            sent=item.get("sent", 0),
+                            review=item.get("needs_review", 0),
+                            blocked=item.get("blocked", 0),
+                            errors=item.get("errors", 0),
+                        )
+                    )
+                elif status == "empty_sheet":
+                    lines.append(f"- {name}: пусто или лист без данных")
+                else:
+                    lines.append(f"- {name}: новых записей для email-отправки нет")
         results = list(summary.get("results") or [])[:5]
         if results:
             lines.append("")
@@ -1518,6 +1662,7 @@ class EmailFollowupService:
     def __init__(self, sheet_prefix=DEFAULT_SHEET_PREFIX, preferred_sheet_name=DEFAULT_SHEET_NAME):
         self.sheet_prefix = sheet_prefix
         self.preferred_sheet_name = preferred_sheet_name
+        self.target_spreadsheet_ids = list(DEFAULT_SPREADSHEET_IDS)
         self.google = GoogleSheetsClient(drive_folder_id=DEFAULT_DRIVE_FOLDER_ID)
         self.domain_blacklist = DomainBlacklist()
         self.resolver = WebsiteEmailResolver(
@@ -1532,18 +1677,65 @@ class EmailFollowupService:
         self._phone_email_cache = {}
         self._phone_email_cache_built = False
 
+    def max_records_limit(self, value):
+        if value is None:
+            return DEFAULT_MAX_RECORDS_PER_RUN
+        try:
+            limit = int(value)
+        except Exception:
+            return DEFAULT_MAX_RECORDS_PER_RUN
+        if limit < 0:
+            return 0
+        return limit
+
+    def build_email_attachments(self, strict=False):
+        raw_path = str(DEFAULT_ATTACHMENT_PATH or "").strip()
+        if not raw_path:
+            return []
+        path = Path(raw_path).expanduser()
+        if not path.exists() or not path.is_file():
+            if strict:
+                raise RuntimeError(f"Не найден файл вложения: {path}")
+            return []
+        return [{"path": str(path), "filename": DEFAULT_ATTACHMENT_NAME or path.name}]
+
+    def list_target_spreadsheets(self, prefix="", limit_sheets=0, spreadsheet_ids=None):
+        explicit_ids = list(spreadsheet_ids or self.target_spreadsheet_ids or [])
+        if explicit_ids:
+            items = []
+            for spreadsheet_id in explicit_ids:
+                try:
+                    meta = self.google.get_drive_file(spreadsheet_id)
+                except Exception:
+                    meta = {"id": spreadsheet_id, "name": spreadsheet_id}
+                items.append(meta)
+            return items
+        sheet_limit = int(limit_sheets or DEFAULT_MAX_SHEETS_PER_RUN)
+        return self.google.list_prefixed_sheets(
+            str(prefix or self.sheet_prefix).strip() or self.sheet_prefix,
+            limit=sheet_limit,
+        )
+
     def health(self):
+        raw_attachment_path = str(DEFAULT_ATTACHMENT_PATH or "").strip()
+        attachment_path = Path(raw_attachment_path).expanduser() if raw_attachment_path else None
+        attachments = self.build_email_attachments(strict=False)
         return {
             "ok": True,
             "service": "email_followup_service",
             "sheet_prefix": self.sheet_prefix,
             "preferred_sheet_name": self.preferred_sheet_name,
             "drive_folder_id": DEFAULT_DRIVE_FOLDER_ID,
+            "target_spreadsheet_ids": self.target_spreadsheet_ids,
             "firecrawl_enabled": self.resolver.firecrawl.enabled(),
             "smtp_enabled": self.mailer.enabled(),
             "imap_bounce_enabled": self.bounce_watcher.enabled(),
             "telegram_reports_enabled": self.telegram.enabled(),
             "blacklisted_domains": self.domain_blacklist.size(),
+            "attachment_enabled": bool(attachments),
+            "attachment_path": str(attachment_path) if attachment_path else "",
+            "attachment_exists": bool(attachment_path and attachment_path.exists() and attachment_path.is_file()),
+            "attachment_filename": (attachments[0].get("filename") if attachments else ""),
             "test_recipient": os.getenv("EMAIL_FOLLOWUP_TEST_RECIPIENT", "").strip(),
         }
 
@@ -1551,9 +1743,8 @@ class EmailFollowupService:
         if self._phone_email_cache_built:
             return self._phone_email_cache
         prefix = str(sheet_prefix or self.sheet_prefix).strip() or self.sheet_prefix
-        sheet_limit = int(limit_sheets or DEFAULT_MAX_SHEETS_PER_RUN)
         cache = {}
-        spreadsheets = self.google.list_prefixed_sheets(prefix, limit=sheet_limit)
+        spreadsheets = self.list_target_spreadsheets(prefix=prefix, limit_sheets=limit_sheets)
         for spreadsheet in spreadsheets:
             spreadsheet_id = spreadsheet.get("id", "")
             if not spreadsheet_id:
@@ -1578,6 +1769,8 @@ class EmailFollowupService:
                     bucket = cache.setdefault(phone, {})
                     for email_address in dedupe_keep_order(candidates):
                         if self.domain_blacklist.contains(email_address):
+                            continue
+                        if is_excluded_business_email(email_address):
                             continue
                         score = 1
                         if status == "sent":
@@ -1616,6 +1809,8 @@ class EmailFollowupService:
         _, _, email_address = best
         if not is_valid_email(email_address):
             return {}
+        if is_excluded_business_email(email_address):
+            return {}
         return {
             "email": email_address,
             "source_url": "history_phone_match",
@@ -1641,6 +1836,8 @@ class EmailFollowupService:
             if not email_address or not is_valid_email(email_address):
                 continue
             if is_placeholder_email(email_address):
+                continue
+            if is_excluded_business_email(email_address):
                 continue
             if skip_normalized and email_address == skip_normalized:
                 continue
@@ -1757,14 +1954,22 @@ class EmailFollowupService:
             "source_record_key",
         ]
         for field in direct_fields:
-            email_candidates = [item for item in extract_emails(row.get(field, "")) if not is_placeholder_email(item)]
+            email_candidates = [
+                item
+                for item in extract_emails(row.get(field, ""))
+                if not is_placeholder_email(item) and not is_excluded_business_email(item)
+            ]
             if email_candidates:
                 status = "from_sheet"
                 if field not in {"contact_email", "email", "email_address", "client_email", "customer_email"}:
                     status = "from_misplaced_field"
                 return email_candidates[0], status
         for field in ("notes_short", "notes_redacted"):
-            email_candidates = [item for item in extract_emails(row.get(field, "")) if not is_placeholder_email(item)]
+            email_candidates = [
+                item
+                for item in extract_emails(row.get(field, ""))
+                if not is_placeholder_email(item) and not is_excluded_business_email(item)
+            ]
             if email_candidates:
                 return email_candidates[0], "from_notes"
         return "", ""
@@ -1773,6 +1978,16 @@ class EmailFollowupService:
         contact_name = str(row.get("contact_name") or "").strip()
         company_name_raw = str(row.get("company_name") or "").strip()
         company_name_for_subject = company_name_raw or "клиники"
+        attachments = self.build_email_attachments(strict=True)
+        attachment_note = ""
+        attachment_html_note = ""
+        if attachments:
+            attachment_note = (
+                f"Во вложении также направляем файл «{attachments[0].get('filename', '')}».\n\n"
+            )
+            attachment_html_note = (
+                f"<p>Во вложении также направляем файл <strong>{attachments[0].get('filename', '')}</strong>.</p>"
+            )
         subject = DEFAULT_SUBJECT_TEMPLATE.format(
             product_name=DEFAULT_PRODUCT_NAME,
             company_name=company_name_for_subject,
@@ -1800,6 +2015,7 @@ class EmailFollowupService:
             "- формат спокойного тестового входа без тяжелой закупки;\n"
             "- экономику процедуры под вашу практику;\n"
             "- рабочие условия поставки и дальнейшего сопровождения.\n\n"
+            f"{attachment_note}"
             f"Материалы: {DEFAULT_MATERIAL_URL}\n"
             f"Сайт: {DEFAULT_PRODUCT_SITE}\n"
             f"Контакт для связи: {DEFAULT_MANAGER_PHONE}\n"
@@ -1830,6 +2046,7 @@ class EmailFollowupService:
             "</ul>"
             "<p>Если для вас направление актуально, можем отдельно обсудить формат спокойного тестового входа без тяжелой закупки, "
             "экономику процедуры под вашу практику и рабочие условия поставки.</p>"
+            f"{attachment_html_note}"
             f"<p>Материалы: <a href=\"{DEFAULT_MATERIAL_URL}\">{DEFAULT_MATERIAL_URL}</a><br>"
             f"Сайт: <a href=\"{DEFAULT_PRODUCT_SITE}\">{DEFAULT_PRODUCT_SITE}</a><br>"
             f"Контакт для связи: {DEFAULT_MANAGER_PHONE}<br>"
@@ -1841,6 +2058,7 @@ class EmailFollowupService:
             "subject": subject,
             "text_body": text_body,
             "html_body": html_body,
+            "attachments": attachments,
         }
 
     def row_email_keys(self, row):
@@ -1867,8 +2085,7 @@ class EmailFollowupService:
             return bounce_summary
 
         prefix = str(sheet_prefix or self.sheet_prefix).strip() or self.sheet_prefix
-        sheet_limit = int(limit_sheets or DEFAULT_MAX_SHEETS_PER_RUN)
-        spreadsheets = self.google.list_prefixed_sheets(prefix, limit=sheet_limit)
+        spreadsheets = self.list_target_spreadsheets(prefix=prefix, limit_sheets=limit_sheets)
         seen_bounce_keys = set()
         for event in fetched.get("events") or []:
             bounce_key = (event.get("email", ""), event.get("bounce_type", ""))
@@ -1999,7 +2216,11 @@ class EmailFollowupService:
         verification_status = email_status
         if email_address:
             email_address = normalize_email_candidate(email_address).lower()
-            if not is_valid_email(email_address) or is_placeholder_email(email_address):
+            if (
+                not is_valid_email(email_address)
+                or is_placeholder_email(email_address)
+                or is_excluded_business_email(email_address)
+            ):
                 email_address = ""
                 source_url = ""
                 verification_status = ""
@@ -2151,6 +2372,7 @@ class EmailFollowupService:
                 subject=email_payload["subject"],
                 text_body=email_payload["text_body"],
                 html_body=email_payload["html_body"],
+                attachments=email_payload.get("attachments") or [],
             )
         except Exception as exc:
             self.google.batch_update_row_fields(
@@ -2195,7 +2417,7 @@ class EmailFollowupService:
     def run(self, dry_run=False, force_resend=False, sheet_prefix="", limit_sheets=0, max_records=0):
         prefix = str(sheet_prefix or self.sheet_prefix).strip() or self.sheet_prefix
         sheet_limit = int(limit_sheets or DEFAULT_MAX_SHEETS_PER_RUN)
-        record_limit = int(max_records or DEFAULT_MAX_RECORDS_PER_RUN)
+        record_limit = self.max_records_limit(max_records or DEFAULT_MAX_RECORDS_PER_RUN)
 
         summary = {
             "ok": True,
@@ -2203,6 +2425,9 @@ class EmailFollowupService:
             "dry_run": bool(dry_run),
             "force_resend": bool(force_resend),
             "sheet_prefix": prefix,
+            "target_spreadsheet_ids": list(self.target_spreadsheet_ids),
+            "record_limit": record_limit,
+            "limit_reached": False,
             "spreadsheets_found": 0,
             "groups_seen": 0,
             "records_processed": 0,
@@ -2218,6 +2443,7 @@ class EmailFollowupService:
             "bounces_matched": 0,
             "blacklisted_domains_added": 0,
             "bounce_results": [],
+            "sheet_summaries": [],
         }
         if not dry_run:
             bounce_summary = self.process_bounces(sheet_prefix=prefix, limit_sheets=sheet_limit)
@@ -2225,22 +2451,44 @@ class EmailFollowupService:
                 summary[key] = int(bounce_summary.get(key) or 0)
             summary["bounce_results"] = list(bounce_summary.get("bounce_results") or [])
 
-        spreadsheets = self.google.list_prefixed_sheets(prefix, limit=sheet_limit)
+        spreadsheets = self.list_target_spreadsheets(prefix=prefix, limit_sheets=sheet_limit)
         summary["spreadsheets_found"] = len(spreadsheets)
 
         for spreadsheet in spreadsheets:
-            if summary["records_processed"] >= record_limit:
+            if record_limit and summary["records_processed"] >= record_limit:
+                summary["limit_reached"] = True
                 break
             spreadsheet_id = spreadsheet.get("id", "")
             spreadsheet_name = spreadsheet.get("name", "")
             if not spreadsheet_id:
                 continue
             sheet_name = self.google.resolve_sheet_name(spreadsheet_id, self.preferred_sheet_name)
+            sheet_summary = {
+                "spreadsheet_id": spreadsheet_id,
+                "spreadsheet_name": spreadsheet_name,
+                "sheet_name": sheet_name,
+                "groups_seen": 0,
+                "processed": 0,
+                "sent": 0,
+                "dry_run_ready": 0,
+                "needs_review": 0,
+                "blocked": 0,
+                "errors": 0,
+                "skipped": 0,
+                "status": "no_new_records",
+                "results": [],
+            }
             values = self.google.read_values(spreadsheet_id, sheet_name, range_suffix="A1:AZ")
             if not values:
+                sheet_summary["status"] = "empty_sheet"
+                summary["sheet_summaries"].append(sheet_summary)
                 continue
             header_map = self.google.ensure_headers(spreadsheet_id, sheet_name, values[0], EXTRA_HEADERS)
             rows = self.rows_from_values(values)
+            if not rows:
+                sheet_summary["status"] = "empty_sheet"
+                summary["sheet_summaries"].append(sheet_summary)
+                continue
             grouped = self.group_rows(rows)
             ordered_groups = sorted(
                 grouped.values(),
@@ -2251,9 +2499,11 @@ class EmailFollowupService:
             )
 
             for state in ordered_groups:
-                if summary["records_processed"] >= record_limit:
+                if record_limit and summary["records_processed"] >= record_limit:
+                    summary["limit_reached"] = True
                     break
                 summary["groups_seen"] += 1
+                sheet_summary["groups_seen"] += 1
                 result = self.process_group(
                     spreadsheet_id=spreadsheet_id,
                     spreadsheet_name=spreadsheet_name,
@@ -2267,22 +2517,42 @@ class EmailFollowupService:
                 if action == "sent":
                     summary["sent"] += 1
                     summary["records_processed"] += 1
+                    sheet_summary["sent"] += 1
+                    sheet_summary["processed"] += 1
                 elif action == "dry_run_ready":
                     summary["dry_run_ready"] += 1
                     summary["records_processed"] += 1
+                    sheet_summary["dry_run_ready"] += 1
+                    sheet_summary["processed"] += 1
                 elif action == "needs_review":
                     summary["needs_review"] += 1
                     summary["records_processed"] += 1
+                    sheet_summary["needs_review"] += 1
+                    sheet_summary["processed"] += 1
                 elif action == "blocked":
                     summary["blocked"] += 1
                     summary["records_processed"] += 1
+                    sheet_summary["blocked"] += 1
+                    sheet_summary["processed"] += 1
                 elif action == "error":
                     summary["errors"] += 1
                     summary["records_processed"] += 1
+                    sheet_summary["errors"] += 1
+                    sheet_summary["processed"] += 1
                 else:
                     summary["skipped"] += 1
+                    sheet_summary["skipped"] += 1
                 if action != "skipped":
                     summary["results"].append(result)
+                    sheet_summary["results"].append(result)
+
+            if sheet_summary["processed"] > 0:
+                sheet_summary["status"] = "updated"
+            elif sheet_summary["groups_seen"] == 0:
+                sheet_summary["status"] = "empty_sheet"
+            else:
+                sheet_summary["status"] = "no_new_records"
+            summary["sheet_summaries"].append(sheet_summary)
 
         if self.telegram.should_notify(summary):
             try:
@@ -2314,13 +2584,24 @@ class EmailFollowupService:
             f"<p>Сервис <code>email_followup_service</code> успешно собрал и отправил это письмо.</p>"
             f"<p>Время UTC: {sent_at}</p>"
         )
-        self.mailer.send(to_email=recipient, subject=subject, text_body=text_body, html_body=html_body)
+        attachments = self.build_email_attachments(strict=True)
+        if attachments:
+            text_body += f"\nВо вложении приложен файл: {attachments[0].get('filename', '')}\n"
+            html_body += f"<p>Во вложении приложен файл: <strong>{attachments[0].get('filename', '')}</strong></p>"
+        self.mailer.send(
+            to_email=recipient,
+            subject=subject,
+            text_body=text_body,
+            html_body=html_body,
+            attachments=attachments,
+        )
         return {
             "ok": True,
             "service": "email_followup_service",
             "action": "send_test_email",
             "to_email": recipient,
             "sent_at": sent_at,
+            "attachments": [item.get("filename", "") for item in attachments],
         }
 
     def process_bounces_only(self, sheet_prefix="", limit_sheets=0, limit_messages=0):

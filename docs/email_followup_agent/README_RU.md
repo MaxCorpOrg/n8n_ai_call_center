@@ -6,11 +6,13 @@
 
 Он делает три вещи:
 - находит в Google Sheets таблицы `контакты_косметологов_москва_*`;
+- при необходимости может работать по фиксированному списку spreadsheet id, чтобы обходить только нужные обзвонные таблицы;
 - ищет строки, где клиенту нужно отправить информацию по продукту на почту;
 - проверяет/исправляет email, при необходимости ищет его на сайте по номеру и названию компании, после чего отправляет письмо;
+- прикладывает к письму PDF-коммерческое предложение;
 - обрабатывает bounce-ответы из почты, помечает проблемные адреса и ведет локальный blacklist доменов;
 - повторно пытается автоисправить email при `domain_not_found`, ищет альтернативу по номеру/компании и фильтрует placeholder-адреса;
-- умеет отправлять короткий операционный отчет в Telegram.
+- умеет отправлять короткий операционный отчет в Telegram, включая статус по каждой таблице.
 
 ## Файлы
 
@@ -29,7 +31,7 @@
 ## Как работает
 
 1. `n8n` по расписанию или через manual webhook вызывает отдельный host-сервис `/run`.
-2. Сервис через Google Drive API находит таблицы по префиксу.
+2. Сервис через Google Drive API находит таблицы по префиксу или берет их из `EMAIL_FOLLOWUP_SPREADSHEET_IDS`, если список задан явно.
 3. В каждой таблице читает лист `Лиды_обзвон`.
 4. Собирает состояние по лидам, чтобы не реагировать на старые исторические строки.
 5. Ищет email:
@@ -39,8 +41,9 @@
    - если email нет или он битый, ищет сайт через поиск по номеру/компании и вытаскивает email уже со страницы сайта.
 6. Перед новой отправкой может разобрать bounce-сообщения из почты через IMAP и пометить уже умершие адреса.
 7. Дописывает техколонки в лист и обновляет запись.
-8. Отправляет письмо через SMTP.
-9. По итогам прогона может отправить краткий отчет в Telegram.
+8. Перед отправкой собирает PDF-вложение с коммерческим предложением. Если файл не найден, письмо не уходит молча без вложения, а прогон возвращает явную ошибку.
+9. Отправляет письмо через SMTP.
+10. По итогам прогона может отправить краткий отчет в Telegram, где видно, по каким таблицам были отправки, а где новых записей не было.
 
 ## Какие колонки сервис добавляет
 
@@ -93,12 +96,22 @@ python3 scripts/email_followup_service.py run --dry-run --limit-sheets 1 --max-r
 8. У manual webhook должен быть задан `webhookId`, иначе `n8n 2.6.4` может зарегистрировать только служебный namespaced path вместо короткого production-path.
 9. Для стабильного runtime стоит ограничить сетевой резолвинг:
    `EMAIL_FOLLOWUP_HTTP_TIMEOUT_SEC=15`
-   `EMAIL_FOLLOWUP_RESOLVER_TOTAL_TIMEOUT_SEC=25`
+   `EMAIL_FOLLOWUP_RESOLVER_TOTAL_TIMEOUT_SEC=60`
    `EMAIL_FOLLOWUP_RESOLVER_SEARCH_LIMIT=4`
    `EMAIL_FOLLOWUP_RESOLVER_MAX_VISITS=4`
+   Если на сервере поднят `firecrawl-compat-bridge`, рекомендуется сразу подключить:
+   `EMAIL_FOLLOWUP_FIRECRAWL_BASE_URL=http://127.0.0.1:3002`
 10. Для более агрессивного поиска email по номеру можно включить:
    `EMAIL_FOLLOWUP_USE_JINA_SEARCH_FALLBACK=true`
    `EMAIL_FOLLOWUP_INFER_EMAIL_FROM_DOMAIN=true`
+11. Для обхода всех рабочих обзвонных таблиц без конфликта с дозвоном стоит закрепить список таблиц в env:
+   `EMAIL_FOLLOWUP_SPREADSHEET_IDS=1FUHh8lS8pEx58eRK2Rt6AYn3cy6ogWSO32vZWqYw_Fc,1t0FtCL84l0QJvL9_7XDnmafJS1NHUSdiVyKgqNWOVmA,1pLrCNeQ_thipr5-fajPusgNZZSd5NHEZFmGkegfpIqI`
+12. Для Telegram-отчета даже при пустом прогоне:
+   `EMAIL_FOLLOWUP_TELEGRAM_REPORT_ON_EMPTY=true`
+13. Для вложения КП по умолчанию используется:
+   `Документация по скриптам /КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ (2).pdf`
+14. Рабочее расписание для live workflow:
+   `09:00` и `15:00` по `Europe/Moscow`
 
 Проверка:
 
@@ -130,8 +143,8 @@ curl -X POST 'http://127.0.0.1:8791/run' \
   -H 'Authorization: Bearer <EMAIL_FOLLOWUP_AUTH_TOKEN>' \
   -d '{
     "dry_run": true,
-    "limit_sheets": 1,
-    "max_records": 5
+    "limit_sheets": 3,
+    "max_records": -1
   }'
 ```
 
@@ -142,8 +155,8 @@ curl -X POST 'https://www.n-8-n.site/webhook/email-followup-live/run' \
   -H 'Content-Type: application/json' \
   -d '{
     "dry_run": true,
-    "limit_sheets": 1,
-    "max_records": 5
+    "limit_sheets": 3,
+    "max_records": -1
   }'
 ```
 
@@ -191,6 +204,9 @@ python3 scripts/email_followup_service.py process-bounces --limit-sheets 25 --li
 - `EMAIL_FOLLOWUP_IMAP_PASSWORD`
 - `EMAIL_FOLLOWUP_BOUNCE_STATE_PATH`
 - `EMAIL_FOLLOWUP_DOMAIN_BLACKLIST_PATH`
+- `EMAIL_FOLLOWUP_SPREADSHEET_IDS`
+- `EMAIL_FOLLOWUP_ATTACHMENT_PATH`
+- `EMAIL_FOLLOWUP_ATTACHMENT_NAME`
 - `EMAIL_FOLLOWUP_TELEGRAM_REPORTS_ENABLED`
 - `EMAIL_FOLLOWUP_TELEGRAM_BOT_TOKEN`
 - `EMAIL_FOLLOWUP_TELEGRAM_API_BASE`

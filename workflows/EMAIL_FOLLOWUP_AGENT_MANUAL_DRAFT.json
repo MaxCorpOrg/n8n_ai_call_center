@@ -2,11 +2,10 @@
   "name": "EMAIL_FOLLOWUP_AGENT_MANUAL (draft)",
   "nodes": [
     {
-      "id": "7694016e-bcd3-467d-b372-b3b1453385b7",
+      "id": "1f9767b6-c4dc-4784-a8ca-39ca3118c837",
       "name": "Email Followup | Manual Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "webhookId": "bca3b8ab-4b09-4e67-8dd8-7ed4a91a0d14",
       "position": [
         240,
         300
@@ -16,10 +15,11 @@
         "path": "email-followup-live/run",
         "responseMode": "responseNode",
         "options": {}
-      }
+      },
+      "webhookId": "77f4a65a-accd-45b9-a6f8-4c8275b1bc65"
     },
     {
-      "id": "c4187304-59c3-40a6-8fc3-82fafc55e948",
+      "id": "d59aeb87-02ad-4219-afe3-16eddabe500e",
       "name": "Email Followup | Normalize Manual Run",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -32,7 +32,7 @@
       }
     },
     {
-      "id": "cd7075dc-20a1-4a4f-8e59-176fbe14683a",
+      "id": "2dfeb395-0cad-4e9f-8d45-83f66c810453",
       "name": "Email Followup | Run Manual Batch",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -65,7 +65,7 @@
       }
     },
     {
-      "id": "94addb6e-061f-481d-b9e0-1c76cad43cac",
+      "id": "7ab6e558-9d8f-4570-967b-98bcdcc28a03",
       "name": "Email Followup | Build Manual Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -78,7 +78,7 @@
       }
     },
     {
-      "id": "c9eb2e69-370f-402a-8fca-c061031d4baf",
+      "id": "41b42ecc-9f21-473a-a00e-03c90e1974cf",
       "name": "Email Followup | Respond Manual",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -146,5 +146,6 @@
   },
   "active": false,
   "pinData": {},
-  "versionId": "d87eb2f1-8f4d-4698-b89f-60b9fd709db2"
+  "versionId": "5b90d825-c92e-436d-8ab4-3a92a2cf5cf5",
+  "meta": null
 }

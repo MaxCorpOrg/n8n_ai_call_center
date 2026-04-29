@@ -2,7 +2,7 @@
   "name": "EMAIL_FOLLOWUP_AGENT (draft)",
   "nodes": [
     {
-      "id": "288502ed-3aa6-495d-9657-50217a1badd5",
+      "id": "5a165e7b-66d0-4aaa-91c6-b96710265ad7",
       "name": "Email Followup | Schedule Tick",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
@@ -15,14 +15,14 @@
           "interval": [
             {
               "field": "cronExpression",
-              "expression": "*/15 * * * *"
+              "expression": "0 9,15 * * *"
             }
           ]
         }
       }
     },
     {
-      "id": "986c1fed-2c13-4f06-885e-c11a18996831",
+      "id": "3de7d293-c72f-44b0-aa0a-b2a026059ba0",
       "name": "Email Followup | Build Scheduled Run",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -31,11 +31,11 @@
         220
       ],
       "parameters": {
-        "jsCode": "return [{\n  run_body: {\n    dry_run: false,\n    force_resend: false,\n    limit_sheets: 25,\n    max_records: 5,\n  },\n}];"
+        "jsCode": "return [{\n  run_body: {\n    dry_run: false,\n    force_resend: false,\n    limit_sheets: 100,\n    max_records: -1,\n  },\n}];"
       }
     },
     {
-      "id": "4ac6ce9d-30c4-43f4-8365-ed7b9a5c33c4",
+      "id": "c3f59d6c-acba-4e7c-a4a4-85534ddba623",
       "name": "Email Followup | Run Scheduled Batch",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -68,7 +68,7 @@
       }
     },
     {
-      "id": "7384a6aa-441f-4b3b-a535-e9de31eb35ab",
+      "id": "a22dfd1b-fd21-44ff-b089-747beb275def",
       "name": "Email Followup | Build Scheduled Result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -123,6 +123,6 @@
   },
   "active": false,
   "pinData": {},
-  "versionId": "7c0b816e-8704-4024-815c-1a0738ffe024",
+  "versionId": "c8b73a29-b40a-4278-9033-35f9f9cd5ecb",
   "meta": null
 }
