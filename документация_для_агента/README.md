@@ -10,11 +10,19 @@
 
 ## Что читать в первую очередь
 
-1. `01_БЫСТРЫЙ_СТАРТ.md`
-2. `02_ТЕКУЩЕЕ_LIVE_СОСТОЯНИЕ.md`
-3. `07_ПРАВИЛА_БЕЗОПАСНЫХ_ПРАВОК.md`
-4. `08_ТЕСТЫ_И_ДИАГНОСТИКА.md`
-5. `../docs/knowledge_base/11_LOCAL_WORKING_MATERIALS.md`
+1. `../AGENTS.md`
+2. `01_БЫСТРЫЙ_СТАРТ.md`
+3. `02_ТЕКУЩЕЕ_LIVE_СОСТОЯНИЕ.md`
+4. `07_ПРАВИЛА_БЕЗОПАСНЫХ_ПРАВОК.md`
+5. `08_ТЕСТЫ_И_ДИАГНОСТИКА.md`
+6. `../docs/knowledge_base/09_PROJECT_CHANGELOG_AND_STATE.md`
+7. `../docs/knowledge_base/11_LOCAL_WORKING_MATERIALS.md`
+
+Если задача касается email-агента, дополнительно обязательно читать:
+
+- `../docs/email_followup_agent/README_RU.md`
+- `../docs/email_followup_agent/06_CHECKPOINT_RU.md`
+- `../docs/email_followup_agent/05_TEST_REPORT_2026-04-29_RU.md`
 
 ## Что важно помнить сразу
 
@@ -77,3 +85,9 @@
   - прохождение автоответчиков и IVR;
   - удержание внимания после первого возражения;
   - value reveal и более сильная презентация продукта.
+- Отдельный зрелый контур теперь уже есть и у email-followup агента:
+  - production service;
+  - fixed schedule;
+  - bounce + blacklist;
+  - Telegram reports;
+  - свой checkpoint-пакет в `docs/email_followup_agent/`.

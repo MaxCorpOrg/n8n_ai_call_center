@@ -8,7 +8,142 @@
 - Основной workspace: `media_orchestrator_v1`.
 - Telegram-оркестратор: `C8Wmmjuv5hC425PM`.
 
-## 2) Последние важные изменения
+## 2) Контрольная точка проекта (2026-04-29)
+
+### Сделано
+- Email-followup агент доведен до production-режима как отдельный контур без зависимости от `ElevenLabs`.
+- Для email-агента подняты и подтверждены:
+  - `email_followup.service`
+  - `EMAIL_FOLLOWUP_AGENT_LIVE`
+  - `EMAIL_FOLLOWUP_AGENT_MANUAL_LIVE`
+- Live-расписание email-агента переведено на `09:00` и `15:00` по Москве, чтобы не пересекаться с обзвоном.
+- В письма добавлено обязательное PDF-вложение с коммерческим предложением.
+- В проде закреплены рабочие таблицы `москва_1`, `москва_2`, `москва_47`.
+- Включены и проверены:
+  - SMTP-отправка;
+  - IMAP bounce-обработка;
+  - Telegram-отчёты;
+  - `firecrawl`-усиление web-resolver;
+  - blacklist доменов.
+- Исправлены реальные operational дефекты email-контура:
+  - ложные каталожные и платформенные email;
+  - неверный Telegram recipient;
+  - утечка seed email из старых `xlsx_import` строк в merged context.
+- Создан корневой `AGENTS.md` и отдельный пакет документации по email-агенту с checkpoint/runbook/test-report.
+
+### На чем остановились
+- Основной live-контур звонков стабилен, но главный дальнейший фронт по-прежнему в логике разговора, а не в инфраструктуре.
+- Email-агент уже рабочий, но часть лидов закономерно остаётся в `manual_review`, потому что:
+  - email не найден;
+  - домен не существует;
+  - контекст строки слабый;
+  - строка выглядит подозрительно.
+- В репозитории остаётся много unrelated modified/untracked материалов; их нельзя автоматически считать мусором и нельзя откатывать без разбора.
+
+### Что делать дальше
+- Для звонкового контура:
+  - продолжать улучшать `value reveal`, дожим после возражений и поведение после human-answer gate.
+- Для email-контура:
+  - пройти backlog `manual_review`;
+  - решить, какие кейсы можно ещё автоматизировать, а какие оставлять только на ручную проверку;
+  - периодически аудитить старые `sent`, если всплывут ещё исторические каталожные адреса.
+- Для документации:
+  - после каждой значимой live-правки обновлять этот файл и модульный checkpoint соответствующего агента.
+
+## 3) Последние важные изменения
+
+### 2026-04-29 — Email-followup агент доведен до рабочего production-контура и задокументирован
+- Email-followup контур выделен как самостоятельный production-компонент:
+  - service: `email_followup.service`;
+  - scheduled workflow: `EMAIL_FOLLOWUP_AGENT_LIVE`;
+  - manual workflow: `EMAIL_FOLLOWUP_AGENT_MANUAL_LIVE`.
+- Для live закреплено безопасное расписание:
+  - `09:00 MSK`
+  - `15:00 MSK`
+  чтобы не пересекаться с окном автодозвона.
+- В письма добавлено обязательное PDF-вложение:
+  - `КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ (2).pdf`
+- В проде закреплены целевые таблицы:
+  - `контакты_косметологов_москва_1`
+  - `контакты_косметологов_москва_2`
+  - `контакты_косметологов_москва_47`
+- Подтверждены рабочие прод-компоненты email-контура:
+  - SMTP;
+  - IMAP bounce watcher;
+  - Telegram reports;
+  - `firecrawl-compat-bridge` для web-resolver.
+- Исправлены реальные defects:
+  - бот отчётов был привязан к чужому `chat_id`, теперь отчёты идут в `@M_a_x_i_m_M_i_k_h_a_i_l_o_v`;
+  - добавлены фильтры платформенных доменов (`hh`, `zarplata`, `dreamjob`, `taplink`, `yclients`, `doct` и др.);
+  - исправлена утечка старого seed email из `xlsx_import` строк в merged context;
+  - исторические ложные кейсы на каталожные email переведены на переоценку.
+- По факту live-проверки и отправок подтверждены рабочие кейсы:
+  - `clinic@mesoreal.ru`
+  - `medsi_beauty@medsigroup.ru`
+  - `info@freshnail.online`
+- Для будущих сессий создан подробный пакет документации:
+  - `AGENTS.md`
+  - `docs/email_followup_agent/README_RU.md`
+  - `docs/email_followup_agent/01_ARCHITECTURE_AND_FLOW_RU.md`
+  - `docs/email_followup_agent/02_LIVE_CONFIG_AND_SCHEDULE_RU.md`
+  - `docs/email_followup_agent/03_SEARCH_RULES_AND_FILTERS_RU.md`
+  - `docs/email_followup_agent/04_RUNBOOK_AND_OPERATIONS_RU.md`
+  - `docs/email_followup_agent/05_TEST_REPORT_2026-04-29_RU.md`
+  - `docs/email_followup_agent/06_CHECKPOINT_RU.md`
+
+### 2026-04-29 — Из live prompt убран возврат в email-flow и ужаты паузы в живом разговоре
+- По свежим live-разговорам после вчерашнего anti-IVR фикса подтверждено, что machine/welcome handling стало лучше:
+  - `conv_5301kqc0wctkffvvecan8vn5kz8v` корректно дождался живого администратора после длинного welcome-скрипта и не открылся поверх записи;
+  - `conv_4301kqc1b10ped08m5ft7jatgdbk` после длинного branded intro вообще не стартовал sales-opener, что соответствует новому human-gate.
+- Но всплыл другой остаточный дефект в старом sales-flow:
+  - `conv_0501kqc0y89tf9rv7enx7xmbgyeh` агент снова ушёл в сбор email, произнёс `Вы на связи? Готова записать почту...` и растянул звонок на паузах;
+  - `conv_5001kqc2hg01e1sr3vker1yy4h9y` и summary `Lipolong Offer Email` показали возврат к почтовому сценарию, хотя live follow-up уже давно переведён на SMS / callback / manager contact.
+- Причина:
+  - в live prompt было достаточно запретов на IVR и opener noise, но не было жёсткого запрета на email-follow-up и на зависание в mid-call паузах ради диктовки почты.
+- Исправление:
+  - в live prompt добавлен прямой запрет на сбор, диктовку, повтор и проверку email-адресов;
+  - если собеседник просит `отправить на почту`, агент теперь должен предлагать только SMS на текущий номер, короткий контакт менеджера или callback;
+  - если администратор настаивает только на почте и не принимает другие варианты, агент оставляет короткий callback-контакт, логирует `send_kp_pending_callback` и завершает разговор;
+  - отдельно запрещены реплики `Продиктуйте, пожалуйста, почту`, `Готова записать почту`, `Отправим информацию на почту`, `Вы на связи? Готова записать...`;
+  - на паузах вида `сейчас, одну минуту` агент может коротко подождать один раз, но не должен сервисно перепроверять линию и не должен висеть на звонке ради записи email.
+
+### 2026-04-28 — Ужесточён human-answer gate против раннего старта на брендовых приветствиях и шуме
+- По свежим live-логам `Main` найдены реальные ложные старты на текущей stable version `agtvrsn_3201kq1w28bnf00rhgss8kkt9j3c`:
+  - `conv_7101kq9fb4fzfkjstzk96wj1dy0k` — после `...` агент выдал запрещённую rescue-фразу `Я вас слушаю, вы на связи? Чем могу помочь?`;
+  - `conv_5001kq9g15gvfa6r7d5j45vha4b4` — opener стартовал на garbled branded fragment;
+  - `conv_3901kq9fd02kek59xsve5j7y1zty` — opener стартовал на сомнительном intro-фрагменте;
+  - `conv_6901kq9f05p3fhv8pkf8sebqy1bs`, `conv_6601kq9ehhc6f03b01ddqzegf2yn` — opener уходил после длинного брендового welcome/hold сценария вместо тихого `no_answer`.
+- Корень найден в самом live prompt:
+  - в `Critical opening mode` всё ещё было правило `a clinic name` как достаточный human-signal;
+  - этого оказалось достаточно, чтобы модель местами принимала брендовый/клинический intro, partial ASR и garbled fragments за живой старт.
+- Live fix применён prompt-only patch через Eleven API:
+  - сначала на test/staging branch `agtbrch_6001kq1w2xtkfp8sp9fgkxejm3t9`;
+  - затем на stable `Main` `agtbrch_7801kgybyg9nesrbv64y078pazq0`.
+- Что именно изменено:
+  - убрано правило `a clinic name` как достаточный live-human trigger;
+  - явно закреплено, что название клиники/компании/бренда/города/отдела само по себе не считается human-answer;
+  - брендовые приветствия, слоганы, `спасибо за звонок`, partial ASR fragments и garbled intros теперь требуют ещё одного чистого человеческого ответа;
+  - если после такого intro ответа нет, агент должен молчать и завершать `no_answer`, а не открываться сам;
+  - отдельно запрещена точная rescue-фраза `Я вас слушаю, вы на связи? Чем могу помочь?`.
+- Важная техническая деталь:
+  - полный `PATCH conversation_config` снова упёрся в известный хвост Eleven API `Cannot specify both tools and tool IDs`;
+  - рабочим способом оказался узкий prompt-only patch, который не трогает tool-schema.
+- После live patch проверено:
+  - `Main` перешёл на новую stable version `agtvrsn_3501kq9py63pexhr2th2w1v9ewv2`;
+  - `turn_timeout = 10.0` сохранился;
+  - `first_message = ""` сохранился;
+  - `tool_ids` остались теми же: `tool_1601km62rxpqegqr52m9gk9sftr3`, `tool_8601km62h97qft5b3nfprvxnvdkd`, `tool_1701km86jmcpek4rj2j1rbhxqtfr`;
+  - active `tools` не пропали;
+  - backup и кейсы сохранены в `backups/2026-04-28_12-31-36_human_gate_early_start_fix/`.
+
+### 2026-04-27 — Live автодозвон и call_log переключены на новую рабочую Google Sheet
+- Текущая рабочая таблица для live-call-center переключена на:
+  - `https://docs.google.com/spreadsheets/d/1t0FtCL84l0QJvL9_7XDnmafJS1NHUSdiVyKgqNWOVmA/edit?gid=199760593#gid=199760593`
+- Важно, что сохранён тот же целевой `gid = 199760593`, а реальное имя вкладки подтверждено как `Лиды_обзвон`.
+- Переключение сделано синхронно в двух live workflow:
+  - `AUTODIAL_DISPATCHER`
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE`
+- Это важно, потому что dispatcher и `call_log` должны смотреть в один и тот же `spreadsheet_id`; если переключить только один из них, агент снова начнёт читать и писать в разные таблицы.
 
 ### 2026-04-25 — Восстановлен stable live Main, возвращён tightened prompt и введена безопасная branch-дисциплина
 - После серии test-звонков с instant drop подтверждено, что причина была не в самом prompt:
