@@ -8,7 +8,7 @@
 - Основной workspace: `media_orchestrator_v1`.
 - Telegram-оркестратор: `C8Wmmjuv5hC425PM`.
 
-## 2) Контрольная точка проекта (2026-04-29)
+## 2) Контрольная точка проекта (2026-04-30)
 
 ### Сделано
 - Email-followup агент доведен до production-режима как отдельный контур без зависимости от `ElevenLabs`.
@@ -30,9 +30,26 @@
   - неверный Telegram recipient;
   - утечка seed email из старых `xlsx_import` строк в merged context.
 - Создан корневой `AGENTS.md` и отдельный пакет документации по email-агенту с checkpoint/runbook/test-report.
+- По live-звонкам снят свежий срез `2026-04-30`:
+  - агент реально работает на stable version `agtvrsn_5801kqc3ayw9fk38qqypkgzaj0dh`;
+  - подтверждены свежие `done` разговоры и voicemail-cases на текущем prompt;
+  - anti-IVR/human-gate и запрет на возврат в email-flow в новых разговорах не сломались.
+- Найден и исправлен live-defect в autodial:
+  - обычный `SIP 486 Busy Here` ошибочно попадал в `outbound_request_failed`;
+  - из-за этого `AUTODIAL_DISPATCHER` включал `provider_circuit_breaker` после серии занятых линий, хотя это не был инфраструктурный сбой;
+  - теперь `SIP 486 Busy Here` классифицируется как `busy` с обычным retry, а не как технический provider-failure.
+  - затем найден второй слой того же дефекта: в реальном live-маршруте `Busy Here` лежал внутри `response_body.note / response_body.eleven_response.message`, из-за чего первая правка не дошла до конечного payload `call_log`;
+  - live dispatcher доработан повторно: теперь он распаковывает вложенный outbound-response и корректно видит `Busy Here` end-to-end.
+- Найден и исправлен второй live-defect по длинному ожиданию гудков:
+  - `conv_9601kqf0hx99f2j9dr7y69qvc2e0` на stable version `agtvrsn_5801kqc3ayw9fk38qqypkgzaj0dh` провисел `4m25s` до первой осмысленной живой реплики;
+  - по свежим логам агент местами всё ещё открывался на literal ASR-маркеры `...` и `музыка`, а также на запрещённые service-style probing фразы;
+  - отдельным слоем `AUTODIAL_DISPATCHER` держал lock только `1` минуту, из-за чего тот же `row_27` был задвоен двумя `dialing`-строками через минуту, пока первый длинный звонок ещё висел на линии.
 
 ### На чем остановились
-- Основной live-контур звонков стабилен, но главный дальнейший фронт по-прежнему в логике разговора, а не в инфраструктуре.
+- Основной live-контур звонков стабилен, но следующий контрольный шаг уже смещён в post-fix наблюдение за двумя свежими правками:
+  - `SIP 486 -> busy` больше не должен включать ложный `provider_circuit_breaker`;
+  - агент больше не должен висеть по несколько минут на ringback/hold и не должен открываться на `музыка`, `...` или сервисные probing-реплики.
+- Prompt-only refresh и новый autodial lock уже выложены в live, но после них ещё не было нового рабочего окна `10:00–14:00 MSK`, поэтому end-to-end подтверждение следующими живыми звонками пока не снято.
 - Email-агент уже рабочий, но часть лидов закономерно остаётся в `manual_review`, потому что:
   - email не найден;
   - домен не существует;
@@ -42,7 +59,10 @@
 
 ### Что делать дальше
 - Для звонкового контура:
-  - продолжать улучшать `value reveal`, дожим после возражений и поведение после human-answer gate.
+  - в ближайшее рабочее окно проверить, что новые busy-отказы пишутся как `busy`, а не как `outbound_request_failed`;
+  - отдельно проверить, что после свежего prompt-fix агент больше не ждёт ringback/hold по несколько минут и не говорит на literal ASR `музыка` / `...`;
+  - подтвердить, что `dial_timeout_minutes = 5` больше не допускает повторный autodial того же лида через `1` минуту, пока предыдущий длинный вызов ещё активен;
+  - если `provider_circuit_breaker` после этого всё ещё срабатывает, разбирать уже только реальные technical rejects/relay timeouts.
 - Для email-контура:
   - пройти backlog `manual_review`;
   - решить, какие кейсы можно ещё автоматизировать, а какие оставлять только на ручную проверку;
@@ -51,6 +71,80 @@
   - после каждой значимой live-правки обновлять этот файл и модульный checkpoint соответствующего агента.
 
 ## 3) Последние важные изменения
+
+### 2026-04-30 — Исправлены длинные ожидания гудков и повторный autodial на тот же лид
+- По live-логам `2026-04-30` подтверждено, что проблема была составной, а не одной:
+  - `conv_9601kqf0hx99f2j9dr7y69qvc2e0` провисел `265` секунд (`4m25s`) до первой осмысленной живой реплики;
+  - в transcript сначала были только `...`, потом спустя `225s` единичная раздражённая реплика, после чего агент выдал мягкий probing opener `Извините, если не вовремя. Вам удобно сейчас поговорить?`, чего в live быть не должно;
+  - `conv_9401kqf0g2hjem8brcdnc1kgmt76` показал ещё один запретный хвост: `Я вас слушаю, можете говорить. Чем могу помочь?`;
+  - `conv_3001kqf03876eap9m1qme74s431h` и `conv_4301kqf052y7f4sv7h1vtz0g18md` показали ранний opener на literal ASR `музыка`.
+- Параллельно найден второй operational defect в dispatcher:
+  - `row_27` был взят в работу дважды подряд;
+  - `VOICE_INBOUND_AGENT` execution `46276` (`2026-04-30 13:56:01 MSK`) и `46281` (`2026-04-30 13:57:02 MSK`) создали два исходящих запроса на один и тот же лид;
+  - в live Sheet этому соответствовали две `dialing`-строки подряд (`A198` и `A199`);
+  - причина: `dial_timeout_minutes = 1`, поэтому длинный звонок ещё шёл, а dispatcher уже считал лид свободным.
+- Исправление в live `AUTODIAL_DISPATCHER`:
+  - `dial_timeout_minutes` увеличен с `1` до `5`;
+  - это же значение теперь зашито в локальный сборщик `scripts/build_autodial_sheet_workflow.py` и в `workflows/AUTODIAL_DISPATCHER_DRAFT.json`;
+  - запасные fallback-дефолты для `dial_timeout_minutes` внутри JS-логики тоже подняты до `5`, чтобы при потере поля run-context баг не вернулся тихо через старое `|| 1`;
+  - цель правки: не давать новому autodial стартовать на тот же лид, пока предыдущий длинный ringback/hold вызов ещё жив.
+- Исправление в live `Main` и `staging` ветках ElevenLabs:
+  - prompt обновлён prompt-only patch'ем, без трогания `tool_ids` и tool-schema;
+  - добавлен абсолютный pre-human cap: не висеть на линии дольше примерно `20s` до первой осмысленной человеческой реплики;
+  - continuous ringback, queue-loops и hold music больше не должны продлевать ожидание;
+  - literal ASR-маркеры `музыка`, `music`, `...`, дыхание, одиночное ругательство после долгих гудков и прочие non-directed fragments теперь явно запрещены как сигнал старта;
+  - отдельно запрещены probing openers на неясной линии, включая:
+    - `Извините, если не вовремя. Вам удобно сейчас поговорить?`
+    - `Я вас слушаю, можете говорить. Чем могу помочь?`
+- Новый live state после patch:
+  - `Main` branch `agtbrch_7801kgybyg9nesrbv64y078pazq0` -> version `agtvrsn_7001kqf1jkffff0rrsk0yyfa62tt`
+  - `staging-safe-test-2026-04-25` -> version `agtvrsn_3401kqf1jbzbfx18x4n43jvhjwt9`
+  - `turn_timeout = 10.0`, `first_message = ""` сохранены.
+- Backup и проверка:
+  - `backups/2026-04-30_14-14-08_autodial_busy_reject_fix/`
+  - `backups/2026-04-30_14-18-06_autodial_busy_reject_fix/`
+  - `backups/2026-04-30_14-14-43_ringback_wait_fix/`
+- После выкладки prompt-fix новых live-звонков ещё не было: рабочее окно уже закрылось, поэтому end-to-end подтверждение остаётся на следующее окно `10:00–14:00 MSK`.
+
+### 2026-04-30 — Исправлена ложная provider-failure классификация для `SIP 486 Busy Here`
+- По свежим live-логам `2026-04-30` подтверждено, что сам агент работает на текущей stable version `agtvrsn_5801kqc3ayw9fk38qqypkgzaj0dh`:
+  - есть новые `done` разговоры;
+  - `conv_9801kqek78p5entrmze88pydyhxt` показал корректное ожидание конца длинного IVR-пролога и старт opener только после живого ответа администратора;
+  - запрещённый email-flow в свежих успешных разговорах не всплыл.
+- Одновременно найдены `failed` conversation без `branch_id/version_id`, например:
+  - `conv_4301kqem0wwtey9sxjkc62d8agwy`
+  - `conv_7301kqekz2dme1vtr75ny9jbx65x`
+- Разбор связанных `VOICE_INBOUND_AGENT` execution показал реальную причину:
+  - webhook и runtime-поля приходили корректно;
+  - `Eleven | Outbound HTTP` возвращал `INVITE failed: sip status: 486: Busy Here (SIP 486)`;
+  - но dispatcher downstream всё равно писал `call_result = outbound_request_failed`.
+- Из-за этого в том же окне live `AUTODIAL_DISPATCHER` ушёл в:
+  - `reason = provider_circuit_breaker`
+  - `message = Автодозвон поставлен на паузу: подряд накопились технические outbound-фейлы.`
+- Исправление:
+  - в live `AUTODIAL_DISPATCHER` логика `Postgres | Mark Outbound Failure` обновлена;
+  - `SIP 486 Busy Here` теперь маппится в `call_result = busy`, `next_step = retry_busy`;
+  - retry для такого busy идёт через `30 минут` либо на следующий день `10:15`, если дневной лимит попыток уже выбран;
+  - только реальные технические upstream/provider rejects остаются `outbound_request_failed` и продолжают влиять на `provider_circuit_breaker`.
+- На втором проходе в тот же день найден реальный runtime-нюанс:
+  - dispatcher в бою получал не плоский ответ webhook, а envelope с `response_body`;
+  - из-за этого строки `row_2` и `row_18` в `10:33` и `10:35 MSK` всё ещё записались как `outbound_request_failed`, хотя upstream уже вернул `Busy Here`.
+- Финальный live-fix:
+  - `Postgres | Mark Outbound Failure` теперь берёт `failureReason` из `response_body.note`, `response_body.eleven_response.message` и смежных вложенных полей;
+  - первый новый живой кейс после правки подтвердил результат:
+    - `VOICE_INBOUND_AGENT` execution `46152` (`2026-04-30 13:37:02 MSK`) получил `INVITE failed: sip status: 486: Busy Here (SIP 486)`;
+    - `ELEVEN_TOOL_CALL_LOG_BRIDGE` execution `46156` (`2026-04-30 13:37:19 MSK`) уже записал `lead_id = row_17`, `call_result = busy`, `next_step = retry_busy`.
+- Для восстановления текущего дня вручную исправлены четыре исторически ошибочные строки в live Sheet:
+  - `A168`
+  - `A170`
+  - `A174`
+  - `A177`
+  Они были подтверждены как `Busy Here` по исходным `VOICE_INBOUND_AGENT` execution и переведены из `outbound_request_failed` в `busy`.
+- После ручной переклассификации и повторного тика live `AUTODIAL_DISPATCHER` execution `46150` (`2026-04-30 13:37:01 MSK`) снова перешёл в `action = dial`, то есть автодозвон был реально выведен из дневного ложного стопа.
+- Backup live workflow сохранён в:
+  - `backups/2026-04-30_10-29-33_autodial_busy_reject_fix/`
+  - `backups/2026-04-30_13-33-50_autodial_busy_reject_fix/`
+  - `backups/2026-04-30_13-36-26_sheet_busy_reclassify/`
 
 ### 2026-04-29 — Email-followup агент доведен до рабочего production-контура и задокументирован
 - Email-followup контур выделен как самостоятельный production-компонент:

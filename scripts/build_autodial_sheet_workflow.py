@@ -6,6 +6,8 @@ import json
 import pathlib
 import re
 import uuid
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import requests
 
@@ -17,6 +19,10 @@ LIVE_CALL_LOG_WORKFLOW_ID = "kZSdJrsAHWWIC2l6"
 LIVE_WORKFLOW_TEMP = pathlib.Path("/tmp/autodial_dispatcher_sheet_first_live.json")
 N8N_BASE_URL = "https://www.n-8-n.site"
 N8N_ENV_FILE = pathlib.Path("/home/max/.config/lipolong-eleven-relay.env")
+LIVE_SPREADSHEET_ID = "1t0FtCL84l0QJvL9_7XDnmafJS1NHUSdiVyKgqNWOVmA"
+LIVE_SHEET_GID = "199760593"
+LIVE_SHEET_NAME = "Лиды_обзвон"
+LIVE_SHEET_URL = f"https://docs.google.com/spreadsheets/d/{LIVE_SPREADSHEET_ID}/edit?gid={LIVE_SHEET_GID}#gid={LIVE_SHEET_GID}"
 
 
 def load_n8n_api_key() -> str:
@@ -118,16 +124,16 @@ def load_google_oauth_credentials(session: requests.Session) -> dict[str, str]:
 def build_google_sheet_payload_js() -> str:
     return """
 return [{
-  spreadsheet_id: '1FUHh8lS8pEx58eRK2Rt6AYn3cy6ogWSO32vZWqYw_Fc',
-  target_sheet_gid: '199760593',
-  fallback_sheet_name: 'Лиды_обзвон',
-  metadata_url: 'https://sheets.googleapis.com/v4/spreadsheets/1FUHh8lS8pEx58eRK2Rt6AYn3cy6ogWSO32vZWqYw_Fc?fields=sheets.properties(sheetId,title)',
+  spreadsheet_id: '__LIVE_SPREADSHEET_ID__',
+  target_sheet_gid: '__LIVE_SHEET_GID__',
+  fallback_sheet_name: '__LIVE_SHEET_NAME__',
+  metadata_url: 'https://sheets.googleapis.com/v4/spreadsheets/__LIVE_SPREADSHEET_ID__?fields=sheets.properties(sheetId,title)',
   oauth_url: 'https://oauth2.googleapis.com/token',
   client_id: '{{GOOGLE_CLIENT_ID}}',
   client_secret: '{{GOOGLE_CLIENT_SECRET}}',
   refresh_token: '{{GOOGLE_REFRESH_TOKEN}}',
 }];
-""".strip()
+""".strip().replace("__LIVE_SPREADSHEET_ID__", LIVE_SPREADSHEET_ID).replace("__LIVE_SHEET_GID__", LIVE_SHEET_GID).replace("__LIVE_SHEET_NAME__", LIVE_SHEET_NAME)
 
 
 def build_run_context_js() -> str:
@@ -143,10 +149,17 @@ const fmt = new Intl.DateTimeFormat('sv-SE', {
   minute: '2-digit',
   second: '2-digit',
 }).format(now);
+const weekdayFmt = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Europe/Moscow',
+  weekday: 'short',
+});
 const [mskDate, mskTime] = fmt.split(' ');
 const [hh, mm] = mskTime.split(':');
 const minutes = Number(hh) * 60 + Number(mm);
-const withinWindow = minutes >= 600 && minutes < 840;
+const mskWeekday = weekdayFmt.format(now);
+const isWeekend = mskWeekday === 'Sat' || mskWeekday === 'Sun';
+const withinClockWindow = minutes >= 600 && minutes < 840;
+const withinWindow = !isWeekend && withinClockWindow;
 const campaignKey = 'lipolong_contacts_msk';
 const jobId = `autodial.${mskDate}.${mskTime.replace(/:/g, '')}.${Math.random().toString(36).slice(2, 8)}`;
 return [{
@@ -154,7 +167,11 @@ return [{
   msk_datetime: `${mskDate}T${mskTime}+03:00`,
   msk_date: mskDate,
   msk_time: mskTime,
+  msk_weekday: mskWeekday,
+  is_weekend: isWeekend,
+  within_clock_window: withinClockWindow,
   within_window: withinWindow,
+  reason: isWeekend ? 'weekend_day' : (withinClockWindow ? '' : 'outside_call_window'),
   campaign_key: campaignKey,
   job_id: jobId,
   daily_live_limit: 15,
@@ -167,14 +184,14 @@ return [{
   max_attempts_per_lead: 3,
   call_window_start: '10:00',
   call_window_end: '14:00',
-  dial_timeout_minutes: 1,
-  spreadsheet_id: '1FUHh8lS8pEx58eRK2Rt6AYn3cy6ogWSO32vZWqYw_Fc',
-  sheet_gid: '199760593',
-  fallback_sheet_name: 'Лиды_обзвон',
-  sheet_url: 'https://docs.google.com/spreadsheets/d/1FUHh8lS8pEx58eRK2Rt6AYn3cy6ogWSO32vZWqYw_Fc/edit?gid=199760593#gid=199760593',
+  dial_timeout_minutes: 5,
+  spreadsheet_id: '__LIVE_SPREADSHEET_ID__',
+  sheet_gid: '__LIVE_SHEET_GID__',
+  fallback_sheet_name: '__LIVE_SHEET_NAME__',
+  sheet_url: '__LIVE_SHEET_URL__',
   sheet_range: 'A1:AM',
 }];
-""".strip()
+""".strip().replace("__LIVE_SPREADSHEET_ID__", LIVE_SPREADSHEET_ID).replace("__LIVE_SHEET_GID__", LIVE_SHEET_GID).replace("__LIVE_SHEET_NAME__", LIVE_SHEET_NAME).replace("__LIVE_SHEET_URL__", LIVE_SHEET_URL)
 
 
 def parse_sheet_rows_js() -> str:
@@ -231,7 +248,7 @@ const dailyAttemptLimit = Number($node['Dispatcher | Build Run Context'].json.da
 const monthlyTouchLimitPerPhone = Number($node['Dispatcher | Build Run Context'].json.monthly_touch_limit_per_phone || 1);
 const maxUnreachableTotal = Number($node['Dispatcher | Build Run Context'].json.max_unreachable_total || 3);
 const maxAttemptsPerLead = Number($node['Dispatcher | Build Run Context'].json.max_attempts_per_lead || 3);
-const dialTimeoutMinutes = Number($node['Dispatcher | Build Run Context'].json.dial_timeout_minutes || 1);
+const dialTimeoutMinutes = Number($node['Dispatcher | Build Run Context'].json.dial_timeout_minutes || 5);
 const callWindowStart = String($node['Dispatcher | Build Run Context'].json.call_window_start || '10:00');
 const callWindowEnd = String($node['Dispatcher | Build Run Context'].json.call_window_end || '14:00');
 const mskMonth = mskDate.slice(0, 7);
@@ -273,6 +290,16 @@ const makeRow = (rowValues, sheetRowNumber) => {
   obj.next_call_ts = parseTs(obj.next_call_at);
   obj.is_autodial_attempt = obj.source_system === 'autodial_dispatcher' && obj.result_key === 'dialing';
   obj.has_valid_conv_id = /^conv_[a-z0-9]+$/i.test(String(obj.eleven_conv_id || '').trim());
+  obj.has_row_key_identity = /^row_\d+$/i.test(String(obj.source_record_key || '').trim())
+    || /^row_\d+$/i.test(String(obj.lead_id || '').trim());
+  const leadIdPhone = normalizePhone(obj.lead_id || '');
+  const sourceRecordPhone = normalizePhone(obj.source_record_key || '');
+  obj.has_traceable_identity = obj.has_valid_conv_id
+    || obj.has_row_key_identity
+    || isDialablePhone(obj.phone_primary)
+    || isDialablePhone(obj.phone_secondary)
+    || isDialablePhone(leadIdPhone)
+    || isDialablePhone(sourceRecordPhone);
   obj.is_live_success = obj.source_system === 'elevenlabs' && obj.has_valid_conv_id && !failureResults.has(obj.result_key) && obj.result_key !== 'dialing' && obj.result_key !== '';
   obj.has_monthly_touch = obj.source_system !== 'xlsx_import' && obj.row_month === mskMonth && (obj.is_live_success || monthlyTouchResults.has(obj.result_key));
   return obj;
@@ -358,6 +385,7 @@ for (const row of rows) {
     outcomeRows.push({
       sheet_row_number: row.canonical_sheet_row_number || row.sheet_row_number,
       lead_key: row.canonical_lead_key || row.lead_key,
+      lead_id: row.lead_id || '',
       source_system: row.source_system,
       source_record_key: row.canonical_source_record_key || row.source_record_key,
       company_name: row.company_name || '',
@@ -390,6 +418,9 @@ for (const row of rows) {
       created_at: row.created_at || '',
       updated_at: row.updated_at || '',
       row_date: row.row_date || '',
+      result_key: row.result_key || '',
+      has_valid_conv_id: row.has_valid_conv_id === true,
+      has_traceable_identity: row.has_traceable_identity === true,
       is_live_connect: row.is_live_success === true,
     });
   }
@@ -440,7 +471,11 @@ for (const row of rows) {
 const states = Array.from(byLead.values());
 const totalLeads = states.length;
 const dailyLiveCount = states.filter((s) => s.live_success_today).length;
-const dailyDialingCount = outcomeRows.filter((row) => row.source_system === 'autodial_dispatcher' && row.result_key === 'dialing' && row.row_date === mskDate).length;
+const dailyDialingCount = outcomeRows.filter((row) => {
+  return row.source_system === 'autodial_dispatcher'
+    && row.row_date === mskDate
+    && String(row.call_result || row.result_key || '').toLowerCase() === 'dialing';
+}).length;
 const recentProviderFailureCount = outcomeRows.filter((row) => {
   const rowTs = row.updated_at ? parseTs(row.updated_at) : (row.created_at ? parseTs(row.created_at) : null);
   if (!rowTs) return false;
@@ -454,10 +489,11 @@ const todayProviderFailureCount = outcomeRows.filter((row) => {
     && String(row.call_result || '').toLowerCase() === 'outbound_request_failed';
 }).length;
 const dailyNonHumanConversationCount = outcomeRows.filter((row) => {
+  const result = String(row.call_result || row.result_key || '').toLowerCase();
   return row.source_system === 'elevenlabs'
     && row.row_date === mskDate
-    && row.has_valid_conv_id === true
-    && nonHumanConversationResults.has(String(row.call_result || '').toLowerCase());
+    && row.has_traceable_identity === true
+    && nonHumanConversationResults.has(result);
 }).length;
 const todayTechnicalWasteCount = outcomeRows.filter((row) => {
   const result = String(row.call_result || '').toLowerCase();
@@ -651,8 +687,8 @@ const selectedPhoneState = latest.phone_key ? byPhoneMonth.get(latest.phone_key)
 const selected = {
   campaign_key: campaignKey,
   job_id: jobId,
-  lead_key: selectedState.lead_key,
-  client_ref: selectedState.lead_key,
+  lead_key: String(latest.canonical_lead_key || selectedState.lead_key),
+  client_ref: String(latest.canonical_lead_key || selectedState.lead_key),
   source_record_key: String(latest.canonical_source_record_key || latest.source_record_key || selectedState.lead_key),
   sheet_row_number: Number(latest.canonical_sheet_row_number || latest.sheet_row_number || 0),
   company_name: String(latest.company_name || ''),
@@ -779,7 +815,7 @@ return [{
   daily_attempt_limit_per_lead: Number(row.daily_attempt_limit_per_lead || 2),
   call_window_start: String(row.call_window_start || '10:00'),
   call_window_end: String(row.call_window_end || '14:00'),
-  dial_timeout_minutes: Number(row.dial_timeout_minutes || 1),
+  dial_timeout_minutes: Number(row.dial_timeout_minutes || 5),
   request_id: String(row.request_id || `autodial.${Date.now()}`),
   notes_short: String(row.notes_short || ''),
 }];
@@ -788,10 +824,27 @@ return [{
 
 def build_outbound_failure_js() -> str:
     return """
-const response = $json || {};
+const responseEnvelope = $json || {};
+const response = responseEnvelope.response_body || responseEnvelope.body || responseEnvelope;
+const elevenResponse = response.eleven_response || responseEnvelope.eleven_response || {};
 const selected = $node['Dispatcher | Parse Sheet Rows'].json.selected || {};
 const attemptsToday = Number(selected.attempt_count_today || 1);
 const dailyAttemptLimit = Number(selected.daily_attempt_limit_per_lead || 2);
+const failureReason = String(
+  response.note
+  || response.message
+  || response.error
+  || elevenResponse.message
+  || elevenResponse.error
+  || responseEnvelope.note
+  || responseEnvelope.message
+  || responseEnvelope.error
+  || response.action
+  || responseEnvelope.action
+  || 'outbound_request_failed'
+);
+const failureReasonLower = failureReason.toLowerCase();
+const isBusyReject = failureReasonLower.includes('busy here') || failureReasonLower.includes('sip 486');
 const now = new Date();
 const fmtMsk = (date, withTime = false) => new Intl.DateTimeFormat('sv-SE', {
   timeZone: 'Europe/Moscow',
@@ -811,9 +864,19 @@ const nextMskDayAt = (baseDate, hour, minute) => {
   const mm = String(minute).padStart(2, '0');
   return `${nextDate}T${hh}:${mm}:00+03:00`;
 };
+const retryDelayMinutes = isBusyReject ? 30 : 15;
 const nextCallAt = attemptsToday >= dailyAttemptLimit
   ? nextMskDayAt(now, 10, 15)
-  : new Date(now.getTime() + 15 * 60 * 1000).toISOString();
+  : new Date(now.getTime() + retryDelayMinutes * 60 * 1000).toISOString();
+const callResult = isBusyReject ? 'busy' : 'outbound_request_failed';
+const nextStep = isBusyReject ? 'retry_busy' : 'retry_after_failed_outbound';
+const notesShort = isBusyReject
+  ? (attemptsToday >= dailyAttemptLimit
+    ? 'Автодозвон: линия занята, переносим на следующий день.'
+    : 'Автодозвон: линия занята, ставим повтор.')
+  : (attemptsToday >= dailyAttemptLimit
+    ? 'Автодозвон: outbound запрос не принят, переносим на следующий день.'
+    : 'Автодозвон: outbound запрос не принят, ставим повтор.');
 return [{
   lead_id: String(selected.lead_key || ''),
   client_ref: String(selected.lead_key || ''),
@@ -835,8 +898,8 @@ return [{
   objection_code: String(selected.objection_code || ''),
   objection_text: String(selected.objection_text || ''),
   interest_level: String(selected.interest_level || ''),
-  call_result: 'outbound_request_failed',
-  next_step: 'retry_after_failed_outbound',
+  call_result: callResult,
+  next_step: nextStep,
   next_call_at: nextCallAt,
   preferred_channel: String(selected.preferred_channel || ''),
   manager_owner: String(selected.manager_owner || ''),
@@ -845,16 +908,14 @@ return [{
   max_touch_limit: Number(selected.max_touch_limit || 3),
   do_not_call: false,
   final_reason: '',
-  notes_short: attemptsToday >= dailyAttemptLimit
-    ? 'Автодозвон: outbound запрос не принят, переносим на следующий день.'
-    : 'Автодозвон: outbound запрос не принят, ставим повтор.',
+  notes_short: notesShort,
   notes_redacted: '',
   call_record_url: '',
   eleven_conv_id: '',
   n8n_execution_id: String(selected.request_id || ''),
   agent_version: 'AUTODIAL_DISPATCHER_SHEET_V2',
   last_updated_by: 'autodial_dispatcher',
-  failure_reason: String(response.action || response.error || response.message || 'outbound_request_failed'),
+  failure_reason: failureReason,
 }];
 """.strip()
 
@@ -891,8 +952,11 @@ return [{
   today_provider_failure_count: Number(data.today_provider_failure_count || 0),
   daily_provider_failure_limit: Number(data.daily_provider_failure_limit || 8),
   today_technical_waste_count: Number(data.today_technical_waste_count || 0),
+  msk_weekday: String(data.msk_weekday || ''),
+  is_weekend: Boolean(data.is_weekend),
   table_finished: String(data.reason || '') === 'exhausted',
   message: ({
+    weekend_day: 'Выходной день: суббота/воскресенье, автодозвон не работает.',
     outside_call_window: 'Вне окна обзвона 10:00–14:00 МСК.',
     daily_limit_reached: 'Достигнут дневной лимит живых разговоров.',
     daily_dialing_limit_reached: 'Достигнут дневной лимит попыток автодозвона.',
@@ -1047,7 +1111,8 @@ def main() -> None:
     LIVE_WORKFLOW_TEMP.write_text(json.dumps(live_after, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     REPO_WORKFLOW.write_text(json.dumps(repo_workflow, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-    backup_dir = REPO_ROOT / "backups" / "2026-04-07_human_gate_autodial_refresh"
+    backup_stamp = datetime.now(ZoneInfo("Europe/Moscow")).strftime("%Y-%m-%d_%H-%M-%S")
+    backup_dir = REPO_ROOT / "backups" / f"{backup_stamp}_autodial_busy_reject_fix"
     backup_dir.mkdir(parents=True, exist_ok=True)
     (backup_dir / "autodial_live_before.json").write_text(json.dumps(live_before, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     (backup_dir / "autodial_live_after.json").write_text(json.dumps(live_after, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
