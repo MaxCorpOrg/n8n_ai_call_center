@@ -44,6 +44,17 @@
   - `conv_9601kqf0hx99f2j9dr7y69qvc2e0` на stable version `agtvrsn_5801kqc3ayw9fk38qqypkgzaj0dh` провисел `4m25s` до первой осмысленной живой реплики;
   - по свежим логам агент местами всё ещё открывался на literal ASR-маркеры `...` и `музыка`, а также на запрещённые service-style probing фразы;
   - отдельным слоем `AUTODIAL_DISPATCHER` держал lock только `1` минуту, из-за чего тот же `row_27` был задвоен двумя `dialing`-строками через минуту, пока первый длинный звонок ещё висел на линии.
+- Локально собран отдельный инструмент `tools/telegram_sandbox_activity_runner/` для внутреннего Telegram sandbox-контура:
+  - standalone CLI + launcher;
+  - allowlist-only activity runner для `send_message / open_chat / idle_scroll`;
+  - operator-assisted `prepare-invite` и `prepare-join` с ручным финальным подтверждением по умолчанию;
+  - operator-assisted `prepare-add-contact-profile` для добавления allowlist-`@username` в свои контакты через Telegram Desktop portable;
+  - `import-contacts` для bulk approved `@username` -> `allowlist_contacts`;
+  - `batch-add-contacts` по списку `contact_id` с random pauses;
+  - optional `Telegram API sidecar` (`Telethon`) с режимами `api-status / check-contact / add-contact / interactive-login`;
+  - пример конфига, README, systemd example units и базовые unit/smoke проверки;
+  - отдельные `AGENTS.md` и `CHECKPOINT_RU.md` внутри tool-папки;
+  - отдельную GitHub-ready wrapper-папку `tools/telegram_desktop_contact_tool/` с собственным launcher и README.
 
 ### На чем остановились
 - Основной live-контур звонков стабилен, но следующий контрольный шаг уже смещён в post-fix наблюдение за двумя свежими правками:
@@ -55,6 +66,90 @@
   - домен не существует;
   - контекст строки слабый;
   - строка выглядит подозрительно.
+- Telegram sandbox tool пока не привязывался к реальным live browser clients и не проходил живой Telegram smoke:
+  - локально подтверждены `py_compile`, unit tests, dry-run CLI, одиночные live smokes и один live batch;
+  - для actor `AK2` уже есть локальные runtime-файлы:
+    - config: `~/.config/telegram-sandbox-activity-runner/ak2.local.json`;
+    - state: `~/.local/share/telegram-sandbox-activity-runner/ak2.state.json`;
+    - API env: `~/.config/telegram-sandbox-activity-runner/ak2.api.env`;
+    - Telethon vendor path: `~/.local/share/telegram-sandbox-activity-runner/vendor`;
+    - session file: `~/.local/share/telegram-sandbox-activity-runner/api_sessions/ak2.session`.
+  - через `AK2` подтверждено:
+    - `prepare-add-contact-profile` точно открывает карточку по `tg://resolve?...&profile`;
+    - для `import_a1exyc` полный `Add to contacts -> Done -> reopen` реально сработал;
+    - `AK2` API session на `2026-05-01` уже успешно поднимается напрямую из `TelegramPortable-AK2/TelegramForcePortable/tdata` через новый `api-import-tdata-session` / `import-tdata-session`;
+    - `api-status` теперь показывает `authorized` для `@S_e_r_a_p_h_i_na`, то есть sidecar больше не упирается в `unauthorized`.
+  - уже был прогнан старый live batch на `20` импортированных `contact_id`:
+    - batch run: `~/.local/share/telegram-sandbox-activity-runner/runs/20260430T134737-2b8ab872/`;
+    - на уровне UI flow `successful_count = 20`;
+    - но `verified_count = 0`, потому что API session не авторизована и автоматической MTProto-проверки пока нет.
+  - на `2026-05-01` уже после успешного API bootstrap сделана честная MTProto-проверка approved-list:
+    - `batch-add-contacts --backend api_only` на первых `30` импортированных `contact_id` дал `successful_count = 0`;
+    - затем отдельный одноразовый API scan прошёл все `562` импортированных `@username` из локального `AK2` allowlist;
+    - итог scan: `0 / 562` резолвящихся обычных user-аккаунтов;
+    - типовой ответ Telegram API: `No user has "<username>" as username`;
+    - полный scan-артефакт: `~/.local/share/telegram-sandbox-activity-runner/runs/20260501T133700-ak2-api-full-scan/ak2_api_full_scan.json`.
+  - важный остаточный gap теперь уже уточнён:
+    - проблема больше не в `AK2`, не в `Telethon` и не в portable/UI path;
+    - проблема в самом imported dataset: текущий approved-list на `2026-05-01` выглядит как stale/invalid для Telegram username resolution;
+    - пока не будет свежего валидного списка `@username`, реальные массовые `Add to contacts` дальше не пойдут ни через API, ни через UI.
+  - дополнительно на `2026-05-01`:
+    - пользователь сообщил, что `AK2` аккаунт заблокирован;
+    - активных процессов `telegram_sandbox_activity_runner / telegram_api_sidecar / telegram_portable.py` уже нет;
+    - user-level `systemd` service/timer для этого инструмента не активны;
+    - локальный actor `ak2` в `~/.config/telegram-sandbox-activity-runner/ak2.local.json` переведён в `active: false`, а `plan/run` теперь реально уважают флаг `active`.
+    - затем пользователь уточнил, что переходим на другой portable-профиль `/home/max/TelegramPortableAK`;
+    - для него уже подготовлены отдельные local runtime-файлы:
+      - config: `~/.config/telegram-sandbox-activity-runner/ak.local.json`;
+      - state: `~/.local/share/telegram-sandbox-activity-runner/ak.state.json`;
+      - API env: `~/.config/telegram-sandbox-activity-runner/ak.api.env`.
+    - новый actor:
+      - `actor_id = ak`;
+      - `portable_profile_dir = /home/max/TelegramPortableAK`;
+      - `portable_account_username = @M_a_g_g_i_e`;
+      - `api_sidecar.preferred_mode = portable_only`, чтобы этот профиль по умолчанию шёл через `SiteControl / Telegram Desktop`.
+    - dry-run `prepare-add-contact-profile` для `actor_id=ak` уже проходит корректно, то есть новый actor подцеплен без смешивания с `AK2`.
+    - на `2026-05-01` desktop helper и standalone tool уже частично переведены с `tg://resolve?...&profile` на новый входной маршрут:
+      - `поиск username -> открыть первый chat result -> снять фокус с поиска -> дальше работать из открытого чата`;
+      - в `/home/max/site-control-kit/scripts/telegram_portable.py` добавлены state-aware accessibility filters (`showing`) для `dump/click/type`;
+      - локальные unit tests `site-control-kit` и `telegram_sandbox_activity_runner` после этого зелёные.
+    - честный текущий live-result по новому `ak` route на `2026-05-01`:
+      - search/open-chat path теперь реально проходит и сохраняет run artifacts:
+        - `~/.local/share/telegram-sandbox-activity-runner/runs/20260501T163315-27fbb620/`;
+      - статус этого smoke: `search_chat_opened_manual_review`;
+      - то есть инструмент уже надёжно открывает внутренний чат через поиск, но следующий desktop-step (`Информация` / `Меню чата` / `Добавить в контакты`) ещё не подтверждён как реально меняющий UI-состояние Telegram на `AK`.
+    - дополнительный прогресс на `2026-05-02` по `ak` desktop-only path:
+      - `_normalize_contact` теперь сохраняет `search_result_index`, поэтому для ambiguous username можно жёстко зафиксировать нужную строку поиска в local config;
+      - `prepare-add-contact-profile` больше не печатает username в placeholder search-node: порядок ввода через accessibility теперь `index=0 -> index=1`, а не наоборот;
+      - после открытия профиля tool теперь проверяет exact username guard:
+        - он ищет в profile overlay видимый `label @username` и не продолжает blind-add, если точное совпадение не найдено;
+      - новый live smoke на `manual_super_pavlik`:
+        - run: `~/.local/share/telegram-sandbox-activity-runner/runs/20260502T054306-8c3daf4f/`;
+        - `search_result_target.index = 2`;
+        - `profile_open_route = chat_header_click_fallback`;
+        - `profile_username_exact_match_visible = true` для `@super_pavlik`;
+        - verify тоже видит exact `@super_pavlik`, то есть баг "открыли не тот username и молча пошли дальше" закрыт;
+      - остаточный локальный gap:
+        - клик по `ДОБАВИТЬ КОНТАКТ` в profile overlay всё ещё не переводит UI в stable `Новый контакт -> Готово` в этом автоматическом run, хотя exact profile уже подтверждён и ручной live-path для этой кнопки отдельно воспроизводился.
+      - затем этот gap был закрыт на том же `ak` actor:
+        - submit `Готово` переведён с blind window-point на `dialog_submit_click`, вычисляемый от live-геометрии самой модалки `Новый контакт`;
+        - clipboard path в `telegram_portable.py` после `Ctrl+V` теперь отправляет `End`, чтобы следующий click по `Готово` не тратился на снятие выделения текста;
+        - после нескольких live-калибровок на `manual_super_pavlik` рабочая submit-точка зафиксировалась как:
+          - `dialog_submit_click = { x_ratio: 0.5576, y_ratio: 0.7611 }`;
+        - успешный live-run:
+          - `~/.local/share/telegram-sandbox-activity-runner/runs/20260502T064226-de0a009a/`;
+          - итоговый verify state: `ui_verify_contact_present`;
+          - в profile verify уже видны `Edit contact` и `Delete contact`, а `Add contact` исчез.
+  - дополнительно локально собран отдельный modular allowlist CLI на `Telethon`, не завязанный на `SiteControl` и portable UI:
+    - launcher: `tools/telegram_sandbox_activity_runner/bin/telegram-allowlist-tool`;
+    - package: `tools/telegram_sandbox_activity_runner/allowlist_tool/*`;
+    - архитектура разложена на `validator.py`, `queue_manager.py`, `executor.py`, `safety.py`, `audit_log.py`, `report.py`;
+    - режим только комплаентный: `allowlist.csv`, `actions.csv`, ручной `YES` confirm перед `send_message` и `add_to_group`, локальный лимит `20` действий в час, `5s` delay между API request, backoff на `FloodWaitError`, stop-account на `PeerFloodError`;
+    - локально подтверждены:
+      - `python3 -m py_compile tools/telegram_sandbox_activity_runner/allowlist_tool/*.py`;
+      - `python3 -m unittest discover -s tests -p 'test_telegram_allowlist_tool.py'`;
+      - `python3 -m unittest discover -s tests -p 'test_telegram_sandbox_activity_runner.py'`;
+    - live Telegram calls этим новым CLI ещё не выполнялись; это пока локальный безопасный слой для allowlist-only сценариев.
 - В репозитории остаётся много unrelated modified/untracked материалов; их нельзя автоматически считать мусором и нельзя откатывать без разбора.
 
 ### Что делать дальше
@@ -67,10 +162,177 @@
   - пройти backlog `manual_review`;
   - решить, какие кейсы можно ещё автоматизировать, а какие оставлять только на ручную проверку;
   - периодически аудитить старые `sent`, если всплывут ещё исторические каталожные адреса.
+- Для Telegram sandbox tool:
+  - `AK2` API session уже авторизована через импорт из `tdata`, этот шаг больше не блокер;
+  - но сам `AK2` как аккаунт сейчас уже не рабочая боевая цель из-за блокировки, поэтому его нужно считать frozen actor до ручного recovery;
+  - рабочая локальная точка продолжения сейчас смещена на новый actor `ak` с portable-профилем `/home/max/TelegramPortableAK`;
+  - ближайший практический приоритет для `ak` уже не в поиске контакта, а в последнем desktop transition:
+    - `открытый chat -> Информация / Меню чата -> Показать профиль -> Добавить контакт`;
+    - search/open-chat слой уже проходит и не должен больше переписываться обратно на `tg://resolve`;
+  - этот переход уже подтверждён как рабочий минимум на `manual_super_pavlik`, поэтому следующий приоритет смещён:
+    - убрать per-contact ручную калибровку submit-point;
+    - проверить, что тот же dialog-submit path воспроизводится на других allowlist-профилях, а не только на одном smoke-case;
+  - если продолжаем именно через `SiteControl`, использовать `ak.local.json`, а не старый `AK2` config;
+  - следующий первый приоритет: получить новый рабочий source-of-truth для контактов, потому что текущие `562` imported `@username` не резолвятся в Telegram API как user-аккаунты;
+  - для локального `owner_main` путь через поиск уже даёт chat window `Макс Михайлов`, так что это сейчас основной smoke-target для desktop route debugging;
+  - отдельно полезно использовать новую команду `api-scan-contacts`, чтобы перед любым add сразу отделять live `types.User` от `not_found / non_user`;
+  - после получения свежего списка сначала прогнать API scan/filter и сохранить только реально существующие `types.User`;
+  - только потом повторно запускать `batch-add-contacts` уже по очищенному allowlist с реальной API-верификацией `check-contact`;
+  - не пытаться лечить текущий stale dataset новыми blind UI-кликами: это больше не инструментальная проблема;
+  - portable fallback можно улучшать отдельно, но он не должен подменять собой источник истины, когда API уже говорит `No user has "<username>" as username`.
+  - для нового modular allowlist CLI ближайший следующий шаг не в массовых действиях, а в безопасном first live smoke:
+    - взять один тестовый `accounts.csv`, один `allowlist.csv` с явно согласованным пользователем и один `actions.csv`;
+    - сначала прогнать `validate-allowlist`;
+    - затем один `send_message` или один `add_to_group` только с ручным `YES` confirm;
+    - сохранить `audit.log.jsonl` и `telegram_allowlist_report.json` как новый source-of-truth по этому CLI;
+    - не подключать его к сомнительным imported username-спискам до отдельной очистки allowlist через `api-scan-contacts`.
 - Для документации:
   - после каждой значимой live-правки обновлять этот файл и модульный checkpoint соответствующего агента.
 
 ## 3) Последние важные изменения
+
+### 2026-05-02 — Добавлен отдельный modular allowlist-only Telethon CLI для комплаентных Telegram-действий
+- Рядом с существующим `telegram_sandbox_activity_runner.py` добавлен новый package:
+  - `tools/telegram_sandbox_activity_runner/allowlist_tool/__init__.py`
+  - `tools/telegram_sandbox_activity_runner/allowlist_tool/models.py`
+  - `tools/telegram_sandbox_activity_runner/allowlist_tool/csv_loader.py`
+  - `tools/telegram_sandbox_activity_runner/allowlist_tool/validator.py`
+  - `tools/telegram_sandbox_activity_runner/allowlist_tool/queue_manager.py`
+  - `tools/telegram_sandbox_activity_runner/allowlist_tool/executor.py`
+  - `tools/telegram_sandbox_activity_runner/allowlist_tool/safety.py`
+  - `tools/telegram_sandbox_activity_runner/allowlist_tool/audit_log.py`
+  - `tools/telegram_sandbox_activity_runner/allowlist_tool/report.py`
+  - `tools/telegram_sandbox_activity_runner/allowlist_tool/telethon_client.py`
+  - `tools/telegram_sandbox_activity_runner/allowlist_tool/cli.py`
+- Добавлен отдельный launcher:
+  - `tools/telegram_sandbox_activity_runner/bin/telegram-allowlist-tool`
+- Добавлены example CSV templates:
+  - `tools/telegram_sandbox_activity_runner/examples/allowlist_tool/accounts.example.csv`
+  - `tools/telegram_sandbox_activity_runner/examples/allowlist_tool/allowlist.example.csv`
+  - `tools/telegram_sandbox_activity_runner/examples/allowlist_tool/actions.example.csv`
+- Добавлен unit coverage:
+  - `tests/test_telegram_allowlist_tool.py`
+- Что умеет этот новый CLI:
+  - импортировать `accounts.csv`, `allowlist.csv`, `actions.csv`;
+  - валидировать allowlist usernames через `Telethon`;
+  - строить preflight queue и блокировать действия вне allowlist или без `consent_confirmed=yes`;
+  - выполнять только `validate`, `send_message`, `add_to_group`;
+  - требовать ручной `YES` confirm перед `send_message` и `add_to_group`;
+  - писать JSONL audit log и итоговый JSON report;
+  - автоматически делать backoff на `FloodWaitError` и останавливать аккаунт на `PeerFloodError` / suspicious banned-response.
+- Что принципиально не делает:
+  - не использует ротацию аккаунтов для обхода лимитов;
+  - не использует proxy-эвейжн;
+  - не запускает массовые действия без ручного подтверждения;
+  - не работает по данным вне `allowlist.csv`.
+- Что уже проверено локально:
+  - `python3 -m py_compile tools/telegram_sandbox_activity_runner/allowlist_tool/*.py`
+  - `python3 -m unittest discover -s tests -p 'test_telegram_allowlist_tool.py'`
+  - `python3 -m unittest discover -s tests -p 'test_telegram_sandbox_activity_runner.py'`
+  - `PYTHONPATH="tools/telegram_sandbox_activity_runner" python3 -m allowlist_tool.cli --help`
+- Live Telegram API/MTProto действия этим новым CLI пока не запускались; он добавлен как локальный комплаентный слой, который можно отдельно довести через controlled smoke.
+
+### 2026-05-02 — Оформлен agent-ready handoff и отдельный GitHub-ready wrapper для Desktop contact-flow
+- Внутри core tool добавлены:
+  - `tools/telegram_sandbox_activity_runner/AGENTS.md`
+  - `tools/telegram_sandbox_activity_runner/CHECKPOINT_RU.md`
+- В `README_RU.md` самого runner добавлен отдельный вход для следующего агента и ссылка на внешний wrapper.
+- Рядом с core tool добавлена отдельная папка:
+  - `tools/telegram_desktop_contact_tool/`
+- В нее вынесены:
+  - `AGENTS.md`
+  - `README_RU.md`
+  - `bin/telegram-desktop-contact-tool`
+  - `examples/usernames.example.txt`
+- Этот wrapper не дублирует бизнес-логику runner, а дает короткий GitHub-friendly entrypoint для `import-usernames`, `add-one`, `batch-add`, `api-scan`.
+
+### 2026-04-30 — Собран отдельный Telegram Sandbox Activity Runner для внутренних allowlist-чатов
+- Добавлен standalone tool:
+  - `tools/telegram_sandbox_activity_runner/telegram_sandbox_activity_runner.py`
+  - `tools/telegram_sandbox_activity_runner/bin/telegram-sandbox-activity-runner`
+  - `tools/telegram_sandbox_activity_runner/config.example.json`
+  - `tools/telegram_sandbox_activity_runner/README_RU.md`
+- Что умеет локально:
+  - планировать и запускать `send_message`, `open_chat`, `idle_scroll` только в `allowlist_chats`;
+  - проверять открытый Telegram chat по fragment/title перед любым действием;
+  - вести `state.json` с cooldown, дневными лимитами и history;
+  - импортировать подтверждённый список `@username` в `allowlist_contacts` через команду `import-contacts` с нормализацией, dedupe и отбрасыванием мусорных строк;
+  - готовить operator-assisted `prepare-invite` для `allowlist_contacts` с остановкой перед финальным Telegram confirm по умолчанию;
+  - готовить operator-assisted `prepare-join` с ручным финальным подтверждением по умолчанию;
+  - готовить operator-assisted `prepare-add-contact-profile` для allowlist-`@username` через `telegram_portable.py` / Telegram Desktop portable.
+- Добавлены operational обвязки:
+  - systemd examples:
+    - `deploy/systemd/telegram-sandbox-activity-runner.service.example`
+    - `deploy/systemd/telegram-sandbox-activity-runner.timer.example`
+  - unit tests:
+    - `tests/test_telegram_sandbox_activity_runner.py`
+- Что уже проверено локально:
+  - `python3 -m py_compile tools/telegram_sandbox_activity_runner/telegram_sandbox_activity_runner.py`
+  - `python3 -m unittest tests/test_telegram_sandbox_activity_runner.py`
+  - dry-run smoke:
+    - `plan`
+    - `prepare-join`
+    - `prepare-invite`
+    - `prepare-add-contact-profile`
+- Что дополнительно проверено live на локальной машине:
+  - создан локальный config/state для actor `AK2`:
+    - config: `~/.config/telegram-sandbox-activity-runner/ak2.local.json`
+    - state: `~/.local/share/telegram-sandbox-activity-runner/ak2.state.json`
+  - `prepare-add-contact-profile --execute --launch-if-needed` успешно:
+    - поднял `TelegramPortable-AK2`;
+    - открыл Telegram окно;
+    - сохранил screenshot-артефакты в `~/.local/share/telegram-sandbox-activity-runner/runs/20260430T130300-fcf8c655/`.
+  - Но screenshot показал важный остаточный gap:
+    - сначала экран был в `Loading...`;
+    - после дополнительной паузы chat list загрузился;
+    - целевой профиль по `tg://resolve?...&profile` ещё не был подтверждён визуально, поэтому статус contact-path ужесточён до `profile_open_requested_manual_review`, а не `profile_opened_manual_review`.
+  - После этого добавлен bulk-import approved username-list в локальный `AK2` config:
+    - команда `import-contacts` загрузила `562` новых `@username` в `~/.config/telegram-sandbox-activity-runner/ak2.local.json`;
+    - одна markdown-строка была корректно отброшена как invalid input;
+    - общий локальный allowlist контактов стал `563` записей вместе с `owner_main`.
+  - Дополнительный live smoke на импортированном `contact_id=import_a1exyc` показал:
+    - `prepare-add-contact-profile --execute --launch-if-needed` уже открывает карточку профиля `@a1exyc`;
+    - на screenshot видна кнопка `ADD TO CONTACTS`, то есть связка `AK2 + tg://resolve + portable` доходит до правильного UI-экрана;
+    - при этом статус команды пока остаётся `profile_open_requested_manual_review`, потому что в коде ещё нет более сильной автоматической верификации открытого профиля.
+  - Следующий controlled smoke с `--confirm-add --verify-profile-reopen` для `import_a1exyc` завершился успешно:
+    - run artifacts: `~/.local/share/telegram-sandbox-activity-runner/runs/20260430T131751-b77b9175/`;
+    - после `Add to contacts -> Done` повторное открытие профиля уже показывает `Edit contact` и `Delete contact`;
+    - это подтверждает, что полный путь добавления контакта на `AK2` сейчас рабочий хотя бы для одного реального approved `@username`.
+  - После этого tool расширен:
+    - добавлен `api-status` для optional `Telethon` sidecar;
+    - добавлен отдельный `telegram_api_sidecar.py` с командами `status`, `check-contact`, `add-contact`, `interactive-login`;
+    - добавлен `batch-add-contacts` по списку `contact_id` с random pauses и `api_first -> portable fallback`;
+    - локальный `AK2` config переведён в `api_first`, а секреты вынесены в локальный env-file `~/.config/telegram-sandbox-activity-runner/ak2.api.env`.
+  - На `2026-05-01` tool дополнительно усилен:
+    - в `telegram_api_sidecar.py` добавлена команда `import-tdata-session`;
+    - в основном CLI добавлена команда `api-import-tdata-session`;
+    - добавлена команда `api-scan-contacts` для формального API-resolve scan по allowlist `contact_id`;
+    - добавлен совместимый `tgcrypto` shim через Telethon AES-IGE fallback;
+    - добавлен relaxed reader для `opentele`, чтобы старый parser `map` не ломался на новых ключах Telegram Desktop (`lskCustomEmojiKeys = 0x17` и т.д.), пока `MTP authorization` всё ещё читается корректно.
+    - `batch-add-contacts` теперь не уходит в `portable/UI` fallback, если API preflight уже вернул `not_found` или `resolved_non_user`;
+    - `plan/run` теперь реально пропускают actors с `active: false`.
+  - Новый live probe sidecar на `AK2` показал:
+    - `api_id/api_hash` подключены;
+    - `api-import-tdata-session` успешно поднимает Telethon session из `~/TelegramPortable-AK2/TelegramForcePortable/tdata` без ручного login code;
+    - `api-status` после этого показывает `authorized` для `@S_e_r_a_p_h_i_na`.
+  - Первый live batch на `20` импортированных `contact_id` уже прогнан:
+    - batch run: `~/.local/share/telegram-sandbox-activity-runner/runs/20260430T134737-2b8ab872/`;
+    - `successful_count = 20` на уровне UI flow;
+    - но `verified_count = 0`, потому что API-session не авторизована и batch не может автоматически подтвердить сохранение контакта через MTProto.
+  - После авторизации API уже снят более сильный технический диагноз:
+    - `batch-add-contacts --backend api_only` на первых `30` импортированных `contact_id` дал `0` успешных add;
+    - затем отдельный API scan добрал все `562` imported username и тоже дал `0` валидных `types.User`;
+    - значит imported allowlist на `2026-05-01` практически целиком stale/invalid для Telegram username resolution, а не просто mixed по типам.
+    - затем новая штатная команда `api-scan-contacts` на пользовательской выборке из `30` username снова показала `valid_user = 0`, `invalid_not_found = 30`, `resolved_non_user = 0`, `failed = 0`;
+    - valid output file оказался пустым: `/tmp/ak2_valid_contact_ids_from_first30.txt`.
+  - Контур по-прежнему усилен accessibility-веткой:
+    - после `Add to contacts` tool теперь пытается заполнять `First name` / `Last name` и жать `Done` через AT-SPI accessibility, а координаты оставлены как fallback;
+    - это устранило техническую ошибку выбора label-вместо-editable-field, но уже не является главным блокером после API-диагностики списка.
+  - Важно:
+    - инструмент пока не деплоился в live и не подключался к реальным internal Telegram browser sessions;
+    - следующий шаг для него — получить свежий валидный username source и уже потом повторить API filter/add cycle;
+    - `AK2` до ручного recovery лучше не размораживать и не использовать в новых add/activity попытках;
+    - новый локальный portable actor `ak` уже подготовлен отдельно и может использоваться как новая desktop/site-control точка продолжения.
 
 ### 2026-04-30 — Исправлены длинные ожидания гудков и повторный autodial на тот же лид
 - По live-логам `2026-04-30` подтверждено, что проблема была составной, а не одной:

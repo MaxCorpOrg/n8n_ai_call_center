@@ -1,0 +1,4 @@
+action_id,action_type,account_id,target_entity_id,target_group_id,message_text,notes
+validate_alice,validate,main_admin,user_alice,,,Check that the user still resolves
+msg_alice,send_message,main_admin,user_alice,,Hello from the compliant allowlist tool.,Manual confirm required
+invite_alice,add_to_group,main_admin,user_alice,group_ops,,Manual confirm required

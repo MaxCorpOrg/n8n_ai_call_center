@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "tool_name": "Telegram Sandbox Activity Runner",
+  "site_control": {
+    "server_url": "http://127.0.0.1:8765",
+    "token_env": "SITECTL_TOKEN"
+  },
+  "desktop_automation": {
+    "site_control_kit_root": "/home/max/site-control-kit"
+  },
+  "api_sidecar": {
+    "enabled": false,
+    "preferred_mode": "portable_only",
+    "python_bin": "python3",
+    "python_path": "/home/max/.local/share/telegram-sandbox-activity-runner/vendor",
+    "api_id_env": "TG_API_ID",
+    "api_hash_env": "TG_API_HASH",
+    "session_base_dir": "/home/max/.local/share/telegram-sandbox-activity-runner/api_sessions"
+  },
+  "actors": [
+    {
+      "actor_id": "account_01",
+      "label": "Account 01",
+      "client_id": "client-telegram-01",
+      "url_pattern": "web.telegram.org",
+      "portable_profile_dir": "/home/max/TelegramPortableAK",
+      "portable_account_username": "@internal_owner_01",
+      "api_session_name": "account_01"
+    },
+    {
+      "actor_id": "account_02",
+      "label": "Account 02",
+      "client_id": "client-telegram-02",
+      "url_pattern": "web.telegram.org",
+      "api_session_name": "account_02"
+    }
+  ],
+  "allowlist_chats": [
+    {
+      "chat_id": "ops_room",
+      "title": "Ops Room",
+      "url": "https://web.telegram.org/a/#-1001234567890",
+      "allowed_actor_ids": ["account_01", "account_02"],
+      "template_ids": ["pulse", "handoff"]
+    },
+    {
+      "chat_id": "qa_dm",
+      "title": "QA Contact",
+      "url": "https://web.telegram.org/a/#@internal_qa",
+      "template_ids": ["checkin"]
+    }
+  ],
+  "allowlist_contacts": [
+    {
+      "contact_id": "qa_friend",
+      "username": "@internal_qa",
+      "display_name": "QA Contact",
+      "allowed_chat_ids": ["ops_room"]
+    }
+  ],
+  "message_templates": [
+    {
+      "template_id": "pulse",
+      "text": "Внутренний пинг от {actor_label} в {time_msk}. Канал {chat_title} на связи.",
+      "weight": 3
+    },
+    {
+      "template_id": "handoff",
+      "text": "Тест активности внутри allowlist-чата {chat_title}. Всё штатно.",
+      "weight": 2
+    },
+    {
+      "template_id": "checkin",
+      "text": "Проверка внутреннего контакта {chat_title} в {date_msk}.",
+      "weight": 1
+    }
+  ],
+  "activity": {
+    "enabled_actions": ["send_message", "open_chat", "idle_scroll"],
+    "action_weights": {
+      "send_message": 5,
+      "open_chat": 2,
+      "idle_scroll": 1
+    },
+    "iterations_per_run_default": 2,
+    "min_delay_seconds": 45,
+    "max_delay_seconds": 180,
+    "actor_cooldown_seconds": 300,
+    "chat_cooldown_seconds": 180
+  },
+  "safety": {
+    "dry_run_default": true,
+    "require_fragment_match": true,
+    "require_title_match": true,
+    "block_external_links": true,
+    "max_messages_per_actor_per_day": 12,
+    "max_messages_per_chat_per_day": 20,
+    "max_actions_per_actor_per_day": 24,
+    "history_limit": 2000
+  }
+}
