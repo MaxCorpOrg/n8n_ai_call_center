@@ -478,6 +478,28 @@
   - что полезные secretary handoff-кейсы пишутся как `send_kp_pending_callback`;
   - что service-line фразы со словом `абонент` по-прежнему режутся как автоответчик.
 
+## 1.10) Обновление 2026-05-25: main синхронизирован с рабочей веткой, серверный clean-clone обновлен
+
+### Сделано
+- Рабочая ветка `codex/email-followup-agent-live` дополнительно зафиксирована коммитом:
+  - `01d28bc` — `Sync live handoff policy and migration pack`
+- Этот коммит запушен в `origin/codex/email-followup-agent-live`.
+- GitHub `main` приведен в актуальное состояние через отдельный чистый worktree:
+  - merge commit в `main`: `a3837a6` — `Merge branch codex/email-followup-agent-live into main`
+- Серверный clean deploy-клон `/home/aicore/n8n-ai-clean` обновлен до нового `origin/main`.
+- Перед server sync локальные tracked-правки clean-clone не потеряны:
+  - они сохранены в `git stash` на сервере как `pre-main-sync-2026-05-25`.
+
+### На чем остановились
+- Локальный рабочий каталог `/home/max/n8n_ai_call_center` по-прежнему остается грязным по unrelated/runtime-файлам; это сознательно не чистилось.
+- Боевой каталог `/home/aicore/n8n-server` на сервере остается operational dirty и не приводился к git-clean состоянию, чтобы не задеть рабочий runtime.
+- После синхронизации `main` следующим правильным шагом является отдельная новая ветка под следующий техцикл, без смешивания с уже стабилизированной live-веткой.
+
+### Что делать дальше
+- Продолжать следующую большую работу уже из новой ветки от обновленного `main`.
+- Если потребуется полноценный server deploy из clean-clone, сначала отдельно проверить содержимое `stash pre-main-sync-2026-05-25` и решить, какие server-specific правки вернуть осознанно.
+- Не использовать `/home/aicore/n8n-server` как “чистый git-источник истины”; для git-синхронизации опираться на `origin/main` и `/home/aicore/n8n-ai-clean`.
+
 ## 2) Контрольная точка проекта (2026-05-22)
 
 ### Сделано
