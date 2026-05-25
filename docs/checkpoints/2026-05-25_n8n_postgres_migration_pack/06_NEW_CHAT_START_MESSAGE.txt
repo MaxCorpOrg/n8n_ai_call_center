@@ -12,6 +12,7 @@
 4. docs/checkpoints/2026-05-25_n8n_postgres_migration_pack/05_CHECKPOINT_FOR_NEW_CHAT.txt
 5. docs/checkpoints/2026-05-25_n8n_postgres_migration_pack/01_MIGRATION_PLAN.txt
 6. docs/checkpoints/2026-05-25_n8n_postgres_migration_pack/02_CUTOVER_CHECKLIST.txt
+7. docs/checkpoints/2026-05-25_n8n_postgres_migration_pack/07_AGENT_WORK_PLAN.txt
 
 Что уже важно знать:
 - GitHub main уже синхронизирован с рабочей веткой и стоит на c6a25ec.

@@ -527,6 +527,8 @@
   - `документация_для_агента/01_БЫСТРЫЙ_СТАРТ.md`
   - `документация_для_агента/02_ТЕКУЩЕЕ_LIVE_СОСТОЯНИЕ.md`
   - `docs/checkpoints/2026-05-25_n8n_postgres_migration_pack/05_CHECKPOINT_FOR_NEW_CHAT.txt`
+- Для следующего агента отдельно собран рабочий план:
+  - `docs/checkpoints/2026-05-25_n8n_postgres_migration_pack/07_AGENT_WORK_PLAN.txt`
 - Следующий содержательный цикл: staging-first план миграции основного `n8n` с `SQLite` на `Postgres`, без смешивания с live prompt-тюнингом.
 
 ## 2) Контрольная точка проекта (2026-05-22)

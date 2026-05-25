@@ -1,0 +1,133 @@
+РАБОЧИЙ ПЛАН ДЛЯ СЛЕДУЮЩЕГО АГЕНТА
+Дата: 2026-05-25
+
+Где работать:
+- /home/max/worktrees/n8n-postgres-migration
+- ветка: codex/n8n-postgres-migration
+
+ГЛАВНАЯ ЦЕЛЬ
+Провести staging-first подготовку к миграции основного production n8n с SQLite на Postgres так, чтобы:
+- не сломать live-callcenter;
+- не затронуть рабочие webhook-контуры без необходимости;
+- получить понятный cutover plan и rollback plan;
+- отделить инфраструктурный техцикл от live prompt-тюнинга звонкового агента.
+
+ЧТО УЖЕ СДЕЛАНО
+- main синхронизирован;
+- clean-clone на сервере синхронизирован;
+- новый worktree создан;
+- базовый migration pack уже собран;
+- live-callcenter и агентская документация приведены в актуальное состояние.
+
+ЧТО ДЕЛАТЬ ПО ШАГАМ
+
+ЭТАП 1. Инвентаризация текущего runtime
+Задача:
+- понять, где реально лежат:
+  - database.sqlite
+  - binary data
+  - env-файлы
+  - compose-файлы
+  - volumes
+  - runtime bind mounts
+
+Результат этапа:
+- один понятный inventory-документ с путями и зависимостями.
+
+ЭТАП 2. Проверка текущего Postgres-ландшафта
+Задача:
+- зафиксировать, какие Postgres-контуры уже есть:
+  - postgres_memory
+  - call_center
+- не смешивать их с новой DB для основного n8n.
+
+Результат этапа:
+- решение, где именно поднимать отдельный Postgres для основного n8n:
+  - отдельный контейнер / сервис
+  - db name
+  - user
+  - secret placement
+
+ЭТАП 3. Backup design
+Задача:
+- зафиксировать точный набор backup-объектов перед staging и перед cutover:
+  - database.sqlite
+  - n8n data volume
+  - env
+  - compose
+  - binary data
+
+Результат этапа:
+- backup checklist не “вообще”, а с реальными путями и командами.
+
+ЭТАП 4. Staging plan
+Задача:
+- спроектировать безопасный staging-контур:
+  - без production webhooks
+  - без случайного live traffic
+  - с возможностью открыть UI и проверить workflows/credentials
+
+Результат этапа:
+- staging launch plan:
+  - что поднять
+  - какими env
+  - на каком порту / домене
+  - как не пересечься с production
+
+ЭТАП 5. Smoke matrix
+Задача:
+- определить, что именно проверять после staging-подъёма.
+
+Минимум проверить:
+- AUTODIAL_DISPATCHER
+- VOICE_INBOUND_AGENT
+- ELEVEN_TOOL_CALL_LOG_BRIDGE
+- ELEVEN_TOOL_SEND_SMS_BRIDGE
+- EMAIL_FOLLOWUP_AGENT_LIVE
+
+Результат этапа:
+- короткая smoke-matrix: workflow -> что считать success -> чем проверять.
+
+ЭТАП 6. Cutover design
+Задача:
+- описать реальный порядок production switch:
+  - stop
+  - final backup
+  - env switch
+  - startup
+  - smoke
+
+Результат этапа:
+- обновлённый cutover checklist уже под этот проект, а не общий шаблон.
+
+ЭТАП 7. Rollback hardening
+Задача:
+- убедиться, что rollback действительно можно сделать быстро и без догадок.
+
+Результат этапа:
+- rollback steps с конкретными путями, файлами и командами.
+
+ЧЕГО НЕ ДЕЛАТЬ
+- не начинать с live deploy;
+- не трогать production n8n-server “для удобства”;
+- не смешивать migration cycle и live call-agent prompt fixes;
+- не переписывать compose наугад;
+- не удалять SQLite snapshot;
+- не считать postgres_memory заменой этой миграции.
+
+КРИТЕРИЙ УСПЕХА ЭТОГО ЦИКЛА
+Этот цикл считается успешным, когда:
+- есть полный inventory текущего runtime;
+- есть отдельный staging plan;
+- есть реальные backup/cutover/rollback шаги под этот проект;
+- понятно, как мигрировать основной n8n без риска для live-callcenter.
+
+ПЕРВЫЕ КОМАНДЫ ДЛЯ СТАРТА
+1. git status
+2. git log --oneline -10
+3. прочитать:
+   - docs/knowledge_base/09_PROJECT_CHANGELOG_AND_STATE.md
+   - документация_для_агента/01_БЫСТРЫЙ_СТАРТ.md
+   - документация_для_агента/02_ТЕКУЩЕЕ_LIVE_СОСТОЯНИЕ.md
+   - docs/checkpoints/2026-05-25_n8n_postgres_migration_pack/05_CHECKPOINT_FOR_NEW_CHAT.txt
+   - docs/checkpoints/2026-05-25_n8n_postgres_migration_pack/07_AGENT_WORK_PLAN.txt

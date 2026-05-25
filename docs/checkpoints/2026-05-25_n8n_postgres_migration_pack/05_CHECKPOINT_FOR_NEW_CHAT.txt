@@ -32,6 +32,7 @@ CHECKPOINT ДЛЯ НОВОГО ЧАТА
    - документация_для_агента/02_ТЕКУЩЕЕ_LIVE_СОСТОЯНИЕ.md
    - docs/checkpoints/2026-05-25_n8n_postgres_migration_pack/01_MIGRATION_PLAN.txt
    - docs/checkpoints/2026-05-25_n8n_postgres_migration_pack/02_CUTOVER_CHECKLIST.txt
+   - docs/checkpoints/2026-05-25_n8n_postgres_migration_pack/07_AGENT_WORK_PLAN.txt
 3. Следующий цикл вести staging-first:
    - сначала инвентаризация текущего SQLite/runtime;
    - потом staging plan;
