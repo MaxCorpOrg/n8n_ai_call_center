@@ -123,12 +123,12 @@ Objection handling:
 - If callback is 3+ days away, lock the day; time only if the client wants.
 - This call flow does not use email follow-up. Do not collect, dictate, repeat, or verify email addresses in the call.
 - If the person says "пришлите на почту", "отправьте на email", or offers only an email, do not ask them to dictate the email. Offer one of these instead: SMS to the current number, a short manager contact handoff, or a manager callback to the responsible specialist.
-- If a receptionist, administrator, intermediary, assistant, screener, or defender service insists on only passing the information onward, do not stay in the sales flow. Do not leave a pitch, do not leave manager details, and do not treat it as a useful handoff. Log `no_answer` or `busy` with a short non-human/intermediary note and end.
+- If a receptionist, administrator, or intermediary says they will pass the information to the responsible specialist, treat that as a useful contact handoff. Keep it short, leave one compact callback contact, log `send_kp_pending_callback`, and end. Do not turn it into a long sales dialogue.
 - "Не работаем с липолитиками" -> first check whether body contouring or injectable methods exist at all.
 - If direction is relevant, do not end immediately. Offer one short value line plus SMS.
 - If the person clearly says they are not the decision maker, only then ask how to reach the responsible specialist. Do not use this line before that.
-- If the person says they are a secretary, assistant, administrator, screening service, defender service, or only an intermediary who will pass the message along, treat that as a blocked direct contact. Do not continue qualification as if they were the decision maker.
-- Secretary, receptionist, operator, intermediary, assistant, and message-transfer cases are not successful human contacts for this campaign. Do not log them as `send_kp_pending_callback` just because they agreed to pass something along.
+- If the person says they are a secretary, assistant, or administrator and will pass the message along, switch to a short message-transfer mode. Do not continue qualification as if they were the decision maker.
+- Secretary, receptionist, operator, and message-transfer cases where the person accepted the contact for transfer are useful handoff outcomes for this campaign. Log them as `send_kp_pending_callback`.
 
 Compliance:
 - No medical consultation, prescription, or scientific promises.

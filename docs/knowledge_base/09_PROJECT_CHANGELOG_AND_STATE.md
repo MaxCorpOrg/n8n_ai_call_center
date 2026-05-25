@@ -366,6 +366,14 @@
     - `02_WHAT_TO_WRITE_AND_WHERE.txt`
     - `03_NEXT_CALL_WINDOW_CHECKLIST.txt`
     - `04_PATHS_AND_FILES.txt`
+- Для отдельного техцикла по инфраструктуре собран и пакет миграции `n8n: SQLite -> Postgres`:
+  - `/home/max/n8n_ai_call_center/docs/checkpoints/2026-05-25_n8n_postgres_migration_pack/`
+  - внутри:
+    - `00_README.txt`
+    - `01_MIGRATION_PLAN.txt`
+    - `02_CUTOVER_CHECKLIST.txt`
+    - `03_ROLLBACK_PLAN.txt`
+    - `04_CURRENT_RISKS.txt`
 
 ## 1.7) Обновление 2026-05-25: intermediary/message-transfer block в live Main
 
@@ -430,6 +438,45 @@
   - не оставляет callback message;
   - не уходит в qualification;
   - завершает звонок сразу после `call_log`.
+
+## 1.9) Обновление 2026-05-25: secretary handoff снова полезный + daily dialing limit = 30
+
+### Сделано
+- Пользователь явно переопределил политику по intermediary/message-transfer линиям:
+  - `я передам ответственному специалисту`
+  - `оставьте контакт`
+  - `мы передадим информацию`
+  теперь снова считаются полезным handoff-контактом, а не blocked outcome.
+- Source-of-truth prompt обновлён:
+  - `/home/max/n8n_ai_call_center/docs/agent_kb_lipolong/08_ELEVENLABS_SYSTEM_PROMPT_EN.md`
+  - `/home/max/n8n_ai_call_center/docs/agent_kb_lipolong/08_ELEVENLABS_SYSTEM_PROMPT_RU.md`
+  - `/home/max/n8n_ai_call_center/документация_для_агента/04_ELEVENLABS_АГЕНТ.md`
+- Live `Main` перепатчен через relay-host `151.241.228.232`:
+  - payload: `/home/max/n8n_ai_call_center/backups/2026-05-25_secretary_useful_handoff_refresh/main_secretary_useful_handoff_payload.json`
+- Практическое правило теперь такое:
+  - автоответчики по `абонент`/machine-service всё ещё режем сразу;
+  - но живой secretary/intermediary, который реально готов передать контакт ответственному специалисту, считается полезным handoff и логируется как `send_kp_pending_callback`.
+- Одновременно пользователь снизил дневной лимит попыток автодозвона:
+  - `daily_dialing_limit: 50 -> 30`
+- Это обновлено:
+  - в генераторе `/home/max/n8n_ai_call_center/scripts/build_autodial_sheet_workflow.py`
+  - в source workflow `/home/max/n8n_ai_call_center/workflows/AUTODIAL_DISPATCHER_DRAFT.json`
+  - в live workflow `iZ8OaN4xW0ZtxaCJ`
+- Backup live workflow перед этим шагом:
+  - `/home/max/n8n_ai_call_center/backups/2026-05-25_15-29-59_autodial_daily_limit_30/AUTODIAL_live_before.json`
+  - `/home/max/n8n_ai_call_center/backups/2026-05-25_15-29-59_autodial_daily_limit_30/AUTODIAL_live_after_put_response.json`
+
+### На чем остановились
+- Live policy теперь смешанная, как и хотел пользователь:
+  - machine/service phrase with `абонент` -> сразу hangup;
+  - полезный secretary/intermediary handoff -> `send_kp_pending_callback`.
+- Новый дневной предел попыток уже равен `30`, но новый рабочий день после этой правки ещё не прошёл.
+
+### Что делать дальше
+- В следующее окно `10:00-14:00 MSK` проверить:
+  - что autodial реально останавливается на `30`, а не на старом `50`;
+  - что полезные secretary handoff-кейсы пишутся как `send_kp_pending_callback`;
+  - что service-line фразы со словом `абонент` по-прежнему режутся как автоответчик.
 
 ## 2) Контрольная точка проекта (2026-05-22)
 

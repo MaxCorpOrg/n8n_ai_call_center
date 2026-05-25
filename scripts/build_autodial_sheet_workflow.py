@@ -175,7 +175,7 @@ return [{
   campaign_key: campaignKey,
   job_id: jobId,
   daily_live_limit: 15,
-  daily_dialing_limit: 50,
+  daily_dialing_limit: 30,
   daily_nonhuman_limit: 10,
   daily_provider_failure_limit: 8,
   daily_attempt_limit_per_lead: 2,

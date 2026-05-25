@@ -1,0 +1,25 @@
+ПОЧЕМУ МИГРАЦИЯ НУЖНА СЕЙЧАС
+Дата: 2026-05-25
+
+Сейчас проблема не в том, что "вообще нет Postgres".
+
+Уже есть:
+- postgres_memory
+- call_center Postgres
+
+Но основной production n8n всё ещё сидит на SQLite.
+
+Текущие сигналы риска:
+1. `database.sqlite` уже около `2.7G`
+2. в логах есть `SqliteWriteConnectionMutex`
+3. в логах есть `Task ... Offer expired - not accepted within validity window`
+4. live-контур уже чувствителен к latency и блокировкам
+
+Что это значит practically:
+- SQLite уже узкое место для production n8n
+- при росте executions и webhook-нагрузки риск нестабильности будет расти
+- prompt-правки агента это не решат
+
+Правильный вывод:
+- memory-слой уже есть
+- теперь нужен отдельный техцикл на миграцию самого основного n8n c SQLite на Postgres

@@ -1,0 +1,124 @@
+ПЛАН МИГРАЦИИ N8N: SQLITE -> POSTGRES
+Дата: 2026-05-25
+
+Цель:
+перевести основной production n8n с SQLite на Postgres так, чтобы не потерять:
+- workflows
+- credentials
+- users
+- tags
+- executions / настройки
+- рабочие webhook-контуры
+
+Важно:
+- postgres_memory НЕ заменяет эту миграцию
+- call_center Postgres НЕ заменяет эту миграцию
+- мигрировать нужно именно базу самого основного n8n
+
+ЭТАП 1. Подготовка
+
+1. Зафиксировать текущее состояние
+- сохранить:
+  - docker-compose
+  - env-файлы
+  - volume c n8n data
+  - database.sqlite
+
+2. Проверить текущее место хранения
+- где лежит production sqlite
+- где лежит binary data
+- какие volumes и bind mounts использует live n8n
+
+3. Поднять отдельный Postgres под основной n8n
+- не смешивать его с:
+  - postgres_memory
+  - call_center
+- лучше отдельная база и отдельный пользователь
+
+Рекомендуемая логика:
+- db host: отдельный контейнер postgres
+- db name: n8n
+- db user: n8n
+- db password: отдельный секрет
+
+ЭТАП 2. Backup перед миграцией
+
+Обязательно сохранить:
+1. `database.sqlite`
+2. production env
+3. production compose
+4. docker volume n8n_data
+5. если есть binary data path - его тоже
+
+Без этого cutover не делать.
+
+ЭТАП 3. Staging-проверка
+
+1. Поднять staging-copy n8n на Postgres
+2. Не включать production webhooks
+3. Подтянуть туда ту же базу/данные через миграционный сценарий
+4. Проверить в staging:
+- видны ли workflows
+- открываются ли credentials
+- есть ли пользователи
+- не сломались ли nodes
+- открывается ли UI
+
+ЭТАП 4. Smoke для звонкового контура
+
+В staging проверить хотя бы:
+1. AUTODIAL_DISPATCHER
+2. VOICE_INBOUND_AGENT
+3. ELEVEN_TOOL_CALL_LOG_BRIDGE
+4. ELEVEN_TOOL_SEND_SMS_BRIDGE
+
+Что важно:
+- workflows вообще запускаются
+- credentials читаются
+- env-переменные доступны
+- HTTP/webhook nodes работают
+- не поехали execution ids / settings / ownership
+
+ЭТАП 5. Production cutover
+
+1. Выбрать тихое окно
+2. Остановить production n8n
+3. Финально снять backup перед переключением
+4. Переключить env:
+- с SQLite на Postgres
+5. Поднять n8n уже на Postgres
+6. Проверить:
+- контейнер поднялся
+- UI открывается
+- workflows на месте
+- credentials на месте
+- webhooks доступны
+
+ЭТАП 6. Post-cutover smoke
+
+Сразу после запуска проверить:
+1. login в UI
+2. список workflows
+3. открытие credentials
+4. executions
+5. live call-center smoke
+6. live email-flow smoke
+
+Особенно проверить:
+- AUTODIAL_DISPATCHER
+- VOICE_INBOUND_AGENT
+- ELEVEN_TOOL_CALL_LOG_BRIDGE
+- EMAIL_FOLLOWUP_AGENT_LIVE
+
+ЭТАП 7. Наблюдение после переключения
+
+Следить за:
+- db connections
+- locks
+- latency
+- webhook delivery
+- error rate
+- execution saving
+
+SQLite не удалять сразу.
+Оставить как rollback snapshot минимум до уверенного подтверждения стабильности.
