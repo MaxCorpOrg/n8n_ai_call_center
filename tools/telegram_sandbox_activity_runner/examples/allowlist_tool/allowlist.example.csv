@@ -1,0 +1,3 @@
+entity_id,kind_hint,username,title,consent_confirmed,allowed_actions,notes
+user_alice,user,@alice_example,Alice Example,yes,"validate,send_message,add_to_group",Explicit written consent
+group_ops,group,@ops_example,Ops Example,yes,validate,Internal admin group

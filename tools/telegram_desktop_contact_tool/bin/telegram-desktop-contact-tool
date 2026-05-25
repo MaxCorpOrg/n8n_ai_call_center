@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+CORE_RUNNER="$REPO_ROOT/tools/telegram_sandbox_activity_runner/bin/telegram-sandbox-activity-runner"
+
+usage() {
+  cat <<'EOF'
+Telegram Desktop Contact Tool
+
+Usage:
+  telegram-desktop-contact-tool import-usernames <runner args...>
+  telegram-desktop-contact-tool add-one <runner args...>
+  telegram-desktop-contact-tool batch-add <runner args...>
+  telegram-desktop-contact-tool api-scan <runner args...>
+  telegram-desktop-contact-tool core <runner command...>
+
+Mappings:
+  import-usernames -> import-contacts
+  add-one          -> prepare-add-contact-profile
+  batch-add        -> batch-add-contacts
+  api-scan         -> api-scan-contacts
+
+Examples:
+  telegram-desktop-contact-tool import-usernames --config /path/to/ak.local.json --usernames-file usernames.txt
+  telegram-desktop-contact-tool add-one --config /path/to/ak.local.json --actor-id ak --contact-id owner_main --execute --launch-if-needed --confirm-add --verify-profile-reopen
+EOF
+}
+
+if [[ $# -lt 1 ]]; then
+  usage >&2
+  exit 1
+fi
+
+subcommand="$1"
+shift
+
+case "$subcommand" in
+  import-usernames)
+    exec "$CORE_RUNNER" import-contacts "$@"
+    ;;
+  add-one)
+    exec "$CORE_RUNNER" prepare-add-contact-profile "$@"
+    ;;
+  batch-add)
+    exec "$CORE_RUNNER" batch-add-contacts "$@"
+    ;;
+  api-scan)
+    exec "$CORE_RUNNER" api-scan-contacts "$@"
+    ;;
+  core)
+    exec "$CORE_RUNNER" "$@"
+    ;;
+  help|-h|--help)
+    usage
+    ;;
+  *)
+    echo "Unknown subcommand: $subcommand" >&2
+    usage >&2
+    exit 2
+    ;;
+esac

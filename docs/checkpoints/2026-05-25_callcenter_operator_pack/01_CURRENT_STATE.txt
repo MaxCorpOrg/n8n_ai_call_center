@@ -1,0 +1,56 @@
+ТЕКУЩЕЕ СОСТОЯНИЕ LIVE
+Дата: 2026-05-25
+
+1. Что уже исправлено
+
+- Live agent ElevenLabs Main уже обновлен.
+- В Main теперь:
+  - turn_timeout = 5.0
+  - voicemail_message = null
+  - MTS Defender / МТС Защитник считаются machine/screening-service
+  - агент не должен оставлять spoken message автоответчику
+
+- Live AUTODIAL_DISPATCHER уже исправлен.
+- Раньше он считал часть outbound_request_failed как чистые техфейлы.
+- Но по живым логам выяснилось, что часть этих "фейлов" потом все равно давала реальный elevenlabs-результат.
+- Это было найдено минимум на:
+  - row_3
+  - row_5
+  - row_10
+
+- Теперь resolved timeout-кейсы не должны включать false breaker.
+
+2. Что сейчас еще не добито
+
+- По-прежнему есть реальные upstream timeout в outbound SIP path.
+- eleven_conv_id в Google Sheet пока пустой.
+- Есть кейсы, где агент все еще слишком мягко разговаривает с секретарем/message-transfer линией.
+
+3. Что реально видно по логам
+
+- provider_failures_raw = 8
+- provider_failures_resolved = 3
+- provider_failures_unresolved = 5
+
+Resolved:
+- row_3
+- row_5
+- row_10
+
+Unresolved:
+- row_7
+- row_8
+- row_8
+- row_9
+- row_9
+
+4. Текущее live-состояние workflows
+
+- AUTODIAL_DISPATCHER = active=true
+- VOICE_INBOUND_AGENT = active=true
+- ELEVEN_TOOL_CALL_LOG_BRIDGE = active=true
+
+Важно:
+- AUTODIAL_DISPATCHER был включен уже после правки.
+- Но это произошло после окна обзвона 10:00-14:00 MSK.
+- Поэтому новый честный результат надо смотреть в следующее рабочее окно.

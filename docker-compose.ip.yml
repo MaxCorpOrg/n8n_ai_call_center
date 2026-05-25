@@ -23,6 +23,8 @@ services:
     restart: always
     ports:
       - "5678:5678"
+    env_file:
+      - ${SERVER_RUNTIME_ROOT:-.}/.env.email_followup
     environment:
       N8N_HOST: "${SERVER_IP:-147.45.213.87}"
       N8N_PORT: "5678"
@@ -31,6 +33,7 @@ services:
       WEBHOOK_URL: "http://${SERVER_IP:-147.45.213.87}:5678/"
       GENERIC_TIMEZONE: "${GENERIC_TIMEZONE}"
       NODE_ENV: "production"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       N8N_BASIC_AUTH_ACTIVE: "true"
       N8N_BASIC_AUTH_USER: "${N8N_BASIC_AUTH_USER}"
       N8N_BASIC_AUTH_PASSWORD: "${N8N_BASIC_AUTH_PASSWORD}"

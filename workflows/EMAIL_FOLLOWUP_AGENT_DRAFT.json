@@ -1,0 +1,128 @@
+{
+  "name": "EMAIL_FOLLOWUP_AGENT (draft)",
+  "nodes": [
+    {
+      "id": "5a165e7b-66d0-4aaa-91c6-b96710265ad7",
+      "name": "Email Followup | Schedule Tick",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        220
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9,15 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "3de7d293-c72f-44b0-aa0a-b2a026059ba0",
+      "name": "Email Followup | Build Scheduled Run",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        220
+      ],
+      "parameters": {
+        "jsCode": "return [{\n  run_body: {\n    dry_run: false,\n    force_resend: false,\n    limit_sheets: 100,\n    max_records: -1,\n  },\n}];"
+      }
+    },
+    {
+      "id": "c3f59d6c-acba-4e7c-a4a4-85534ddba623",
+      "name": "Email Followup | Run Scheduled Batch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        220
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.EMAIL_FOLLOWUP_URL || 'http://127.0.0.1:8791') + '/run' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $env.EMAIL_FOLLOWUP_AUTH_TOKEN ? 'Bearer ' + $env.EMAIL_FOLLOWUP_AUTH_TOKEN : '' }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.run_body }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a22dfd1b-fd21-44ff-b089-747beb275def",
+      "name": "Email Followup | Build Scheduled Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1020,
+        220
+      ],
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\nreturn [{\n  ok: body.ok !== false,\n  source: 'scheduled_run',\n  spreadsheets_found: Number(body.spreadsheets_found || 0),\n  groups_seen: Number(body.groups_seen || 0),\n  records_processed: Number(body.records_processed || 0),\n  sent: Number(body.sent || 0),\n  dry_run_ready: Number(body.dry_run_ready || 0),\n  needs_review: Number(body.needs_review || 0),\n  blocked: Number(body.blocked || 0),\n  errors: Number(body.errors || 0),\n}];"
+      }
+    }
+  ],
+  "connections": {
+    "Email Followup | Schedule Tick": {
+      "main": [
+        [
+          {
+            "node": "Email Followup | Build Scheduled Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Followup | Build Scheduled Run": {
+      "main": [
+        [
+          {
+            "node": "Email Followup | Run Scheduled Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Followup | Run Scheduled Batch": {
+      "main": [
+        [
+          {
+            "node": "Email Followup | Build Scheduled Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "active": false,
+  "pinData": {},
+  "versionId": "c8b73a29-b40a-4278-9033-35f9f9cd5ecb",
+  "meta": null
+}

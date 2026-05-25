@@ -19,8 +19,11 @@
 
 ```json
 {
-  "lead_id": "lead_001",
+  "lead_id": "+79050000001",
   "caller": "+79050000001",
+  "phone_primary": "+79050000001",
+  "source_record_key": "conv_abc123",
+  "eleven_conv_id": "conv_abc123",
   "call_result": "callback_scheduled",
   "next_step": "callback",
   "next_call_at": "2026-02-27T10:30:00+03:00",
@@ -28,7 +31,15 @@
 }
 ```
 
-Дополнительно поддерживаются: `client_ref`, `company_name`, `contact_name`, `interest_level`, `objection_text`, `manager_owner`, `call_record_url`, `eleven_conv_id`, `agent_version` и др.
+Для живых agent-call'ов поля `caller`, `phone_primary`, `source_record_key` и `eleven_conv_id` нужно считать обязательными, иначе строку потом трудно однозначно сопоставить со звонком.
+
+С `2026-04-23` live-контур дополнительно прокидывает в outbound-разговор runtime-идентификаторы через `conversation_initiation_client_data`, чтобы агент видел конкретные `lead_id`, `caller`, `phone_primary`, `source_record_key`, `company_name`, `contact_name`, `request_id` уже на старте звонка.
+
+Отдельная страховка в самом bridge:
+- буквальные плейсхолдеры вроде `system__called_number`, `system__conversation_id`, `{{lead_id}}` и похожие значения считаются дефектом;
+- `ELEVEN_TOOL_CALL_LOG_BRIDGE` вычищает такие значения и не записывает их в Sheet как будто это реальные идентификаторы.
+
+Дополнительно поддерживаются: `client_ref`, `company_name`, `contact_name`, `interest_level`, `objection_text`, `manager_owner`, `call_record_url`, `agent_version` и др.
 
 ## 3) Ответ webhook
 
@@ -74,8 +85,8 @@ curl -X POST 'https://www.n-8-n.site/webhook/eleven/tool/call-log' \
 3. Method: `POST`.
 4. URL: `https://www.n-8-n.site/webhook/eleven/tool/call-log`.
 5. В body schema добавить поля, которые агент должен передавать:
-   - `lead_id`, `caller`, `call_result`, `next_step`, `next_call_at`, `notes_short`
-   - опционально: `company_name`, `contact_name`, `interest_level`, `objection_text`, `manager_owner`, `call_record_url`, `eleven_conv_id`, `agent_version`
+   - `lead_id`, `caller`, `phone_primary`, `source_record_key`, `call_result`, `next_step`, `next_call_at`, `notes_short`
+   - опционально: `company_name`, `contact_name`, `interest_level`, `objection_text`, `manager_owner`, `call_record_url`, `eleven_conv_id`, `agent_version`, `request_id`
 6. Привязать tool к агенту (`AI_CALL_AGENT_1`).
 
 ## 6) Важно по безопасности

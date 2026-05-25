@@ -1,0 +1,45 @@
+ПОЛНЫЕ ПУТИ И ВАЖНЫЕ ФАЙЛЫ
+
+1. Операторский пакет
+
+/home/max/n8n_ai_call_center/docs/checkpoints/2026-05-25_callcenter_operator_pack/
+
+2. Главные checkpoint-документы
+
+/home/max/n8n_ai_call_center/docs/knowledge_base/09_PROJECT_CHANGELOG_AND_STATE.md
+/home/max/n8n_ai_call_center/документация_для_агента/02_ТЕКУЩЕЕ_LIVE_СОСТОЯНИЕ.md
+
+3. Live Main patch
+
+/home/max/n8n_ai_call_center/backups/2026-05-25_live_main_canary_refresh/main_minimal_patch_payload.json
+/home/max/n8n_ai_call_center/backups/2026-05-25_live_main_canary_refresh/current_ai_call_agent_1.before.json
+/home/max/n8n_ai_call_center/backups/2026-05-25_live_main_canary_refresh/current_ai_call_agent_1.after_patch.json
+
+4. Autodial false provider failure fix
+
+/home/max/n8n_ai_call_center/backups/2026-05-25_13-58-54_autodial_false_provider_failure_fix/AUTODIAL_live_before.json
+/home/max/n8n_ai_call_center/backups/2026-05-25_13-58-54_autodial_false_provider_failure_fix/AUTODIAL_live_after_put_response.json
+
+5. Скрипты
+
+/home/max/n8n_ai_call_center/scripts/report_live_call_log_sheet.py
+/home/max/n8n_ai_call_center/scripts/build_autodial_sheet_workflow.py
+/home/max/n8n_ai_call_center/scripts/report_n8n_eventlog_timings.py
+/home/max/n8n_ai_call_center/scripts/eleven_outbound_relay_server.py
+
+6. Workflow-файлы
+
+/home/max/n8n_ai_call_center/workflows/AUTODIAL_DISPATCHER_DRAFT.json
+/home/max/n8n_ai_call_center/workflows/ELEVEN_TOOL_CALL_LOG_BRIDGE_DRAFT.json
+
+7. Текущая live-таблица обзвона
+
+https://docs.google.com/spreadsheets/d/1kAXIwaa_-rC4MO5vV3mFV-Geha08iL_6pJNCNxlQPAU/edit?gid=199760593#gid=199760593
+
+8. Relay host
+
+151.241.228.232
+
+9. Основной проект
+
+/home/max/n8n_ai_call_center

@@ -1,0 +1,151 @@
+{
+  "name": "EMAIL_FOLLOWUP_AGENT_MANUAL (draft)",
+  "nodes": [
+    {
+      "id": "1f9767b6-c4dc-4784-a8ca-39ca3118c837",
+      "name": "Email Followup | Manual Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "email-followup-live/run",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "77f4a65a-accd-45b9-a6f8-4c8275b1bc65"
+    },
+    {
+      "id": "d59aeb87-02ad-4219-afe3-16eddabe500e",
+      "name": "Email Followup | Normalize Manual Run",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\nreturn [{\n  run_body: {\n    dry_run: !!body.dry_run,\n    force_resend: !!body.force_resend,\n    sheet_prefix: String(body.sheet_prefix || ''),\n    limit_sheets: Number(body.limit_sheets || 0),\n    max_records: Number(body.max_records || 0),\n  },\n}];"
+      }
+    },
+    {
+      "id": "2dfeb395-0cad-4e9f-8d45-83f66c810453",
+      "name": "Email Followup | Run Manual Batch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.EMAIL_FOLLOWUP_URL || 'http://127.0.0.1:8791') + '/run' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $env.EMAIL_FOLLOWUP_AUTH_TOKEN ? 'Bearer ' + $env.EMAIL_FOLLOWUP_AUTH_TOKEN : '' }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.run_body }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "7ab6e558-9d8f-4570-967b-98bcdcc28a03",
+      "name": "Email Followup | Build Manual Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1020,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\nreturn [body];"
+      }
+    },
+    {
+      "id": "41b42ecc-9f21-473a-a00e-03c90e1974cf",
+      "name": "Email Followup | Respond Manual",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1280,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Email Followup | Manual Webhook": {
+      "main": [
+        [
+          {
+            "node": "Email Followup | Normalize Manual Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Followup | Normalize Manual Run": {
+      "main": [
+        [
+          {
+            "node": "Email Followup | Run Manual Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Followup | Run Manual Batch": {
+      "main": [
+        [
+          {
+            "node": "Email Followup | Build Manual Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Followup | Build Manual Response": {
+      "main": [
+        [
+          {
+            "node": "Email Followup | Respond Manual",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "active": false,
+  "pinData": {},
+  "versionId": "5b90d825-c92e-436d-8ab4-3a92a2cf5cf5",
+  "meta": null
+}

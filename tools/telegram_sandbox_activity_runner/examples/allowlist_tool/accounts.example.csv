@@ -1,0 +1,2 @@
+account_id,label,session_file,api_id_env,api_hash_env,enabled
+main_admin,Main Admin,/home/max/.telegram_sessions/main_admin.session,TG_API_ID_MAIN,TG_API_HASH_MAIN,yes

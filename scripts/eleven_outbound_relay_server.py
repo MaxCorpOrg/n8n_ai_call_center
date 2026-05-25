@@ -19,12 +19,18 @@ logger = logging.getLogger("eleven_relay")
 RELAY_BIND = os.getenv("RELAY_BIND", "127.0.0.1")
 RELAY_PORT = int(os.getenv("RELAY_PORT", "8787"))
 RELAY_SHARED_TOKEN = os.getenv("RELAY_SHARED_TOKEN", "")
-RELAY_TIMEOUT = int(os.getenv("RELAY_TIMEOUT", "20"))
+RELAY_TIMEOUT = int(os.getenv("RELAY_TIMEOUT", "8"))
+RELAY_RETRY_COUNT = int(os.getenv("RELAY_RETRY_COUNT", "0"))
+RELAY_RETRY_DELAY_MS = int(os.getenv("RELAY_RETRY_DELAY_MS", "500"))
 ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY", "")
 ELEVEN_OUTBOUND_URL = os.getenv(
     "ELEVEN_OUTBOUND_URL",
     "https://api.elevenlabs.io/v1/convai/sip-trunk/outbound-call",
 )
+RETRYABLE_PROVIDER_MESSAGES = {
+    "max auth retry attemps reached",
+    "max auth retry attempts reached",
+}
 
 
 def fail(handler: BaseHTTPRequestHandler, status: int, payload: dict) -> None:
@@ -34,6 +40,72 @@ def fail(handler: BaseHTTPRequestHandler, status: int, payload: dict) -> None:
     handler.send_header("Content-Length", str(len(body)))
     handler.end_headers()
     handler.wfile.write(body)
+
+
+def extract_provider_message(body: bytes) -> str:
+    try:
+        payload = json.loads((body or b"{}").decode())
+    except Exception:
+        return ""
+    if isinstance(payload, dict):
+        message = payload.get("message") or payload.get("error") or ""
+        return str(message).strip().lower()
+    return ""
+
+
+def summarize_upstream_body(body: bytes) -> str:
+    try:
+        payload = json.loads((body or b"{}").decode())
+    except Exception:
+        text = (body or b"").decode(errors="replace").strip()
+        return text[:300]
+
+    if not isinstance(payload, dict):
+        return str(payload)[:300]
+
+    summary = {}
+    for key in (
+        "ok",
+        "status",
+        "success",
+        "message",
+        "error",
+        "conversation_id",
+        "conversationId",
+        "callSid",
+        "call_id",
+    ):
+        if key in payload and payload[key] not in (None, ""):
+            summary[key] = payload[key]
+    if not summary:
+        summary["keys"] = sorted(payload.keys())[:12]
+    return json.dumps(summary, ensure_ascii=False)[:300]
+
+
+def should_retry_http_response(status: int, body: bytes, attempt: int) -> bool:
+    if attempt >= RELAY_RETRY_COUNT:
+        return False
+    if status >= 500:
+        return True
+    message = extract_provider_message(body)
+    return message in RETRYABLE_PROVIDER_MESSAGES
+
+
+def retry_sleep(attempt: int) -> None:
+    delay_ms = RELAY_RETRY_DELAY_MS * max(attempt, 1)
+    time.sleep(delay_ms / 1000)
+
+
+def build_request(payload: dict) -> request.Request:
+    return request.Request(
+        ELEVEN_OUTBOUND_URL,
+        data=json.dumps(payload).encode(),
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "xi-api-key": ELEVEN_API_KEY,
+        },
+    )
 
 
 class RelayHandler(BaseHTTPRequestHandler):
@@ -78,52 +150,91 @@ class RelayHandler(BaseHTTPRequestHandler):
 
         logger.info("Relaying to %s (%d bytes)", ELEVEN_OUTBOUND_URL, len(raw))
 
-        req = request.Request(
-            ELEVEN_OUTBOUND_URL,
-            data=json.dumps(payload).encode(),
-            method="POST",
-            headers={
-                "Content-Type": "application/json",
-                "xi-api-key": ELEVEN_API_KEY,
-            },
-        )
-        try:
-            with request.urlopen(req, timeout=RELAY_TIMEOUT) as resp:
-                body = resp.read()
+        for attempt in range(RELAY_RETRY_COUNT + 1):
+            req = build_request(payload)
+            try:
+                with request.urlopen(req, timeout=RELAY_TIMEOUT) as resp:
+                    body = resp.read()
+                    elapsed_ms = int((time.monotonic() - start) * 1000)
+                    if should_retry_http_response(resp.status, body, attempt):
+                        logger.warning(
+                            "Upstream retryable response %d on attempt %d/%d (%dms): %s",
+                            resp.status,
+                            attempt + 1,
+                            RELAY_RETRY_COUNT + 1,
+                            elapsed_ms,
+                            extract_provider_message(body)[:200],
+                        )
+                        retry_sleep(attempt + 1)
+                        continue
+                    logger.info(
+                        "Upstream %d (%dms, %d bytes): %s",
+                        resp.status,
+                        elapsed_ms,
+                        len(body),
+                        summarize_upstream_body(body),
+                    )
+                    self.send_response(resp.status)
+                    self.send_header(
+                        "Content-Type",
+                        resp.headers.get("Content-Type", "application/json; charset=utf-8"),
+                    )
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return
+            except error.HTTPError as exc:
+                body = exc.read() or b""
                 elapsed_ms = int((time.monotonic() - start) * 1000)
-                logger.info("Upstream %d (%dms, %d bytes)", resp.status, elapsed_ms, len(body))
-                self.send_response(resp.status)
+                if should_retry_http_response(exc.code, body, attempt):
+                    logger.warning(
+                        "Upstream HTTP retryable %d on attempt %d/%d (%dms): %s",
+                        exc.code,
+                        attempt + 1,
+                        RELAY_RETRY_COUNT + 1,
+                        elapsed_ms,
+                        extract_provider_message(body)[:200] or body[:200],
+                    )
+                    retry_sleep(attempt + 1)
+                    continue
+                logger.warning(
+                    "Upstream HTTP %d (%dms): %s",
+                    exc.code,
+                    elapsed_ms,
+                    summarize_upstream_body(body) or body[:200],
+                )
+                self.send_response(exc.code)
                 self.send_header(
                     "Content-Type",
-                    resp.headers.get("Content-Type", "application/json; charset=utf-8"),
+                    exc.headers.get("Content-Type", "application/json; charset=utf-8"),
                 )
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)
-        except error.HTTPError as exc:
-            body = exc.read() or b""
-            elapsed_ms = int((time.monotonic() - start) * 1000)
-            logger.warning("Upstream HTTP %d (%dms): %s", exc.code, elapsed_ms, body[:200])
-            self.send_response(exc.code)
-            self.send_header(
-                "Content-Type",
-                exc.headers.get("Content-Type", "application/json; charset=utf-8"),
-            )
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-        except Exception as exc:
-            elapsed_ms = int((time.monotonic() - start) * 1000)
-            logger.error("Upstream failed (%dms): %s", elapsed_ms, exc)
-            fail(
-                self,
-                502,
-                {
-                    "ok": False,
-                    "error": "relay_upstream_failed",
-                    "message": str(exc),
-                },
-            )
+                return
+            except Exception as exc:
+                elapsed_ms = int((time.monotonic() - start) * 1000)
+                if attempt < RELAY_RETRY_COUNT:
+                    logger.warning(
+                        "Upstream exception retry on attempt %d/%d (%dms): %s",
+                        attempt + 1,
+                        RELAY_RETRY_COUNT + 1,
+                        elapsed_ms,
+                        exc,
+                    )
+                    retry_sleep(attempt + 1)
+                    continue
+                logger.error("Upstream failed (%dms): %s", elapsed_ms, exc)
+                fail(
+                    self,
+                    502,
+                    {
+                        "ok": False,
+                        "error": "relay_upstream_failed",
+                        "message": str(exc),
+                    },
+                )
+                return
 
     def log_message(self, fmt: str, *args) -> None:
         sys.stdout.write((fmt % args) + "\n")

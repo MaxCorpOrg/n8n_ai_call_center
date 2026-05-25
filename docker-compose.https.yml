@@ -56,6 +56,8 @@ services:
   n8n:
     image: docker.n8n.io/n8nio/n8n:2.6.4
     restart: always
+    env_file:
+      - ${SERVER_RUNTIME_ROOT:-.}/.env.email_followup
     depends_on:
       redis:
         condition: service_healthy
@@ -68,6 +70,7 @@ services:
       WEBHOOK_URL: "https://${DOMAIN_NAME}/"
       GENERIC_TIMEZONE: "${GENERIC_TIMEZONE}"
       NODE_ENV: "production"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       N8N_ENCRYPTION_KEY: "${N8N_ENCRYPTION_KEY}"
       KB_GITHUB_TOKEN: "${KB_GITHUB_TOKEN}"
       N8N_PUBLIC_API_KEY: "${N8N_PUBLIC_API_KEY}"

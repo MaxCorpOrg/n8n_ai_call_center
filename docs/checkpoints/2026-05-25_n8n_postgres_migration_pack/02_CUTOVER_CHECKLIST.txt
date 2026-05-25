@@ -1,0 +1,52 @@
+CUTOVER CHECKLIST: SQLITE -> POSTGRES
+Дата: 2026-05-25
+
+ПЕРЕД ПЕРЕКЛЮЧЕНИЕМ
+
+[ ] Есть backup database.sqlite
+[ ] Есть backup n8n_data volume
+[ ] Есть backup env-файлов
+[ ] Есть backup compose-файлов
+[ ] Понятно, где лежит binary data
+[ ] Поднят Postgres под основной n8n
+[ ] Созданы db/user/password
+[ ] В staging уже прошла проверка
+[ ] Проверены workflows
+[ ] Проверены credentials
+[ ] Проверен вход в UI
+
+ВО ВРЕМЯ ПЕРЕКЛЮЧЕНИЯ
+
+[ ] Остановлен production n8n
+[ ] Снят финальный backup перед cutover
+[ ] Env переключен на Postgres
+[ ] Compose / container config обновлены
+[ ] n8n поднят заново
+
+СРАЗУ ПОСЛЕ ПЕРЕКЛЮЧЕНИЯ
+
+[ ] UI открывается
+[ ] Вход в UI работает
+[ ] Workflows видны
+[ ] Credentials видны
+[ ] Нет явных migration errors в logs
+[ ] Webhook endpoints отвечают
+
+SMOKE ПОСЛЕ CUTOVER
+
+[ ] AUTODIAL_DISPATCHER открывается и читается
+[ ] VOICE_INBOUND_AGENT открывается и читается
+[ ] ELEVEN_TOOL_CALL_LOG_BRIDGE открывается и читается
+[ ] ELEVEN_TOOL_SEND_SMS_BRIDGE открывается и читается
+[ ] EMAIL_FOLLOWUP_AGENT_LIVE открывается и читается
+
+[ ] Тестовый webhook вызов проходит
+[ ] Тестовый call_log проходит
+[ ] Тестовый email/manual health-check проходит
+
+ПОСЛЕ CUTOVER НЕ ДЕЛАТЬ
+
+- не удалять SQLite сразу
+- не чистить старые volumes сразу
+- не считать миграцию завершенной без smoke
+- не включать массовый live-трафик без проверки

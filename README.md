@@ -19,6 +19,8 @@
 - `legacy/` — устаревшие конфиги, оставлены только для справки.
 
 ## Документация Для Агентов
+- Главная точка входа для любого нового агента:
+  - `AGENTS.md`
 - Документация по парсеру контактов и правилам работы агентов:
   - `agent_contact_parser_docs/00_INDEX.md`
   - `agent_contact_parser_docs/11_SERVER_TOOL_PATHS.md`
@@ -27,6 +29,16 @@
   - `docs/cosmetologist_hunter_agent/06_SERVER_TOOLING_RU.md`
   - `workflows/COSMETOLOGIST_HUNTER_TELEGRAM_DRAFT.json`
   - `scripts/cosmetologist_hunter_service.py`
+- Отдельный email-followup контур по таблицам `контакты_косметологов_москва_*`:
+  - `docs/email_followup_agent/README_RU.md`
+  - `docs/email_followup_agent/01_ARCHITECTURE_AND_FLOW_RU.md`
+  - `docs/email_followup_agent/02_LIVE_CONFIG_AND_SCHEDULE_RU.md`
+  - `docs/email_followup_agent/03_SEARCH_RULES_AND_FILTERS_RU.md`
+  - `docs/email_followup_agent/04_RUNBOOK_AND_OPERATIONS_RU.md`
+  - `docs/email_followup_agent/05_TEST_REPORT_2026-04-29_RU.md`
+  - `docs/email_followup_agent/06_CHECKPOINT_RU.md`
+  - `workflows/EMAIL_FOLLOWUP_AGENT_DRAFT.json`
+  - `scripts/email_followup_service.py`
 
 ## Быстрый запуск
 1. Подготовьте `.env.https` на сервере (на основе `.env.https.example`).

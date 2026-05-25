@@ -1,0 +1,41 @@
+ROLLBACK PLAN: SQLITE -> POSTGRES
+Дата: 2026-05-25
+
+Если после переключения есть проблемы:
+- UI не открывается
+- workflows пропали
+- credentials не читаются
+- webhooks не работают
+- execution errors пошли пачкой
+
+ТОГДА:
+
+1. Немедленно остановить новый n8n на Postgres
+
+2. Вернуть старый env
+- обратно на SQLite
+
+3. Вернуть старый compose / container config
+
+4. Поднять старый n8n с прежним SQLite
+
+5. Проверить:
+- UI
+- workflows
+- credentials
+- webhooks
+- critical live routes
+
+6. Только после восстановления:
+- разбирать причину провала
+- не пытаться чинить production на лету без backup-точки
+
+Что нельзя делать при rollback:
+- нельзя поверх сломанного состояния делать ещё одну миграцию
+- нельзя тереть SQLite backup
+- нельзя пересоздавать volumes вслепую
+
+Минимальный rollback target:
+- вернуть рабочий n8n на старом SQLite
+- восстановить рабочие webhook-контуры
+- убедиться, что AUTODIAL_DISPATCHER и call_log снова доступны

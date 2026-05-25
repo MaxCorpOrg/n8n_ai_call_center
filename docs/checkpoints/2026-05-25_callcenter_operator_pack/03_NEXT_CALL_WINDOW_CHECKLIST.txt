@@ -1,0 +1,63 @@
+ЧТО ДЕЛАТЬ В СЛЕДУЮЩЕЕ ОКНО ОБЗВОНА
+Окно: 10:00-14:00 MSK
+
+1. Сразу в начале окна
+
+- Проверить, что AUTODIAL_DISPATCHER активен.
+- Проверить, что VOICE_INBOUND_AGENT активен.
+- Проверить, что ELEVEN_TOOL_CALL_LOG_BRIDGE активен.
+
+2. После первого нового тика
+
+- Снять live-отчет:
+
+tmp=$(mktemp) && \
+ssh root@147.45.213.87 "cat /home/aicore/n8n-server/.env.callcenter" > "$tmp" && \
+python3 /home/max/n8n_ai_call_center/scripts/report_live_call_log_sheet.py --env-file "$tmp" --date 2026-05-25 --limit 8 --show-timeline && \
+rm -f "$tmp"
+
+- Проверить:
+  - не ушел ли dispatcher снова в daily_provider_failure_limit_reached
+  - появились ли новые dialing строки
+  - появились ли новые elevenlabs строки
+  - нет ли новых разговоров с автоответчиком
+  - нет ли новых spoken message на MTS Defender / МТС Защитник
+
+3. Что считать хорошим знаком
+
+- Агент быстро завершает machine/unavailable кейс.
+- В note есть что-то вроде:
+  - "Обнаружен голосовой ассистент, сообщение не оставлено."
+- Нет длинного прослушивания гудков.
+- Нет лишнего spoken callback автоответчику.
+- Dispatcher не стопорится сразу на ложном breaker.
+
+4. Что считать плохим знаком
+
+- Снова появляется note про "Оставлено короткое сообщение..."
+- Снова видим только outbound_request_failed без дальнейших результатов.
+- Снова уходим в daily_provider_failure_limit_reached слишком рано.
+- Снова идут длинные ringback/no-human кейсы.
+
+5. Что делать, если снова плохо
+
+- Не раскручивать массовый обзвон.
+- Снять relay journal.
+- Снять live sheet report.
+- Сравнить:
+  - provider_failures_resolved
+  - provider_failures_unresolved
+- После этого уже отдельно добивать:
+  - outbound timeout path
+  - eleven_conv_id
+
+6. Что делать, если стало лучше
+
+- Не включать сразу полный масштаб.
+- Дать 3-5 новых попыток.
+- Еще раз снять тот же отчет.
+- Если:
+  - нет spoken callback на machine,
+  - нет ложного breaker,
+  - доля unresolved provider failures не растет резко,
+тогда можно продолжать следующий маленький цикл.
