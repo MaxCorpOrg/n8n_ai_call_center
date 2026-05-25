@@ -1,0 +1,39 @@
+CHECKPOINT ДЛЯ НОВОГО ЧАТА
+Дата: 2026-05-25
+
+Где работать:
+- папка: /home/max/worktrees/n8n-postgres-migration
+- ветка: codex/n8n-postgres-migration
+
+СДЕЛАНО
+- рабочая ветка с live-callcenter правками доведена и влита в GitHub main;
+- origin/main сейчас синхронизирован и стоит на коммите c6a25ec;
+- серверный clean-clone /home/aicore/n8n-ai-clean тоже обновлён до c6a25ec;
+- локальная новая рабочая папка для следующего техцикла создана как отдельный worktree;
+- собран пакет миграции SQLite -> Postgres;
+- agent docs приведены к актуальному live-состоянию:
+  - turn_timeout = 5.0
+  - daily dialing limit = 30
+  - service phrase with "абонент" = machine
+  - secretary/intermediary handoff = полезный контакт, логировать как send_kp_pending_callback
+
+НА ЧЕМ ОСТАНОВИЛИСЬ
+- live-callcenter зафиксирован и задокументирован;
+- сам техцикл миграции основного n8n с SQLite на Postgres ещё не стартовал;
+- старый каталог /home/max/n8n_ai_call_center остаётся dirty и не должен быть базой для нового большого цикла;
+- clean-clone на сервере обновлён, но его server-specific tracked changes сохранены в stash:
+  - pre-main-sync-2026-05-25
+
+ЧТО ДЕЛАТЬ ДАЛЬШЕ
+1. Работать только из /home/max/worktrees/n8n-postgres-migration.
+2. Прочитать:
+   - docs/knowledge_base/09_PROJECT_CHANGELOG_AND_STATE.md
+   - документация_для_агента/01_БЫСТРЫЙ_СТАРТ.md
+   - документация_для_агента/02_ТЕКУЩЕЕ_LIVE_СОСТОЯНИЕ.md
+   - docs/checkpoints/2026-05-25_n8n_postgres_migration_pack/01_MIGRATION_PLAN.txt
+   - docs/checkpoints/2026-05-25_n8n_postgres_migration_pack/02_CUTOVER_CHECKLIST.txt
+3. Следующий цикл вести staging-first:
+   - сначала инвентаризация текущего SQLite/runtime;
+   - потом staging plan;
+   - потом cutover/rollback design;
+   - без смешивания с live prompt-правками звонкового агента.

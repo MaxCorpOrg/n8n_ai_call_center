@@ -1,0 +1,24 @@
+ТЕКСТ ДЛЯ СТАРТА НОВОГО ЧАТА
+
+Работаем в проекте:
+/home/max/worktrees/n8n-postgres-migration
+
+Продолжай с контрольной точки, не начинай с нуля.
+
+Сначала прочитай:
+1. docs/knowledge_base/09_PROJECT_CHANGELOG_AND_STATE.md
+2. документация_для_агента/01_БЫСТРЫЙ_СТАРТ.md
+3. документация_для_агента/02_ТЕКУЩЕЕ_LIVE_СОСТОЯНИЕ.md
+4. docs/checkpoints/2026-05-25_n8n_postgres_migration_pack/05_CHECKPOINT_FOR_NEW_CHAT.txt
+5. docs/checkpoints/2026-05-25_n8n_postgres_migration_pack/01_MIGRATION_PLAN.txt
+6. docs/checkpoints/2026-05-25_n8n_postgres_migration_pack/02_CUTOVER_CHECKLIST.txt
+
+Что уже важно знать:
+- GitHub main уже синхронизирован с рабочей веткой и стоит на c6a25ec.
+- Серверный clean-clone /home/aicore/n8n-ai-clean тоже на c6a25ec.
+- Для следующего цикла создана отдельная ветка:
+  codex/n8n-postgres-migration
+- Старый каталог /home/max/n8n_ai_call_center остаётся dirty и не должен быть стартовой точкой нового большого цикла.
+
+Текущая задача:
+начать staging-first техцикл миграции основного n8n с SQLite на Postgres, не ломая live-callcenter и не смешивая это с live prompt-тюнингом.

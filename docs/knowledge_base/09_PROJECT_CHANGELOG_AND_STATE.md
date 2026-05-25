@@ -500,6 +500,35 @@
 - Если потребуется полноценный server deploy из clean-clone, сначала отдельно проверить содержимое `stash pre-main-sync-2026-05-25` и решить, какие server-specific правки вернуть осознанно.
 - Не использовать `/home/aicore/n8n-server` как “чистый git-источник истины”; для git-синхронизации опираться на `origin/main` и `/home/aicore/n8n-ai-clean`.
 
+## 1.11) Обновление 2026-05-25: сохранён handoff для нового чата и новой рабочей папки
+
+### Сделано
+- Для следующего техцикла сохранён отдельный handoff прямо в новой рабочей папке:
+  - `/home/max/worktrees/n8n-postgres-migration/docs/checkpoints/2026-05-25_n8n_postgres_migration_pack/`
+- В migration pack добавлены отдельные файлы для следующего входа:
+  - `05_CHECKPOINT_FOR_NEW_CHAT.txt`
+  - `06_NEW_CHAT_START_MESSAGE.txt`
+- Актуализированы agent docs под реальное состояние live на `2026-05-25`:
+  - `/home/max/worktrees/n8n-postgres-migration/документация_для_агента/01_БЫСТРЫЙ_СТАРТ.md`
+  - `/home/max/worktrees/n8n-postgres-migration/документация_для_агента/02_ТЕКУЩЕЕ_LIVE_СОСТОЯНИЕ.md`
+  - `/home/max/worktrees/n8n-postgres-migration/документация_для_агента/04_ELEVENLABS_АГЕНТ.md`
+- Зафиксировано, что новая основная папка для следующего большого цикла:
+  - `/home/max/worktrees/n8n-postgres-migration`
+  - ветка: `codex/n8n-postgres-migration`
+
+### На чем остановились
+- Handoff и git-линия уже сохранены, но сам техцикл `SQLite -> Postgres` ещё не начинался.
+- Live-callcenter документы приведены в актуальное состояние, однако старый рабочий каталог `/home/max/n8n_ai_call_center` остаётся грязным и не должен быть стартовой точкой нового большого чата.
+
+### Что делать дальше
+- Новый чат начинать уже из `/home/max/worktrees/n8n-postgres-migration`.
+- В новом чате первым делом читать:
+  - `docs/knowledge_base/09_PROJECT_CHANGELOG_AND_STATE.md`
+  - `документация_для_агента/01_БЫСТРЫЙ_СТАРТ.md`
+  - `документация_для_агента/02_ТЕКУЩЕЕ_LIVE_СОСТОЯНИЕ.md`
+  - `docs/checkpoints/2026-05-25_n8n_postgres_migration_pack/05_CHECKPOINT_FOR_NEW_CHAT.txt`
+- Следующий содержательный цикл: staging-first план миграции основного `n8n` с `SQLite` на `Postgres`, без смешивания с live prompt-тюнингом.
+
 ## 2) Контрольная точка проекта (2026-05-22)
 
 ### Сделано
