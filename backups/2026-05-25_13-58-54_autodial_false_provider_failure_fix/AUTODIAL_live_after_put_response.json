@@ -1,6 +1,11 @@
 {
+  "updatedAt": "2026-05-25T10:58:54.900Z",
+  "createdAt": "2026-04-05T16:13:42.876Z",
+  "id": "iZ8OaN4xW0ZtxaCJ",
   "name": "AUTODIAL_DISPATCHER (sheet-first draft)",
-  "active": true,
+  "description": null,
+  "active": false,
+  "isArchived": false,
   "nodes": [
     {
       "parameters": {
@@ -1123,6 +1128,22 @@
   "settings": {
     "executionOrder": "v1",
     "callerPolicy": "workflowsFromSameOwner",
-    "availableInMCP": false
-  }
+    "availableInMCP": false,
+    "saveDataSuccessExecution": "none",
+    "saveExecutionProgress": false,
+    "saveDataErrorExecution": "none"
+  },
+  "staticData": {
+    "node:Dispatcher | Schedule Tick": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": null,
+  "pinData": {},
+  "versionId": "33aa9701-0b66-4f3c-b055-fe2c9c6b866f",
+  "activeVersionId": null,
+  "versionCounter": 144,
+  "triggerCount": 1,
+  "tags": [],
+  "activeVersion": null
 }

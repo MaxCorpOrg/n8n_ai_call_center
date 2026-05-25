@@ -19,7 +19,7 @@ LIVE_CALL_LOG_WORKFLOW_ID = "kZSdJrsAHWWIC2l6"
 LIVE_WORKFLOW_TEMP = pathlib.Path("/tmp/autodial_dispatcher_sheet_first_live.json")
 N8N_BASE_URL = "https://www.n-8-n.site"
 N8N_ENV_FILE = pathlib.Path("/home/max/.config/lipolong-eleven-relay.env")
-LIVE_SPREADSHEET_ID = "1t0FtCL84l0QJvL9_7XDnmafJS1NHUSdiVyKgqNWOVmA"
+LIVE_SPREADSHEET_ID = "1kAXIwaa_-rC4MO5vV3mFV-Geha08iL_6pJNCNxlQPAU"
 LIVE_SHEET_GID = "199760593"
 LIVE_SHEET_NAME = "Лиды_обзвон"
 LIVE_SHEET_URL = f"https://docs.google.com/spreadsheets/d/{LIVE_SPREADSHEET_ID}/edit?gid={LIVE_SHEET_GID}#gid={LIVE_SHEET_GID}"
@@ -476,17 +476,37 @@ const dailyDialingCount = outcomeRows.filter((row) => {
     && row.row_date === mskDate
     && String(row.call_result || row.result_key || '').toLowerCase() === 'dialing';
 }).length;
+const hasResolvedProviderFailure = (row) => {
+  if (row.source_system !== 'autodial_dispatcher') return false;
+  if (String(row.call_result || '').toLowerCase() !== 'outbound_request_failed') return false;
+  const rowTs = row.updated_at ? parseTs(row.updated_at) : (row.created_at ? parseTs(row.created_at) : null);
+  if (!rowTs) return false;
+  const key = String(row.lead_key || row.lead_id || '').trim();
+  const state = byLead.get(key);
+  if (!state || !Array.isArray(state.history)) return false;
+  return state.history.some((other) => {
+    const otherTs = other.updated_ts || other.created_ts || 0;
+    const otherResult = String(other.result_key || other.call_result || '').toLowerCase();
+    return other.source_system === 'elevenlabs'
+      && other.row_date === row.row_date
+      && otherTs >= rowTs
+      && !!otherResult
+      && otherResult !== 'dialing';
+  });
+};
 const recentProviderFailureCount = outcomeRows.filter((row) => {
   const rowTs = row.updated_at ? parseTs(row.updated_at) : (row.created_at ? parseTs(row.created_at) : null);
   if (!rowTs) return false;
   return row.source_system === 'autodial_dispatcher'
     && String(row.call_result || '').toLowerCase() === 'outbound_request_failed'
+    && !hasResolvedProviderFailure(row)
     && rowTs >= (nowTs - 15 * 60 * 1000);
 }).length;
 const todayProviderFailureCount = outcomeRows.filter((row) => {
   return row.source_system === 'autodial_dispatcher'
     && row.row_date === mskDate
-    && String(row.call_result || '').toLowerCase() === 'outbound_request_failed';
+    && String(row.call_result || '').toLowerCase() === 'outbound_request_failed'
+    && !hasResolvedProviderFailure(row);
 }).length;
 const dailyNonHumanConversationCount = outcomeRows.filter((row) => {
   const result = String(row.call_result || row.result_key || '').toLowerCase();
@@ -497,6 +517,7 @@ const dailyNonHumanConversationCount = outcomeRows.filter((row) => {
 }).length;
 const todayTechnicalWasteCount = outcomeRows.filter((row) => {
   const result = String(row.call_result || '').toLowerCase();
+  if (result === 'outbound_request_failed' && hasResolvedProviderFailure(row)) return false;
   return row.row_date === mskDate
     && ['outbound_request_failed', 'busy', 'no_answer', 'timeout'].includes(result)
     && row.is_live_connect !== true;

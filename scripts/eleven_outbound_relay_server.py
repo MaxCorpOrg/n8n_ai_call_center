@@ -19,9 +19,9 @@ logger = logging.getLogger("eleven_relay")
 RELAY_BIND = os.getenv("RELAY_BIND", "127.0.0.1")
 RELAY_PORT = int(os.getenv("RELAY_PORT", "8787"))
 RELAY_SHARED_TOKEN = os.getenv("RELAY_SHARED_TOKEN", "")
-RELAY_TIMEOUT = int(os.getenv("RELAY_TIMEOUT", "20"))
-RELAY_RETRY_COUNT = int(os.getenv("RELAY_RETRY_COUNT", "1"))
-RELAY_RETRY_DELAY_MS = int(os.getenv("RELAY_RETRY_DELAY_MS", "1500"))
+RELAY_TIMEOUT = int(os.getenv("RELAY_TIMEOUT", "8"))
+RELAY_RETRY_COUNT = int(os.getenv("RELAY_RETRY_COUNT", "0"))
+RELAY_RETRY_DELAY_MS = int(os.getenv("RELAY_RETRY_DELAY_MS", "500"))
 ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY", "")
 ELEVEN_OUTBOUND_URL = os.getenv(
     "ELEVEN_OUTBOUND_URL",
@@ -51,6 +51,35 @@ def extract_provider_message(body: bytes) -> str:
         message = payload.get("message") or payload.get("error") or ""
         return str(message).strip().lower()
     return ""
+
+
+def summarize_upstream_body(body: bytes) -> str:
+    try:
+        payload = json.loads((body or b"{}").decode())
+    except Exception:
+        text = (body or b"").decode(errors="replace").strip()
+        return text[:300]
+
+    if not isinstance(payload, dict):
+        return str(payload)[:300]
+
+    summary = {}
+    for key in (
+        "ok",
+        "status",
+        "success",
+        "message",
+        "error",
+        "conversation_id",
+        "conversationId",
+        "callSid",
+        "call_id",
+    ):
+        if key in payload and payload[key] not in (None, ""):
+            summary[key] = payload[key]
+    if not summary:
+        summary["keys"] = sorted(payload.keys())[:12]
+    return json.dumps(summary, ensure_ascii=False)[:300]
 
 
 def should_retry_http_response(status: int, body: bytes, attempt: int) -> bool:
@@ -138,7 +167,13 @@ class RelayHandler(BaseHTTPRequestHandler):
                         )
                         retry_sleep(attempt + 1)
                         continue
-                    logger.info("Upstream %d (%dms, %d bytes)", resp.status, elapsed_ms, len(body))
+                    logger.info(
+                        "Upstream %d (%dms, %d bytes): %s",
+                        resp.status,
+                        elapsed_ms,
+                        len(body),
+                        summarize_upstream_body(body),
+                    )
                     self.send_response(resp.status)
                     self.send_header(
                         "Content-Type",
@@ -162,7 +197,12 @@ class RelayHandler(BaseHTTPRequestHandler):
                     )
                     retry_sleep(attempt + 1)
                     continue
-                logger.warning("Upstream HTTP %d (%dms): %s", exc.code, elapsed_ms, body[:200])
+                logger.warning(
+                    "Upstream HTTP %d (%dms): %s",
+                    exc.code,
+                    elapsed_ms,
+                    summarize_upstream_body(body) or body[:200],
+                )
                 self.send_response(exc.code)
                 self.send_header(
                     "Content-Type",

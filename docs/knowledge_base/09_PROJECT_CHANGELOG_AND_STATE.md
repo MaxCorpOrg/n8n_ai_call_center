@@ -6,11 +6,459 @@
 - Memory-слой: `postgres_memory` + `postgrest` + таблица `agent_memory`.
 - DB UI: `adminer` (через Traefik на 443, с BasicAuth).
 - Основной workspace: `media_orchestrator_v1`.
-- Telegram-оркестратор: `C8Wmmjuv5hC425PM`.
+- Telegram media-оркестратор `C8Wmmjuv5hC425PM` для `@PostMaker_ElixirPeptide_bot` отключен `2026-05-25`:
+  - workflow переведен в `inactive`;
+  - входящий Telegram webhook удален;
+  - server backup сохранен в `/home/aicore/backups/n8n/C8Wmmjuv5hC425PM_2026-05-25_091327.json`.
+- Отдельный Telegram-бот `@PeptideExpert_Bot` (`YJdwp45LI1dmrsLy`) остается активным и не является тем же самым контуром, что `PostMaker`.
 
-## 2) Контрольная точка проекта (2026-04-30)
+## 1.1) Обновление 2026-05-25: Nanobanana и Telegram media-боты
+
+### Что подтверждено
+- `@PostMaker_ElixirPeptide_bot` сейчас привязан к credential `Telegram Bot MMS_MMM` и workflow `C8Wmmjuv5hC425PM` (`MEDIA_AGENT_1 | Master Orchestrator TG (draft)`).
+- Этот же credential используется в:
+  - `LG1KGfhnNCICjNra` (`MEDIA_AGENT_5 | Gemini Nano Banana Image (draft)`);
+  - `K5es5hBE05LEeB1j` (`KB_SYNC_AGENT | Knowledge Base Sync (draft)`).
+- Единственный текущий workflow в live `n8n`, где прямо зашиты `gen-lang-client-0571009024`, `aiplatform.googleapis.com`, `gemini-3-pro-image-preview` и `gemini-2.5-flash-image`, это `LG1KGfhnNCICjNra`.
+- `LG1KGfhnNCICjNra` вызывается только из `C8Wmmjuv5hC425PM`:
+  - через `Agent 5 | Gemini Nano Banana`;
+  - через `Execute Flow Direct`.
+
+### Статистика по `@PostMaker_ElixirPeptide_bot`
+- Корневой bot-workflow `C8Wmmjuv5hC425PM`:
+  - `production_success = 316`;
+  - `production_error = 9`;
+  - последний зафиксированный event: `2026-02-15 18:24:05`.
+- Внутренний image-workflow `LG1KGfhnNCICjNra`:
+  - `production_success = 49`;
+  - `rootCount = 0`, то есть это не самостоятельный бот, а внутренний вызов;
+  - последний зафиксированный event: `2026-02-15 18:22:41`.
+- Внутренний fallback `KFWMYCaEpWAdVIn3` (`Agent 3 | Pollinations`):
+  - `production_success = 24`;
+  - последний зафиксированный event: `2026-02-15 18:24:04`.
+
+### Что сделано по отключению `PostMaker`
+- workflow `C8Wmmjuv5hC425PM` переведен в `inactive` в live-базе `n8n`;
+- Telegram webhook у `@PostMaker_ElixirPeptide_bot` удален с `drop_pending_updates=true`;
+- после удаления webhook:
+  - `before_url = https://www.n-8-n.site/webhook/11765d1c-73a2-4b14-8ce9-bb31dbbb403e/webhook`;
+  - `after_url = ""`;
+  - `pending_update_count = 0`.
+
+### Что найдено по второму media-боту
+- Важное уточнение после дополнительной проверки:
+  - `@MaxCorp_VideoGENai_bot` как Telegram-бот существует и сейчас;
+  - но в текущем live `n8n` instance он не найден ни в `telegram` credentials, ни в workflow, ни в `workflow_history`.
+- Telegram API на `2026-05-25` подтверждает:
+  - `username = @MaxCorp_VideoGENai_bot`;
+  - `first_name = VideoGEN`;
+  - `webhook_url = ""`;
+  - `pending_update_count = 0`.
+- Пустой webhook означает, что текущая рабочая связка этого бота не похожа на `telegramTrigger`/webhook в нынешнем `n8n`.
+- Наиболее вероятный текущий режим, если бот реально отвечает пользователям:
+  - отдельный `long polling` runner вне `n8n`.
+- Исторический подтвержденный контур найден в локальном Telegram export `2026-03-07`:
+  - проект: `projects/veobot`;
+  - стек: `Python/aiogram`;
+  - entrypoint: `python -m veobot.main`;
+  - ранний запуск: `nohup env PYTHONPATH=src .venv/bin/python -m veobot.main > bot.log 2>&1 &`;
+  - затем перевод в user-service `~/.config/systemd/user/veobot.service`;
+  - рабочая модель: `veo-3.1-fast-generate-001`;
+  - тот же Google project: `gen-lang-client-0571009024`;
+  - output bucket: `gs://maxcorp-veo-output/video`.
+- То есть `@MaxCorp_VideoGENai_bot` подтвержден как отдельный Telegram/Veo/Vertex-контур, а не как текущий media-workflow внутри этого `n8n`.
+- Ближайший текущий кандидат внутри самого `n8n` на второй media-бот:
+  - username: `@M_A_X_B_O_T_bot`;
+  - credential: `Telegram Bot Main`;
+  - workflow: `ft03yrDgJJweqcVP` (`MEDIA_AGENT | Telegram + Memory + Flow + Kling (draft)`).
+- Состояние `@M_A_X_B_O_T_bot`:
+  - workflow уже `inactive`;
+  - входящий Telegram webhook пустой;
+  - `workflow_statistics`: `production_error = 3`, успешных production-запусков не зафиксировано;
+  - внутри workflow есть old-school узлы `FLOW | Nano Banana | Generate Image` и `KLING`, но в текущем live-состоянии это не активный бот.
+
+### Отдельно важно
+- Активный `@PeptideExpert_Bot` живет отдельно:
+  - workflow `YJdwp45LI1dmrsLy` (`Peptide_Expert`);
+  - `production_success = 340`;
+  - `production_error = 36`;
+  - последний event: `2026-05-11 08:25:17`;
+  - он не использует `gen-lang-client-0571009024`.
+- По состоянию live `n8n` на `2026-05-25` майский billing Google Cloud по `NANO BANA` не объясняется найденными workflow внутри этого `n8n`:
+  - вся подтвержденная activity по `Gemini Nano Banana` в текущем `n8n` обрывается на `2026-02-15`;
+  - в мае из media/Nanobanana-контуров здесь живого трафика не видно.
+- Но отдельно подтверждено, что `@MaxCorp_VideoGENai_bot` исторически ходил в тот же Google project `gen-lang-client-0571009024` уже вне этого `n8n`, через отдельный `veobot`-сервис.
+
+## 1.2) Обновление 2026-05-25: Cosmetologist Hunter private-only fix
 
 ### Сделано
+- Проверен live `cosmetologist_hunter.service` на `ai-core-prod-147`: сервис активен на `0.0.0.0:8787`, `Firecrawl` и `site-control-kit` включены.
+- Найдена причина ошибки в Telegram-боте/агенте: preview-файл `.runtime/cosmetologist_hunter/previews/контакты_косметологов_москва_49.json` был создан от `root`, из-за чего сервис под пользователем `aicore` получал `Permission denied`.
+- Исправлены права runtime-папки: `.runtime/cosmetologist_hunter` теперь принадлежит `aicore:aicore`.
+- В `scripts/cosmetologist_hunter_service.py` включён private-only режим отбора:
+  - сначала собираются врачебные профили `Prodoctorov`;
+  - затем private-запросы Yandex;
+  - 2GIS используется только после этого;
+  - клиники, центры, салоны, студии и прочие организации отсекаются до записи результата;
+  - в preview добавляется `private_match_reason`, чтобы было видно, почему контакт прошёл фильтр.
+- Включён полноценный fetch fallback для `2GIS`, `Yandex` и `Prodoctorov`: `direct -> Firecrawl -> site-control-kit`.
+- Добавлены короткие timeout-ы, общий search time budget и live `fetch_attempt`-логи в `journalctl`, чтобы бот не висел молча.
+- Реальный прогон `2026-05-25` создал таблицу частных косметологов Москвы:
+  - Google Sheet: `https://docs.google.com/spreadsheets/d/14X6j699O5J_RtjfUZ4JDddugisbIV0XdAr3HFP5a2kg/edit`;
+  - server xlsx: `/home/aicore/n8n-server/ Таблицы_контактов /контакты_косметологов_москва_49.xlsx`;
+  - local xlsx: `/home/max/n8n_ai_call_center/ Таблицы_контактов /контакты_косметологов_москва_49.xlsx`;
+  - preview: `/home/max/n8n_ai_call_center/.runtime/cosmetologist_hunter/previews/контакты_косметологов_москва_49.json`;
+  - run log: `/home/max/n8n_ai_call_center/.runtime/cosmetologist_hunter/logs/2026-05-25_private_cosmetologists_run.log`.
+- По запросу на `50` контактов создан отдельный локальный и серверный файл:
+  - local xlsx: `/home/max/n8n_ai_call_center/ Таблицы_контактов /контакты_косметологов_москва_50.xlsx`;
+  - server xlsx: `/home/aicore/n8n-server/ Таблицы_контактов /контакты_косметологов_москва_50.xlsx`;
+  - preview: `/home/max/n8n_ai_call_center/.runtime/cosmetologist_hunter/previews/контакты_косметологов_москва_50.json`;
+  - build log: `/home/max/n8n_ai_call_center/.runtime/cosmetologist_hunter/logs/2026-05-25_private_cosmetologists_50_build.log`;
+  - отбор сделан как `private-practice/cabinet candidates`: исключены явные `clinic/center/salon/medical/lab/shop/agency` keywords, но последние строки в пачке требуют ручной проверки, потому что это малые практики/бренды без явного ФИО.
+- Таблица `_50` загружена в Google Drive в папку контактных таблиц:
+  - Google Sheet: `https://docs.google.com/spreadsheets/d/1kAXIwaa_-rC4MO5vV3mFV-Geha08iL_6pJNCNxlQPAU/edit?gid=199760593#gid=199760593`;
+  - rows written: `50`;
+  - `AUTODIAL_DISPATCHER` и `ELEVEN_TOOL_CALL_LOG_BRIDGE` переключены на этот `spreadsheet_id`, чтобы dispatcher читал и `call_log` писал в одну таблицу.
+- Перед переключением `AUTODIAL_DISPATCHER` был остановлен через n8n API, затем после синхронного обновления `AUTODIAL_DISPATCHER` и `ELEVEN_TOOL_CALL_LOG_BRIDGE` снова активирован.
+- Backup live workflow перед переключением сохранен локально:
+  - `/home/max/n8n_ai_call_center/backups/2026-05-25_10-39-58_switch_autodial_to_contacts_50/`.
+- После старта dispatcher уже записал в новую таблицу первую lock-строку `autodial_dispatcher / dialing` по `row_2`, что подтверждает старт обзвона именно с `_50`.
+
+### На чем остановились
+- Агент в текущем режиме надёжно выдаёт малые пачки private doctor profiles; тестовый production run на `5` контактов успешен.
+- Запрос на `10` контактов вернул управляемую ошибку `найдено 5, нужно 10`, не подвисая и не подмешивая клиники.
+- Live-сервер после серии прогонов временно начал получать от `Prodoctorov` страницу ограничения доступа; локальная машина ещё смогла снять часть данных, но strict-new режим на `50` без повторов сейчас не набирается.
+- На `2026-05-25 10:41 MSK` live-обзвон включен и смотрит на `контакты_косметологов_москва_50`; первая строка взята в работу как `dialing`.
+- В live workflow `COSMETOLOGIST_HUNTER_TELEGRAM_LIVE` всё ещё есть секреты прямо в Code node; это старый долг, отдельно требующий env-переноса для Telegram/Mistral/hunter token без поломки n8n Code node.
+
+### Что делать дальше
+- Наблюдать новую таблицу `_50` в течение ближайших минут/звонков: после lock-строки должен появиться итог от `ELEVEN_TOOL_CALL_LOG_BRIDGE` с `eleven_conv_id` или retry-исходом.
+- Для массового сбора запускать private-only агент пачками по `5-10` и проверять preview перед добавлением в обзвон.
+- Следующий hardening: вынести секреты `COSMETOLOGIST_HUNTER_TELEGRAM_LIVE` из live workflow в env/credentials и после этого перепривязать n8n nodes.
+- Если нужно больше частных косметологов за один запуск, расширить Prodoctorov pagination и поднять `COSMETOLOGIST_HUNTER_SEARCH_TIMEOUT_SECONDS`, но не возвращать clinic/core-запросы в верх приоритета.
+
+## 1.3) Обновление 2026-05-25: voicemail/message-service fast hangup
+
+### Сделано
+- По свежему кейсу `conv_1901ksezar1jezbsve31c4qr83rw` подтверждён старый конфликт prompt: live-правила всё ещё разрешали автоответчику/message-service получить короткое callback-сообщение, из-за чего агент мог слушать и отвечать машинному помощнику.
+- Чтобы не продолжать обзвон на старом поведении, live workflow `AUTODIAL_DISPATCHER` остановлен через n8n API: `active=false`.
+- Локальный source-of-truth prompt обновлён в `docs/agent_kb_lipolong/08_ELEVENLABS_SYSTEM_PROMPT_EN.md`:
+  - machine/unavailable/message-service signal закрывать максимум за `5` секунд;
+  - не ждать, пока автоответчик договорит длинный скрипт;
+  - не оставлять callback-сообщение электронному помощнику;
+  - сначала `call_log` с `call_result=no_answer` или `busy`, `next_step=callback`, затем silent `end_call`.
+- Подготовлен prompt-only payload для ElevenLabs Main:
+  - `/home/max/n8n_ai_call_center/backups/2026-05-25_10-48-19_voicemail_fast_hangup_prompt_patch/main_prompt_only_payload.json`.
+- Попытка применить patch из текущей сети зафиксирована в:
+  - `/home/max/n8n_ai_call_center/backups/2026-05-25_10-48-19_voicemail_fast_hangup_prompt_patch/patch_attempt_result.json`.
+
+### На чем остановились
+- Прямой ElevenLabs API из локальной сети и с `ai-core-prod-147` возвращает `302` на restricted/help page, поэтому live prompt `Main` не был изменён программно.
+- `2026-05-25 11:12 MSK`: по прямой команде пользователя `AUTODIAL_DISPATCHER` снова включён (`active=true`) до применения ElevenLabs prompt-fix.
+- После включения `_50` получил новые строки: `row_3` был взят в `dialing`, затем появился результат, далее `row_4` взят в `dialing`.
+- Риск старого поведения на автоответчике сохраняется до применения prepared prompt payload через ElevenLabs UI/API из разрешённой сети.
+
+### Что делать дальше
+- Зайти в ElevenLabs UI/API из разрешённой сети и применить payload `main_prompt_only_payload.json` к branch `Main` / `agtbrch_7801kgybyg9nesrbv64y078pazq0`.
+- Проверить, что после patch сохранились `first_message=""`, `turn_timeout=10.0`, `voice_id=0ArNnoIAWKlT4WweaVMY`, `tool_ids`, `skip_turn`, `voicemail_detection`, `context_fetch`, `call_log`, `send_sms_info`, `end_call`.
+- Прогнать manual voicemail/SIP test: на фразах `абонент сейчас не может ответить`, `если абонент захочет связаться`, `что передать` агент должен завершить звонок без spoken callback максимум за `5` секунд.
+- После применения prompt-fix ещё раз проверить live звонок на автоответчик/message-service и убедиться, что hangup происходит максимум за `5` секунд.
+
+## 1.4) Обновление 2026-05-25: разбор задержки outbound-call и тайминги n8n
+
+### Сделано
+- Добавлен локальный диагностический скрипт:
+  - `/home/max/n8n_ai_call_center/scripts/report_n8n_eventlog_timings.py`
+  - он разбирает `n8nEventLog*.log`, считает длительности workflow/node и `runner task requested -> response received`.
+- Снят свежий live-срез `n8nEventLog` с сервера и подтверждено:
+  - основной длинный хвост не в Code nodes и не в Google Sheet;
+  - самые долгие узлы сейчас:
+    - `AUTODIAL_DISPATCHER -> Dispatcher | Request Outbound Call`
+    - `VOICE_INBOUND_AGENT -> Eleven | Outbound HTTP`
+  - их длительность до правки была порядка `33–42s`.
+- Прямой probe с live-сервера `147.45.213.87` в relay `http://151.241.228.232:8787/eleven/outbound-call` подтвердил причину:
+  - при upstream-сбое relay отвечал только через `41703 ms` с `HTTP 502`;
+  - это совпало с его текущей retry-схемой `20s timeout + 1 retry + 1500ms delay`.
+- Live workflow `VOICE_INBOUND_AGENT (draft)` обновлён через `n8n API`:
+  - в ноде `Eleven | Outbound HTTP` добавлен `options.timeout = 10000`;
+  - backup сохранён в:
+    - `/home/max/n8n_ai_call_center/backups/2026-05-25_outbound_timeout_trim/VOICE_INBOUND_AGENT_before.json`
+    - `/home/max/n8n_ai_call_center/backups/2026-05-25_outbound_timeout_trim/VOICE_INBOUND_AGENT_after_timeout_patch.json`
+- Live workflow `AUTODIAL_DISPATCHER (sheet-first draft)` обновлён через `n8n API`:
+  - в ноде `Dispatcher | Request Outbound Call` добавлен `options.timeout = 12000`;
+  - backup сохранён в:
+    - `/home/max/n8n_ai_call_center/backups/2026-05-25_autodial_timeout_trim/AUTODIAL_before.json`
+    - `/home/max/n8n_ai_call_center/backups/2026-05-25_autodial_timeout_trim/AUTODIAL_after.json`
+- Проверка после live-патча:
+  - тот же webhook `POST https://www.n-8-n.site/webhook/eleven/outbound-call` теперь отвечает примерно за `10180 ms`, а не за `~41.7s`.
+- Исходник relay в репозитории приведён к более безопасным дефолтам для будущего deploy:
+  - `scripts/eleven_outbound_relay_server.py`
+  - новые defaults: `RELAY_TIMEOUT=8`, `RELAY_RETRY_COUNT=0`, `RELAY_RETRY_DELAY_MS=500`.
+- Отдельно внесена та же правка в реальный live relay на `151.241.228.232`:
+  - backup runtime сохранён на relay-сервере:
+    - `/root/backups/eleven_relay_2026-05-25_11-45-10`
+  - обновлён `/opt/eleven_outbound_relay.py`;
+  - в `/root/.eleven_outbound_relay.env` добавлены:
+    - `RELAY_TIMEOUT=8`
+    - `RELAY_RETRY_COUNT=0`
+    - `RELAY_RETRY_DELAY_MS=500`
+  - сервис `eleven-outbound-relay.service` перезапущен успешно.
+- Проверка после live relay-патча:
+  - `POST https://www.n-8-n.site/webhook/eleven/outbound-call` с probe-payload теперь даёт `provider_rejected` примерно за `8367 ms`;
+  - до этого тот же failure path занимал `~41.7s`.
+- Дополнительная диагностика sheet-first dispatcher показала, что текущая причина остановки не `exhausted`, а именно:
+  - `reason = provider_circuit_breaker`
+  - `recent_provider_failure_count = 3`
+  - `today_provider_failure_count = 5`
+  - в Google Sheet `_50` при этом подтверждены все `50` seed-строк (`source_system = xlsx_import`), то есть база физически не исчерпана.
+- После выхода старых technical failures из окна `15 минут` dispatcher действительно ожил автоматически:
+  - в live Google Sheet `_50` появились новые строки `dialing/outbound_request_failed` по `row_7`, `row_8`, `row_9`, `row_10`;
+  - это подтвердило, что `cron`, due-логика и breaker reset работают, а текущий стоп вызван именно upstream outbound reject path.
+- Чтобы не продолжать тратить базу на технические фейлы, live `AUTODIAL_DISPATCHER` после этой проверки снова остановлен вручную через `n8n API`:
+  - workflow `iZ8OaN4xW0ZtxaCJ`
+  - итоговое состояние после деактивации: `active=false`.
+- Для следующего цикла диагностики дополнительно усилен live relay-лог:
+  - `scripts/eleven_outbound_relay_server.py` теперь пишет краткий summary тела ответа ElevenLabs и при `HTTP 200`;
+  - обновлён реальный `/opt/eleven_outbound_relay.py` на `151.241.228.232`, сервис перезапущен успешно;
+  - это нужно, чтобы следующий тест сразу показал разницу между accepted outbound и "200, но по сути не принят/не дошёл".
+
+### На чем остановились
+- Длинная пауза на старте outbound теперь локализована и частично срезана на live со стороны `n8n` timeout.
+- Та же пауза дополнительно срезана на реальном relay-хосте `151.241.228.232`: старый retry/path больше не должен держать `~41s`.
+- Это не чинит сам live ElevenLabs prompt: автоответчик по-прежнему может быть разговорно обработан до применения prepared prompt patch через разрешённую сеть/UI.
+- Автодозвон уже подтвердил, что умеет сам выходить из `provider_circuit_breaker`, но upstream outbound всё ещё возвращает технический отказ. Поэтому dispatcher сейчас остановлен вручную, чтобы не сжигать лиды до следующей live-правки.
+- Наблюдаемость relay усилена: на следующем probe/реальном звонке можно будет увидеть не только время и статус, но и краткий смысл тела ответа ElevenLabs.
+- На сервере `n8n` отдельно зафиксированы системные сигналы деградации:
+  - `database.sqlite` внутри `n8n` уже около `2.7G`;
+  - в docker logs есть `SqliteWriteConnectionMutex` timeout'ы;
+  - есть `Task ... Offer expired - not accepted within validity window`.
+- По свежему тайминг-срезу эти runner/sqlite проблемы сейчас не были главным источником `40s` outbound delay, но остаются отдельным operational риском.
+
+### Что делать дальше
+- Разобрать, почему upstream outbound по-прежнему возвращает технический reject даже после срезания timeout/retry path до `~8.3s`, и только после этого снова включать `AUTODIAL_DISPATCHER`.
+- Повторить живой/тестовый звонок после timeout-патча и снять новый `n8nEventLog` report: должен исчезнуть `33–42s` хвост на `Eleven | Outbound HTTP`.
+- Зайти в ElevenLabs через разрешённую сеть/UI и применить уже подготовленный voicemail/message-service patch на `Main`.
+- Отдельным следующим циклом решить runtime-долг `n8n`:
+  - либо уменьшить pressure на SQLite;
+  - либо переводить основной `n8n` off SQLite;
+  - отдельно проверить, почему на сервере продолжают приходить `POST mango/result/route` в несуществующий webhook.
+
+## 1.5) Обновление 2026-05-25: live Main patch через relay и ручная канарейка
+
+### Сделано
+- Подтверждено, что прямой ElevenLabs API из `147.45.213.87` по-прежнему прикрыт `302/403`, но relay-хост `151.241.228.232` имеет рабочий доступ к `api.elevenlabs.io`.
+- Через relay-хост снят live backup `AI_CALL_AGENT_1 / Main`:
+  - локальная копия до правки:
+    - `/home/max/n8n_ai_call_center/backups/2026-05-25_live_main_canary_refresh/current_ai_call_agent_1.before.json`
+  - remote backup:
+    - `/root/current_ai_call_agent_1.json`
+- Подготовлены два patch-артефакта:
+  - `/home/max/n8n_ai_call_center/backups/2026-05-25_live_main_canary_refresh/main_patch_payload.json`
+  - `/home/max/n8n_ai_call_center/backups/2026-05-25_live_main_canary_refresh/main_minimal_patch_payload.json`
+- Первый полный patch был отклонён Eleven API с `400 both_tools_and_tool_ids_provided`, поэтому применён минимальный безопасный PATCH без миграции `tool_ids`.
+- Успешно применён live patch в `Main`:
+  - `turn_timeout` снижен до `5.0`;
+  - `voicemail_detection.params.voicemail_message = null`;
+  - live prompt заменён на актуальный source-of-truth с жёстким machine fast-hangup;
+  - сохранены `first_message=""`, `voice_id=0ArNnoIAWKlT4WweaVMY`, `tool_ids`, `phone_ids`.
+- Ответ и свежий agent snapshot сохранены в:
+  - `/home/max/n8n_ai_call_center/backups/2026-05-25_live_main_canary_refresh/current_ai_call_agent_1.after_patch.json`
+  - `/root/main_patch_response_2026-05-25.json`
+- По итоговому GET после patch подтверждено:
+  - branch `Main = agtbrch_7801kgybyg9nesrbv64y078pazq0`;
+  - новая live version:
+    - `agtvrsn_3301ksfb9p4xf68s90k3by9y677a`.
+- Для живой проверки возвращения обзвона включен канареечный режим:
+  - `AUTODIAL_DISPATCHER` был кратко активирован через n8n API;
+  - затем выяснилось, что dispatcher уже упёрся во внутренний стоп `daily_provider_failure_limit_reached`, поэтому канарейка продолжена вручную через `POST /webhook/eleven/outbound-call`.
+- Ручная канарейка прогнана по трём лидам:
+  - `row_11`
+  - `row_12`
+  - `row_13`
+- Все `3/3` ручных canary-call вернули один и тот же техисход:
+  - `provider_rejected`
+  - `relay_upstream_failed`
+  - `The read operation timed out`
+- Relay journal на `151.241.228.232` подтвердил три подряд upstream timeout примерно по `8015-8025 ms`.
+- При этом live Sheet показал первый положительный эффект нового prompt:
+  - по `row_11` появилась `elevenlabs`-строка с `call_result = no_answer`;
+  - note: `Обнаружен голосовой ассистент, сообщение не оставлено.`
+  - это первый подтверждённый live-кейс, где после patch spoken callback автоответчику уже не был оставлен.
+
+### На чем остановились
+- Главный live-blocker сместился:
+  - machine/message-service prompt уже реально обновлён;
+  - но outbound SIP trunk path всё ещё нестабилен и даёт технический timeout ещё до полноценной серии канареечных разговоров.
+- `AUTODIAL_DISPATCHER` сейчас снова оставлен в `inactive`, потому что:
+  - текущий `provider_failures_today = 8`;
+  - live logic уже считает, что дневной лимит технических outbound-фейлов достигнут.
+- `eleven_conv_id` в свежих строках Sheet всё ещё пустой:
+  - call_log bridge теперь чистит плейсхолдеры корректно;
+  - но live `call_log` tool-schema в `Main` остаётся relaxed и не прокидывает conversation id автоматически.
+
+### Что делать дальше
+- Не включать массовый обзвон, пока не разобран текущий `relay_upstream_failed` path.
+- Следующим техническим циклом:
+  - сравнить успешные и тайм-аутные outbound payload на relay;
+  - подтвердить, нет ли специфического reject pattern по отдельным номерам/полям payload;
+  - после этого повторить manual canary `3-5` звонков.
+- Отдельным маленьким шагом добить `eleven_conv_id`:
+  - попробовать точечный patch только `call_log` tool-schema через relay-host;
+  - не трогать `tool_ids`, `first_message`, `voice_id` и phone bindings.
+
+## 1.6) Обновление 2026-05-25: false provider-failure fix в autodial
+
+### Сделано
+- По свежему live Sheet разбору найден ещё один корневой дефект dispatcher-логики:
+  - `autodial_dispatcher` считал `outbound_request_failed` как технический provider-failure сразу и безоговорочно;
+  - но по тем же лидам позже уже приходил реальный `elevenlabs`-результат, то есть часть таких timeout'ов была ложной.
+- Это подтверждено живыми строками как минимум для:
+  - `row_3`
+  - `row_5`
+  - `row_10`
+- Логика `Dispatcher | Parse Sheet Rows` обновлена:
+  - если по тому же `lead_id`/`lead_key` позже в тот же день пришёл `elevenlabs`-итог, ранний `outbound_request_failed` считается `resolved provider failure`;
+  - такие строки больше не входят в:
+    - `recent_provider_failure_count`
+    - `today_provider_failure_count`
+    - `today_technical_waste_count`
+- Обновлён source workflow в репозитории:
+  - `/home/max/n8n_ai_call_center/scripts/build_autodial_sheet_workflow.py`
+  - `/home/max/n8n_ai_call_center/workflows/AUTODIAL_DISPATCHER_DRAFT.json`
+- Live workflow `iZ8OaN4xW0ZtxaCJ` обновлён через `n8n API`.
+- Backup live workflow перед этим шагом:
+  - `/home/max/n8n_ai_call_center/backups/2026-05-25_13-58-54_autodial_false_provider_failure_fix/AUTODIAL_live_before.json`
+- Ответ после live PUT:
+  - `/home/max/n8n_ai_call_center/backups/2026-05-25_13-58-54_autodial_false_provider_failure_fix/AUTODIAL_live_after_put_response.json`
+- Локальный live-отчёт тоже обновлён, чтобы показывать ту же картину, что и dispatcher:
+  - `/home/max/n8n_ai_call_center/scripts/report_live_call_log_sheet.py`
+  - теперь он отдельно считает:
+    - `provider_failures_raw`
+    - `provider_failures_resolved`
+    - `provider_failures_unresolved`
+- Контрольный срез после этой правки:
+  - `provider_failures_raw = 8`
+  - `provider_failures_resolved = 3`
+  - `provider_failures_unresolved = 5`
+
+### На чем остановились
+- После фикса `AUTODIAL_DISPATCHER` снова активирован, но это произошло уже на границе/после `14:00 MSK`, то есть вне окна обзвона.
+- Поэтому немедленного нового live-вызова после этой правки ещё не было; но следующий рабочий tick уже пойдёт без старого false-breaker по resolved timeout-кейсам.
+- Проблема upstream timeout при этом не исчезла полностью:
+  - unresolved technical failures по `row_7`, `row_8`, `row_9` ещё остаются;
+  - outbound timeout path всё ещё требует отдельного добивания.
+
+### Что делать дальше
+- На следующем рабочем окне `10:00-14:00 MSK` снять первый tick/первую новую попытку уже после false-failure fix и проверить:
+  - ушёл ли прежний `daily_provider_failure_limit_reached`;
+  - не уходит ли dispatcher снова в ложный breaker;
+  - как меняется доля `resolved` vs `unresolved` provider-failures.
+- Затем продолжить canary только по `3-5` попыткам и смотреть одновременно:
+  - relay journal;
+  - `report_live_call_log_sheet.py`;
+  - machine-like notes;
+  - наличие или отсутствие `eleven_conv_id`.
+- Для ручной работы без раскопок по репозиторию собран отдельный операторский пакет в текстовых файлах:
+  - `/home/max/n8n_ai_call_center/docs/checkpoints/2026-05-25_callcenter_operator_pack/`
+  - внутри есть:
+    - `00_README.txt`
+    - `01_CURRENT_STATE.txt`
+    - `02_WHAT_TO_WRITE_AND_WHERE.txt`
+    - `03_NEXT_CALL_WINDOW_CHECKLIST.txt`
+    - `04_PATHS_AND_FILES.txt`
+
+## 1.7) Обновление 2026-05-25: intermediary/message-transfer block в live Main
+
+### Сделано
+- По кейсу `conv_8801ksfbpec2fz5bcvn6wt9h05p1` подтверждено, что текущая кампания не должна считать `я передам ответственному специалисту` полезным контактом.
+- Найден конфликт в source-of-truth prompt:
+  - там всё ещё оставалась старая логика `send_kp_pending_callback` для secretary/operator/message-transfer сценариев.
+- Локальные prompt-источники обновлены:
+  - `/home/max/n8n_ai_call_center/docs/agent_kb_lipolong/08_ELEVENLABS_SYSTEM_PROMPT_EN.md`
+  - `/home/max/n8n_ai_call_center/docs/agent_kb_lipolong/08_ELEVENLABS_SYSTEM_PROMPT_RU.md`
+  - `/home/max/n8n_ai_call_center/документация_для_агента/04_ELEVENLABS_АГЕНТ.md`
+- Новое правило:
+  - secretary / intermediary / assistant / screening-service / defender-service, которые только обещают что-то передать дальше, не считаются полезным human contact;
+  - не оставлять pitch;
+  - не оставлять manager contact;
+  - не логировать это как `send_kp_pending_callback` только из-за согласия что-то передать.
+- Live `Main` перепатчен через relay-host `151.241.228.232`.
+- Артефакты:
+  - `/home/max/n8n_ai_call_center/backups/2026-05-25_intermediary_block_refresh/main_intermediary_block_payload.json`
+  - `/home/max/n8n_ai_call_center/backups/2026-05-25_intermediary_block_refresh/main_intermediary_block_payload_v2.json`
+  - `/home/max/n8n_ai_call_center/backups/2026-05-25_intermediary_block_refresh/main_intermediary_block_payload_applied.json`
+- Live GET после patch подтвердил:
+  - `turn_timeout = 5.0`;
+  - prompt содержит новые intermediary-block формулировки;
+  - `MTS Defender` и machine fast-hangup правила сохранились.
+
+### На чем остановились
+- Live rule уже обновлено, но end-to-end новый звонок именно на intermediary-линию после этого patch ещё не снят.
+- Поэтому следующий живой similar-case нужно использовать как проверку, что `send_kp_pending_callback` больше не появляется на таких линиях.
+
+### Что делать дальше
+- При первом следующем похожем звонке проверить:
+  - нет ли `send_kp_pending_callback` на intermediary/message-transfer линии;
+  - нет ли spoken callback или контакта менеджера;
+  - завершает ли агент такой кейс как `no_answer` / blocked non-human outcome.
+
+## 1.8) Обновление 2026-05-25: жёсткое правило по слову `абонент`
+
+### Сделано
+- По кейсу `conv_6201ksfbnq77echv3j7e4j2h8qha` пользователь зафиксировал более жёсткое боевое правило:
+  - если линия произносит слово `абонент` в сервисной фразе, это надо считать автоответчиком без дальнейшего анализа.
+- Это правило добавлено в:
+  - `/home/max/n8n_ai_call_center/docs/agent_kb_lipolong/08_ELEVENLABS_SYSTEM_PROMPT_EN.md`
+  - `/home/max/n8n_ai_call_center/docs/agent_kb_lipolong/08_ELEVENLABS_SYSTEM_PROMPT_RU.md`
+  - `/home/max/n8n_ai_call_center/документация_для_агента/04_ELEVENLABS_АГЕНТ.md`
+- Подготовлен и применён новый live patch:
+  - `/home/max/n8n_ai_call_center/backups/2026-05-25_abonent_hard_rule_refresh/main_abonent_hard_rule_payload.json`
+- Patch снова применён в live `Main` через relay-host `151.241.228.232`.
+- Практический смысл:
+  - `абонент сейчас не может ответить`
+  - `если абонент захочет связаться`
+  - `абонент использует защиту/помощника`
+  - и любые похожие service-line конструкции со словом `абонент`
+  теперь должны сразу идти в `machine -> call_log -> silent end_call`.
+
+### На чем остановились
+- Live rule уже применено, но новый end-to-end звонок именно после этого последнего patch ещё не снят.
+
+### Что делать дальше
+- На следующем похожем кейсе проверить, что агент:
+  - не говорит в ответ вообще;
+  - не оставляет callback message;
+  - не уходит в qualification;
+  - завершает звонок сразу после `call_log`.
+
+## 2) Контрольная точка проекта (2026-05-22)
+
+### Сделано
+- `2026-05-22` снят live-срез звонкового контура на `ai-core-prod-147`:
+  - n8n, Postgres, PostgREST, Redis, Traefik и связанные контейнеры подняты;
+  - активны workflow `VOICE_INBOUND_AGENT`, `ELEVEN_TOOL_CALL_LOG_BRIDGE`, `AUTODIAL_DISPATCHER`, `ELEVEN_TOOL_SEND_SMS_BRIDGE`;
+  - `call_center.call_sessions / call_events / call_turns` на момент проверки пустые, рабочие события звонков фактически лежат в n8n executions и Google Sheet через `call_log`;
+  - по окну `2026-05-22 10:00-11:35 MSK` найдено `27` outbound-попыток: `13` запросов приняты ElevenLabs, `6` получили `SIP 486 Busy Here`, `8` дали relay/provider timeout;
+  - dispatcher остановил обзвон по `daily_provider_failure_limit_reached` из-за `today_provider_failure_count = 8`;
+  - по содержимому сегодняшних payload точного совпадения `LabLabStation / Lab Lab / lablab` не найдено.
+- `2026-05-22` выполнено live-hardening секретов n8n:
+  - backup перед правками сохранён на сервере в `/home/aicore/safe-backups/2026-05-22_13-56-42_secrets_autovoicemail_fix`;
+  - ElevenLabs API key, outbound relay token, Mango API key/salt и Google OAuth client/refresh-secret вынесены из workflow JSON и execution data в env-файлы:
+    - `/home/aicore/n8n-ai-clean/.env.callcenter`;
+    - `/home/aicore/n8n-server/.env.callcenter`;
+  - compose-файлы `/home/aicore/n8n-ai-clean/docker-compose*.yml` и `/home/aicore/n8n-server/docker-compose*.yml` подключают эти env-файлы к n8n;
+  - workflow `VOICE_INBOUND_AGENT`, `ELEVEN_TOOL_CALL_LOG_BRIDGE`, `AUTODIAL_DISPATCHER`, `ELEVEN_TOOL_SEND_SMS_BRIDGE` переведены на `$env.*` вместо hardcoded secrets;
+  - для этих workflow отключено сохранение success/error execution payloads, старые execution/history payloads с секретами удалены;
+  - контрольный secret-scan по `workflow_entity.nodes` и `execution_data` не нашёл старые маркеры `sk_...`, `GOCSPX-`, `1//...`, Mango secrets и `ya29.`;
+  - smoke `call_log` после перевода на env прошёл успешно и добавил строку `smoke_secret_hardening_envflag` в Google Sheet, диапазон `'Лиды_обзвон'!A905:AM905`.
+- По автоответчику найден важный текущий конфликт в правилах агента:
+  - старое правило message-service разрешало оставить короткое callback-сообщение и завершить звонок;
+  - это объясняет кейсы, где агент продолжает говорить с электронным помощником вместо немедленного завершения.
+- Зафиксировано новое обязательное правило для следующей правки live ElevenLabs prompt:
+  - voicemail, IVR, электронный помощник, message-service, фразы `что передать`, `если абонент захочет связаться`, `какие подробности желаете рассказать`, `это всё?` должны завершаться сразу;
+  - агент не должен оставлять callback-сообщение, отвечать на уточнения электронного помощника или вести qualification/sales-pitch;
+  - результат логировать как `no_answer` или `busy/no_answer` с `next_step=callback`, затем вызывать `end_call`.
+- Важно: live ElevenLabs prompt в этот проход не изменён, потому что прямой ElevenLabs API из текущей сети возвращает restricted/help page (`302/403`). Нужна правка через доступный ElevenLabs UI/API с разрешённой сети.
 - Email-followup агент доведен до production-режима как отдельный контур без зависимости от `ElevenLabs`.
 - Для email-агента подняты и подтверждены:
   - `email_followup.service`
@@ -57,6 +505,9 @@
   - отдельную GitHub-ready wrapper-папку `tools/telegram_desktop_contact_tool/` с собственным launcher и README.
 
 ### На чем остановились
+- Секреты звонкового n8n-контура вынесены из workflow/execution payloads в серверные env-файлы, smoke `call_log` после этого зелёный.
+- Прямой API-доступ к ElevenLabs из текущего окружения заблокирован, поэтому prompt-правка по немедленному завершению автоответчиков пока не применена на live `Main`.
+- Следующая точка продолжения по звонкам: зайти в ElevenLabs из разрешённой сети/UI и заменить старое правило message-service “оставить короткий callback-месседж” на “ничего не оставлять, сразу `call_log` + `end_call`”.
 - Основной live-контур звонков стабилен, но следующий контрольный шаг уже смещён в post-fix наблюдение за двумя свежими правками:
   - `SIP 486 -> busy` больше не должен включать ложный `provider_circuit_breaker`;
   - агент больше не должен висеть по несколько минут на ringback/hold и не должен открываться на `музыка`, `...` или сервисные probing-реплики.
@@ -154,6 +605,9 @@
 
 ### Что делать дальше
 - Для звонкового контура:
+  - применить в live ElevenLabs prompt новое правило автоответчика: не оставлять сообщение электронному помощнику, не отвечать на его уточнения, сразу логировать `no_answer + callback` и завершать звонок;
+  - после правки прогнать ручной SIP/voicemail тест и проверить, что в transcript нет диалога с автоответчиком после первого machine/message-service сигнала;
+  - проверить, что built-in `voicemail_detection` не проговаривает callback-текст; если ElevenLabs не допускает пустой voicemail message, не опираться на него для message-service и завершать через `end_call`;
   - в ближайшее рабочее окно проверить, что новые busy-отказы пишутся как `busy`, а не как `outbound_request_failed`;
   - отдельно проверить, что после свежего prompt-fix агент больше не ждёт ringback/hold по несколько минут и не говорит на literal ASR `музыка` / `...`;
   - подтвердить, что `dial_timeout_minutes = 5` больше не допускает повторный autodial того же лида через `1` минуту, пока предыдущий длинный вызов ещё активен;
@@ -1132,6 +1586,40 @@
   - message-service фраза `Если абонент захочет с вами связаться...` закреплена как автоответчик, без продолжения sales-диалога.
 - Live agent обновлён через ElevenLabs API, backup сохранён в:
   - `backups/2026-04-13_opening_cleanup_refresh/`
+
+### 2026-05-25 — Новый целевой fast-hangup режим для machine/unavailable/ringback
+
+- По свежим кейсам:
+  - `conv_6801ksf4n22efwqvcthy3b19531b` — автоуведомление `абонент отключен / вне зоны / voicemail disabled`, которое агент не должен дослушивать до конца;
+  - `conv_2801ksf596bneyxa9r1crt9b7fpc` — long ring / no interaction, который должен завершаться примерно после `5` гудков, а не висеть почти до полного окна ожидания;
+- Зафиксирован новый source-of-truth режим:
+  - machine / unavailable / message-service -> максимум `5` секунд, затем `call_log` и молчаливый `end_call`;
+  - voicemail -> без spoken callback-message и без диктовки номера менеджера;
+  - long ring / no human -> завершение примерно после `5` гудков;
+- Подготовлен новый комплект артефактов для точечного patch в Eleven `Main`:
+  - `backups/2026-05-25_machine_fast_hangup_refresh/main_prompt_only_payload.json`
+  - `backups/2026-05-25_machine_fast_hangup_refresh/main_prompt_plus_turn_timeout_5_payload.json`
+  - `backups/2026-05-25_machine_fast_hangup_refresh/README.md`
+
+### 2026-05-25 — Добавлен live-отчёт по Google Sheet call_log
+
+- Для постоянного цикла `звонок -> лог -> анализ` добавлен новый локальный инструмент:
+  - `scripts/report_live_call_log_sheet.py`
+- Скрипт:
+  - берёт OAuth credentials из `.env.callcenter`;
+  - читает боевой лист `Лиды_обзвон`;
+  - строит сводку по `source_system`, `call_result`, provider failures и machine-like notes;
+  - отдельно показывает короткие timeline по lead'ам, чтобы видеть последовательность `dialing -> outbound_request_failed -> elevenlabs result`.
+- Первый живой прогон по `2026-05-25` подтвердил:
+  - `source_system`: `xlsx_import=50`, `autodial_dispatcher=23`, `elevenlabs=5`;
+  - `call_result`: `dialing=15`, `outbound_request_failed=8`, `send_kp_pending_callback=4`, `no_answer=1`;
+  - `row_10` зафиксирован как плохой live-кейс: `no_answer` с note `Оставлено короткое сообщение для абонента через МТС Защитник, передан контакт менеджера.`;
+  - `row_5` и `row_3` зафиксировали machine-like message-transfer notes, хотя целевой режим уже требует быстрее и строже отсекать такие сценарии;
+  - во всех свежих `elevenlabs`-строках `eleven_conv_id` пустой, то есть текущая sheet-трассировка разговоров неполная и это отдельный лог-долг.
+- По следующему живому кейсу `conv_2601ksf5p04zfnzr3w1ec85aj9kk` отдельно зафиксировано:
+  - `MTS Defender / МТС Защитник / это рекламный звонок / звонок записывается сервисом защиты` нужно трактовать как автоответчик или screening-service;
+  - агент не должен оставлять сообщение такому сервису и не должен считать его живым человеком;
+  - этот паттерн добавлен в source-of-truth prompt и в machine-like keywords локального sheet-отчёта.
 
 ### 2026-04-14 — Усилена логика music/hold и тишины после opener
 

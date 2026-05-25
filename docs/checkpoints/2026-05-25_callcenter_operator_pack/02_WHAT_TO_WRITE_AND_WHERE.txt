@@ -1,0 +1,67 @@
+ЧТО ПИСАТЬ И КУДА ОТПРАВЛЯТЬ
+Дата: 2026-05-25
+
+1. Что отправлять в Eleven / какой файл использовать
+
+Live Main уже пропатчен.
+Повторно сейчас ничего руками в Main отправлять не нужно, если только не откатывать и не переприменять.
+
+Если все-таки нужно переприменить live patch для Main, использовать именно этот файл:
+
+/home/max/n8n_ai_call_center/backups/2026-05-25_live_main_canary_refresh/main_minimal_patch_payload.json
+
+Снимок live agent после patch:
+
+/home/max/n8n_ai_call_center/backups/2026-05-25_live_main_canary_refresh/current_ai_call_agent_1.after_patch.json
+
+2. Куда это отправлять
+
+Не в локальную сеть 147.45.213.87 напрямую.
+Прямой Eleven API оттуда режется.
+
+Рабочий путь идет через relay-host:
+
+151.241.228.232
+
+Там уже доказано, что Eleven API доступен.
+
+3. Что писать следующему человеку / оператору / агенту
+
+Можно отправить такой текст:
+
+"Live Main уже обновлен через relay-host 151.241.228.232.
+Использован minimal patch, который сохраняет tool_ids, voice_id, first_message и phone bindings.
+Сейчас основной нерешенный вопрос не prompt, а outbound timeout path и пустой eleven_conv_id.
+В следующее окно обзвона нужно проверить первый live tick после false-provider-failure fix в AUTODIAL_DISPATCHER."
+
+4. Что писать, если нужно кратко объяснить проблему
+
+Можно отправить такой текст:
+
+"Проблема была двойная:
+1) агент говорил с автоответчиками и screening-service;
+2) dispatcher считал часть timeout как чистые техфейлы, хотя потом по тем же лидам приходил реальный результат.
+Пункт 1 уже пропатчен в Eleven Main.
+Пункт 2 уже исправлен в live AUTODIAL_DISPATCHER.
+Теперь нужно проверить следующее окно обзвона и отдельно добить unresolved outbound timeout path."
+
+5. Что отправлять для просмотра логов
+
+Основной короткий live-отчет строится этим скриптом:
+
+/home/max/n8n_ai_call_center/scripts/report_live_call_log_sheet.py
+
+Команда:
+
+tmp=$(mktemp) && \
+ssh root@147.45.213.87 "cat /home/aicore/n8n-server/.env.callcenter" > "$tmp" && \
+python3 /home/max/n8n_ai_call_center/scripts/report_live_call_log_sheet.py --env-file "$tmp" --date 2026-05-25 --limit 8 --show-timeline && \
+rm -f "$tmp"
+
+6. Что отправлять, если нужен live backup autodial fix
+
+До правки:
+/home/max/n8n_ai_call_center/backups/2026-05-25_13-58-54_autodial_false_provider_failure_fix/AUTODIAL_live_before.json
+
+Ответ после live PUT:
+/home/max/n8n_ai_call_center/backups/2026-05-25_13-58-54_autodial_false_provider_failure_fix/AUTODIAL_live_after_put_response.json
