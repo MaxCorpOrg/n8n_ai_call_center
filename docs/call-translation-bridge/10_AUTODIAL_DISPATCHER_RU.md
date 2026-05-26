@@ -5,7 +5,8 @@
 ## Что делает контур
 
 1. Берет контакты из Google Sheet:
-   - `https://docs.google.com/spreadsheets/d/1t0FtCL84l0QJvL9_7XDnmafJS1NHUSdiVyKgqNWOVmA/edit?gid=199760593#gid=199760593`
+   - `https://docs.google.com/spreadsheets/d/1kAXIwaa_-rC4MO5vV3mFV-Geha08iL_6pJNCNxlQPAU/edit?gid=199760593#gid=199760593`
+   - файл в Drive: `контакты_косметологов_москва_50`
 2. Целевую вкладку выбирает по `gid = 199760593`, а не по жестко прошитому имени листа.
 3. Читает историю и состояние прямо из той же таблицы:
    - исходные лиды;

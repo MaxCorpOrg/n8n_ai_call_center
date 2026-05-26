@@ -13,9 +13,8 @@ Environment=SITECTL_HUB_URL=http://127.0.0.1:8765
 Environment=SITECTL_BROWSER_RUNTIME_ROOT=/home/aicore/.local/share/site-control-kit-browser
 Environment=SITECTL_BROWSER_CLIENT_ID=client-cosmetologist-browser
 Environment=SITECTL_BROWSER_DISPLAY=:99
+Environment=SITECTL_BROWSER_START_URL=about:blank
 ExecStart=/home/aicore/n8n-server/scripts/run_site_control_browser_client.sh
-Restart=always
+Restart=on-failure
 RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
+RuntimeMaxSec=15m

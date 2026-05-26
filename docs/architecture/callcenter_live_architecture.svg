@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1240" viewBox="0 0 1800 1240">
+  <defs>
+    <style>
+      .bg { fill: #f6f8fb; }
+      .title { font: 700 30px Arial, sans-serif; fill: #162033; }
+      .subtitle { font: 400 16px Arial, sans-serif; fill: #4e5d78; }
+      .section { font: 700 20px Arial, sans-serif; fill: #1f2e4d; }
+      .label { font: 700 16px Arial, sans-serif; fill: #122033; }
+      .text { font: 400 14px Arial, sans-serif; fill: #33415f; }
+      .small { font: 400 13px Arial, sans-serif; fill: #4d5a76; }
+      .box { fill: #ffffff; stroke: #cad4e5; stroke-width: 2; rx: 14; ry: 14; }
+      .core { fill: #edf4ff; stroke: #7aa7ff; }
+      .phone { fill: #eefcf5; stroke: #72c89a; }
+      .db { fill: #fff6e8; stroke: #efb56b; }
+      .tool { fill: #f8efff; stroke: #ba8cf2; }
+      .warn { fill: #fff0f0; stroke: #e29494; }
+      .arrow { stroke: #5b6f96; stroke-width: 3; fill: none; marker-end: url(#m); }
+      .dash { stroke-dasharray: 10 8; }
+    </style>
+    <marker id="m" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#5b6f96"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1800" height="1240"/>
+  <text class="title" x="56" y="64">n8n_ai_call_center — схема live колл-центра</text>
+  <text class="subtitle" x="56" y="96">Текущее состояние после миграции SQLite -&gt; Postgres. Главная цепочка: Mango -&gt; Asterisk -&gt; ElevenLabs -&gt; n8n -&gt; Google Sheet / SMS / context tools.</text>
+
+  <text class="section" x="56" y="150">1. Голосовой маршрут</text>
+  <rect class="box phone" x="56" y="180" width="220" height="108"/>
+  <text class="label" x="78" y="214">Лид / получатель</text>
+  <text class="text" x="78" y="240">Отвечает, не отвечает или</text>
+  <text class="text" x="78" y="260">попадает в фильтр-звонков / секретаря</text>
+
+  <rect class="box phone" x="332" y="180" width="220" height="108"/>
+  <text class="label" x="354" y="214">Mango Office</text>
+  <text class="text" x="354" y="240">Провайдер телефонии</text>
+  <text class="text" x="354" y="260">Исходящие звонки и callbacks</text>
+
+  <rect class="box phone" x="608" y="180" width="220" height="108"/>
+  <text class="label" x="630" y="214">Asterisk SIP bridge</text>
+  <text class="text" x="630" y="240">Сервер: 147.45.213.87</text>
+  <text class="text" x="630" y="260">мост для телефонной связи с Eleven</text>
+
+  <rect class="box core" x="884" y="180" width="260" height="108"/>
+  <text class="label" x="906" y="214">ElevenLabs Main</text>
+  <text class="text" x="906" y="240">AI_CALL_AGENT_1</text>
+  <text class="text" x="906" y="260">ждёт живой ответ + речь/слух/модель</text>
+
+  <rect class="box core" x="1200" y="180" width="300" height="108"/>
+  <text class="label" x="1222" y="214">n8n live webhooks</text>
+  <text class="text" x="1222" y="240">VOICE_INBOUND_AGENT (draft)</text>
+  <text class="text" x="1222" y="260">исходящий звонок, контекст, лог, SMS</text>
+
+  <path class="arrow" d="M276 234 L332 234"/>
+  <path class="arrow" d="M552 234 L608 234"/>
+  <path class="arrow" d="M828 234 L884 234"/>
+  <path class="arrow" d="M1144 234 L1200 234"/>
+
+  <text class="section" x="56" y="364">2. Сценарии и инструменты n8n</text>
+  <rect class="box core" x="56" y="394" width="340" height="146"/>
+  <text class="label" x="78" y="428">AUTODIAL_DISPATCHER_RECOVERY_2026-05-26_V2</text>
+  <text class="text" x="78" y="454">Работает в n8n каждую минуту</text>
+  <text class="text" x="78" y="476">в рабочее окно обзвона</text>
+  <text class="text" x="78" y="498">Берёт следующую строку и просит сделать звонок</text>
+  <text class="small" x="78" y="522">Live id: 70B9BSNOu0LXPBqe</text>
+
+  <rect class="box core" x="434" y="394" width="340" height="146"/>
+  <text class="label" x="456" y="428">VOICE_INBOUND_AGENT (draft)</text>
+  <text class="text" x="456" y="454">Webhook-вход для Mango и Eleven</text>
+  <text class="text" x="456" y="476">Обращается в relay-host за звонком</text>
+  <text class="text" x="456" y="498">Возвращает: запрос принят или отклонён</text>
+  <text class="small" x="456" y="522">Live id: bfNbTwtyXNSFzMc2</text>
+
+  <rect class="box tool" x="812" y="394" width="270" height="146"/>
+  <text class="label" x="834" y="428">ELEVEN_TOOL_CONTEXT_BRIDGE</text>
+  <text class="text" x="834" y="454">Tool: context_fetch</text>
+  <text class="text" x="834" y="476">Отдаёт Eleven нужные сведения</text>
+  <text class="small" x="834" y="522">Live id: tdiAEZM9FZDEP7k4</text>
+
+  <rect class="box tool" x="1120" y="394" width="270" height="146"/>
+  <text class="label" x="1142" y="428">ELEVEN_TOOL_CALL_LOG_BRIDGE</text>
+  <text class="text" x="1142" y="454">Tool: call_log</text>
+  <text class="text" x="1142" y="476">Пишет итог звонка в Google Sheet</text>
+  <text class="small" x="1142" y="522">Live id: kZSdJrsAHWWIC2l6</text>
+
+  <rect class="box tool" x="1428" y="394" width="270" height="146"/>
+  <text class="label" x="1450" y="428">ELEVEN_TOOL_SEND_SMS_BRIDGE</text>
+  <text class="text" x="1450" y="454">Tool: send_sms_info</text>
+  <text class="text" x="1450" y="476">Отправляет SMS через Mango / n8n</text>
+  <text class="small" x="1450" y="522">Live id: AZMeHe0wrPs3wxYx</text>
+
+  <path class="arrow" d="M396 466 L434 466"/>
+  <path class="arrow" d="M774 466 L812 466"/>
+  <path class="arrow" d="M1082 466 L1120 466"/>
+  <path class="arrow" d="M1390 466 L1428 466"/>
+
+  <text class="section" x="56" y="620">3. Данные и инфраструктурные зависимости</text>
+  <rect class="box db" x="56" y="650" width="320" height="148"/>
+  <text class="label" x="78" y="684">Google Sheet</text>
+  <text class="text" x="78" y="710">Источник лидов + live call log</text>
+  <text class="text" x="78" y="732">Dispatcher читает строки</text>
+  <text class="text" x="78" y="754">call_log пишет результаты обратно</text>
+
+  <rect class="box db" x="420" y="650" width="320" height="148"/>
+  <text class="label" x="442" y="684">n8n Postgres runtime</text>
+  <text class="text" x="442" y="710">Основная БД: n8n_prod</text>
+  <text class="text" x="442" y="732">Заменила старый SQLite runtime</text>
+  <text class="text" x="442" y="754">Хранит сценарии, ключи и состояние</text>
+
+  <rect class="box db" x="784" y="650" width="320" height="148"/>
+  <text class="label" x="806" y="684">postgres_memory + postgrest</text>
+  <text class="text" x="806" y="710">Слой памяти для контекста агента</text>
+  <text class="text" x="806" y="732">кусочки базы знаний и шаги сценария</text>
+  <text class="text" x="806" y="754">Отдельно от основной базы n8n</text>
+
+  <rect class="box db" x="1148" y="650" width="320" height="148"/>
+  <text class="label" x="1170" y="684">call_center Postgres</text>
+  <text class="text" x="1170" y="710">Операционный слой колл-центра</text>
+  <text class="text" x="1170" y="732">Это не та же база, что n8n_prod</text>
+  <text class="text" x="1170" y="754">Сейчас нет live-зависимости от MySQL</text>
+
+  <rect class="box core" x="1512" y="650" width="220" height="148"/>
+  <text class="label" x="1534" y="684">Relay host</text>
+  <text class="text" x="1534" y="710">151.241.228.232:8787</text>
+  <text class="text" x="1534" y="732">Промежуточный узел для звонка Eleven</text>
+  <text class="text" x="1534" y="754">8s timeout, 0 retries</text>
+
+  <path class="arrow" d="M226 540 L226 650"/>
+  <path class="arrow" d="M604 540 L604 650"/>
+  <path class="arrow" d="M948 540 L948 650"/>
+  <path class="arrow" d="M1255 540 L1255 650"/>
+  <path class="arrow" d="M604 466 L1512 466"/>
+  <path class="arrow" d="M1512 466 L1512 650"/>
+
+  <text class="section" x="56" y="876">4. Live-пути и хранение</text>
+  <rect class="box" x="56" y="906" width="500" height="230"/>
+  <text class="label" x="78" y="940">Пути на сервере</text>
+  <text class="text" x="78" y="968">/home/aicore/n8n-server</text>
+  <text class="text" x="78" y="992">/home/aicore/n8n-ai-clean</text>
+  <text class="text" x="78" y="1016">/home/aicore/n8n-server/.env.callcenter</text>
+  <text class="text" x="78" y="1040">/home/aicore/n8n-server/.env.n8n_postgres</text>
+  <text class="text" x="78" y="1064">/home/aicore/backups/n8n/sqlite_to_postgres_2026-05-26/</text>
+  <text class="text" x="78" y="1088">/var/lib/docker/volumes/n8n-server_n8n_data/_data/</text>
+
+  <rect class="box warn" x="600" y="906" width="500" height="230"/>
+  <text class="label" x="622" y="940">Где сейчас ищем задержку</text>
+  <text class="text" x="622" y="968">1. Как Eleven ждёт живой ответ</text>
+  <text class="text" x="622" y="992">2. Насколько тяжёлый prompt у агента</text>
+  <text class="text" x="622" y="1016">3. Как долго отвечает relay-host</text>
+  <text class="text" x="622" y="1040">4. Это не Google Sheet и не запись лога</text>
+  <text class="text" x="622" y="1064">5. Postgres убрал старый сбой SQLite</text>
+
+  <rect class="box" x="1144" y="906" width="588" height="230"/>
+  <text class="label" x="1166" y="940">Что с чем связано</text>
+  <text class="text" x="1166" y="968">Dispatcher -&gt; VOICE_INBOUND_AGENT -&gt; relay-host -&gt; ElevenLabs</text>
+  <text class="text" x="1166" y="992">ElevenLabs -&gt; context_fetch / call_log / send_sms_info -&gt; n8n</text>
+  <text class="text" x="1166" y="1016">call_log -&gt; Google Sheet</text>
+  <text class="text" x="1166" y="1040">context_fetch -&gt; память / база знаний</text>
+  <text class="text" x="1166" y="1064">send_sms_info -&gt; путь отправки SMS через Mango</text>
+  <text class="small" x="1166" y="1104">Сгенерировано локально как asset проекта 2026-05-26.</text>
+</svg>

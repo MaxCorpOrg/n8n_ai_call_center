@@ -12,6 +12,58 @@
   - server backup сохранен в `/home/aicore/backups/n8n/C8Wmmjuv5hC425PM_2026-05-25_091327.json`.
 - Отдельный Telegram-бот `@PeptideExpert_Bot` (`YJdwp45LI1dmrsLy`) остается активным и не является тем же самым контуром, что `PostMaker`.
 
+## 1.0) Обновление 2026-05-26: latency trim после ответа человека
+
+### Сделано
+- Снят свежий live backup боевого ElevenLabs агента `AI_CALL_AGENT_1` прямо из API:
+  - `/home/max/n8n_ai_call_center/backups/2026-05-26_eleven_latency_trim/current_ai_call_agent_1.before.json`
+- Подтверждено по live-конфигу до правки:
+  - `turn_timeout = 5.0`
+  - `tts.optimize_streaming_latency = 1`
+  - длина live prompt была около `18149` символов
+- Снят свежий тайминг-срез `n8nEventLog` после Postgres cutover:
+  - быстрый `Mango -> n8n` callback path не выглядит главным источником паузы после того, как человек уже ответил;
+  - самый тяжёлый `n8n`-хвост в свежих логах остаётся в `VOICE_INBOUND_AGENT -> Eleven | Outbound HTTP`, то есть на этапе запроса исходящего звонка, а не на этапе live reply после человеческого ответа.
+- Подготовлен и применён через relay-host `151.241.228.232` узкий latency-focused patch live `Eleven Main`:
+  - patch payload:
+    - `/home/max/n8n_ai_call_center/backups/2026-05-26_eleven_latency_trim/main_latency_patch_payload.json`
+  - compact prompt artifact:
+    - `/home/max/n8n_ai_call_center/backups/2026-05-26_eleven_latency_trim/compact_prompt_en.txt`
+  - backup после правки:
+    - `/home/max/n8n_ai_call_center/backups/2026-05-26_eleven_latency_trim/current_ai_call_agent_1.after_patch.json`
+- Что изменено в live:
+  - `turn_timeout: 5.0 -> 4.0`
+  - `tts.optimize_streaming_latency: 1 -> 2`
+  - live system prompt ужат примерно с `18.1k` до `5.5k` символов без потери ключевых правил по:
+    - `human-answer gate`
+    - machine/audio-service handling
+    - `MTS Defender`
+    - secretary/intermediary handoff
+    - SMS / callback / manager next step
+    - запрету voicemail-spoken-message
+- Для визуального handoff добавлена локальная схема live-контура:
+  - `/home/max/n8n_ai_call_center/docs/architecture/callcenter_live_architecture.svg`
+- Для более простого входа в проект добавлено отдельное человеко-понятное объяснение схемы:
+  - `/home/max/n8n_ai_call_center/docs/architecture/callcenter_live_architecture_explained_ru.md`
+
+### На чем остановились
+- Live latency patch уже применён и перечитан обратно из Eleven API:
+  - `version_id = agtvrsn_3501ksj5y73qevps47674t661c6g`
+  - `turn_timeout = 4.0`
+  - `optimize_streaming_latency = 2`
+  - `prompt_len = 5465`
+- Полноценный эффект именно на "паузе после ответа человека" ещё нужно подтвердить на 1-2 живых answered calls / transcripts после этой правки.
+- Отдельный инфраструктурный хвост outbound request path всё ещё надо держать под наблюдением:
+  - `VOICE_INBOUND_AGENT -> Eleven | Outbound HTTP`
+  - это задержка до или во время создания звонка, а не после живого ответа человека.
+
+### Что делать дальше
+- Снять 1-2 answered calls после этого latency patch и сравнить паузу до/после.
+- Если агент всё ещё "думает" слишком долго после короткого живого ответа (`алло`, `слушаю`, `говорите`), следующим безопасным шагом проверять:
+  - можно ли ещё слегка ужать opener/second-turn logic;
+  - и нужен ли дополнительный переход `turn_timeout 4.0 -> 3.5`.
+- Не возвращать `turn_eagerness = eager` и `speculative_turn = true`, чтобы не получить старые перебивания.
+
 ## 1.1) Обновление 2026-05-25: Nanobanana и Telegram media-боты
 
 ### Что подтверждено
@@ -358,6 +410,56 @@
   - `report_live_call_log_sheet.py`;
   - machine-like notes;
   - наличие или отсутствие `eleven_conv_id`.
+
+## 1.7) Обновление 2026-05-26: recovery-цикл по остановке autodial
+
+### Сделано
+- Подтверждено, что проблема `2026-05-26` не в пустой базе и не в отсутствии cron:
+  - старый live `AUTODIAL_DISPATCHER (sheet-first draft)` действительно стартовал по минутному cron;
+  - в `n8nEventLog` есть реальные execution `87368`, `87369`, `87403`, `87405`;
+  - но каждый tick шёл по ветке `Dispatcher | Parse Sheet Rows -> Dispatcher | Exhaustion Switch -> Dispatcher | Finish Exhausted`.
+- Подтверждено, что текущий live JS-код `Dispatcher | Parse Sheet Rows` в `workflow_entity` совпадает с локальным draft.
+- Отдельный standalone-прогон того же JS на тех же актуальных данных live Google Sheet показал:
+  - `action = dial`
+  - `reason = candidate_selected`
+  - `eligible_count = 46`
+  - первый кандидат = `row_2`
+- Это означает: сами входные данные и бизнес-логика в изоляции выбирают дозвон, а `n8n` runtime на активном workflow всё равно уводит execution в `Finish Exhausted`.
+- Для безопасного восстановления были созданы recovery-клоны:
+  - `vIXJSsiKh2R4jsWG` -> `AUTODIAL_DISPATCHER_RECOVERY_2026-05-26`
+  - `70B9BSNOu0LXPBqe` -> `AUTODIAL_DISPATCHER_RECOVERY_2026-05-26_V2`
+- Перед каждым recovery-циклом сняты server-side backup JSON:
+  - `/home/aicore/backups/n8n/autodial_debug_2026-05-26/iZ8OaN4xW0ZtxaCJ_2026-05-26_09-50-08_before_debug.json`
+  - `/home/aicore/backups/n8n/autodial_recovery_2026-05-26/vIXJSsiKh2R4jsWG_2026-05-26_10-46-30_before_finish_debug.json`
+  - `/home/aicore/backups/n8n/autodial_recovery_2026-05-26/autodial_old.json`
+  - `/home/aicore/backups/n8n/autodial_recovery_2026-05-26/autodial_recovery_v2_import.json`
+- Через `n8n import:workflow` подтверждено, что новый workflow с новым ID действительно может активироваться на старте `n8n`:
+  - в docker logs виден `Activated workflow "AUTODIAL_DISPATCHER_RECOVERY_2026-05-26_V2" (ID: 70B9BSNOu0LXPBqe)`.
+- Попытка восстановить работу через recovery-упрощение `Parse Sheet Rows` не довела обзвон до записи `dialing` в боевую таблицу `2026-05-26`.
+
+### На чем остановились
+- Критичный вывод этого цикла:
+  - даже fresh-import workflow с новым ID и новым active publish по-прежнему приходит к `Finish Exhausted` внутри live `n8n`, хотя тот же JS вне `n8n` выбирает `dial`.
+- По `V2` зафиксирован execution `87466` в `13:59 MSK`:
+  - workflow стартует;
+  - доходит до `Dispatcher | Parse Sheet Rows`;
+  - затем всё равно идёт в `Dispatcher | Finish Exhausted`;
+  - после этого workflow падает с `Unexpected token '}'`, потому что временный debug/recovery `Finish Exhausted` уже не совпал с реальным runtime-путём.
+- На `14:00 MSK` recovery `V2` уже штатно ушёл в `Dispatcher | Finish Outside Window`, то есть текущее окно обзвона закрыто.
+- Практический статус на конец этого цикла:
+  - автодозвон **не восстановлен**;
+  - старый стоп больше не выглядит как проблема конкретного workflow ID;
+  - проблема уже очень похожа на runtime/versioning рассинхрон внутри текущего `n8n` на SQLite.
+
+### Что делать дальше
+- Следующий recovery-цикл начинать уже не с prompt и не с Google Sheet, а с самого `n8n` execution/versioning слоя:
+  - снять live workflow через `n8n API/UI`, а не только из `workflow_entity`;
+  - сравнить published/active representation с тем JSON, который лежит в SQLite;
+  - отдельно проверить, не исполняет ли `n8n` cached active version вместо текущего `workflow_entity`.
+- Перед следующим окном обзвона вернуть recovery `Finish Exhausted` node в валидный код без debug-хвоста, чтобы исключить лишнее падение на `Unexpected token '}'`.
+- Если нужно срочно вернуть обзвон до миграции:
+  - готовить отдельный внешний recovery-path вне текущего `n8n` workflow versioning;
+  - либо ускорять техцикл `n8n SQLite -> Postgres`, потому что теперь проблема выглядит уже не как частный баг dispatcher, а как дефект текущего runtime-контура.
 - Для ручной работы без раскопок по репозиторию собран отдельный операторский пакет в текстовых файлах:
   - `/home/max/n8n_ai_call_center/docs/checkpoints/2026-05-25_callcenter_operator_pack/`
   - внутри есть:
@@ -374,6 +476,191 @@
     - `02_CUTOVER_CHECKLIST.txt`
     - `03_ROLLBACK_PLAN.txt`
     - `04_CURRENT_RISKS.txt`
+
+## 1.8) Обновление 2026-05-26: основной `n8n` переведен с SQLite на Postgres
+
+### Сделано
+- На live-сервере `147.45.213.87` подтвержден старый operational-risk:
+  - SQLite-файл `n8n` лежал в `/var/lib/docker/volumes/n8n-server_n8n_data/_data/database.sqlite`;
+  - размер был около `2.7G`;
+  - в логах ранее уже были `SqliteWriteConnectionMutex` и `Offer expired`.
+- Перед переносом снята полная точка отката в:
+  - `/home/aicore/backups/n8n/sqlite_to_postgres_2026-05-26/`
+  - внутри сохранены:
+    - `n8n-backup_2026-05-26_11-40-50.tar.gz`
+    - `database.sqlite`
+    - `docker-compose.yml`
+    - `.env`
+    - `.env.email_followup`
+    - `n8n_credentials.json`
+    - `n8n_workflows.json`
+    - `seed_postgres_from_sqlite.sql`
+    - `.env.n8n_postgres`
+    - `.env.n8n_postgres_stage`
+- В существующем live Postgres-контуре созданы отдельные БД именно под основной `n8n`:
+  - `n8n_stage`
+  - `n8n_prod`
+- Поднят staging-контур `n8n-postgres-staging` на `127.0.0.1:5688` и подтверждено:
+  - migrations проходят;
+  - root UI отвечает `HTTP 200`;
+  - в Postgres успешно импортированы `13` credentials и `32` workflows.
+- В staging и затем в `n8n_prod` перенесены не только workflows/credentials, но и live owner/project/settings:
+  - owner email и personal project сохранены;
+  - `settings`-ключи, включая `userManagement.isInstanceOwnerSetUp`, перенесены из live SQLite;
+  - active-state live workflows восстановлен в Postgres (`22` active workflow).
+- Боевой `n8n` контейнер пересоздан уже с Postgres-настройками через отдельный env-файл:
+  - `/home/aicore/n8n-server/.env.n8n_postgres`
+  - compose теперь подключает:
+    - `.env.email_followup`
+    - `.env.n8n_postgres`
+- По ходу cutover найден и исправлен старый deploy-долг:
+  - в `/home/aicore/n8n-server/.env` отсутствовал `DOMAIN_NAME`;
+  - из-за этого после первого пересоздания `N8N_HOST` был пустой, `WEBHOOK_URL` превратился в `https:///`, а Traefik rule стал `Host(\`\`)`;
+  - добавлены:
+    - `DOMAIN_NAME=www.n-8-n.site`
+    - `SSL_EMAIL=max.corp.org@gmail.com`
+  - после повторного `docker compose up -d n8n` Traefik rule снова стал `Host(\`www.n-8-n.site\`)`.
+- Финальные smoke-проверки после cutover:
+  - контейнер `n8n-server-n8n-1` = `healthy`;
+  - `https://www.n-8-n.site` отвечает `HTTP 200`;
+  - внутри live контейнера подтверждены:
+    - `DB_TYPE` задан;
+    - `DB_POSTGRESDB_HOST` задан;
+    - `DB_POSTGRESDB_DATABASE` задан;
+    - `N8N_HOST` задан;
+    - `WEBHOOK_URL` задан;
+  - в `n8n_prod` подтверждены:
+    - `workflow_entity = 32`
+    - `credentials_entity = 13`
+    - `settings = 5`
+    - `active workflows = 22`
+
+### На чем остановились
+- Основной `n8n` уже работает на Postgres и снаружи отвечает нормально.
+- Старый SQLite-файл и старый volume не удалялись и оставлены как rollback snapshot.
+- Staging-контур `n8n-postgres-staging` пока оставлен на сервере как быстрый контрольный стенд.
+- Логика live-callcenter после миграции ещё не проходила отдельный новый рабочий цикл обзвона `10:00-14:00 MSK`; миграция БД закрыта, но business-level recovery dispatcher надо наблюдать уже поверх нового Postgres-backed runtime.
+
+### Что делать дальше
+- В ближайшее окно обзвона снять первый post-migration live-срез:
+  - `AUTODIAL_DISPATCHER_RECOVERY_2026-05-26_V2`
+  - `VOICE_INBOUND_AGENT`
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE`
+- Проверить, ушёл ли прежний runtime/versioning drift dispatcher после ухода с SQLite.
+- Если Postgres-backed runtime стабилен:
+  - решить, оставлять ли `AUTODIAL_DISPATCHER_RECOVERY_2026-05-26_V2` как live dispatcher или возвращать штатное имя/контур.
+- После подтверждения стабильности:
+  - убрать временный staging-контейнер `n8n-postgres-staging`;
+  - отдельно спланировать cleanup старого SQLite-volume, но не раньше, чем после нескольких успешных рабочих циклов.
+
+## 1.9) Обновление 2026-05-26: post-migration smoke и проверка на конфликт с MySQL
+
+### Сделано
+- Подтверждено, что после миграции основной live data-store `n8n` больше не зависит от MySQL:
+  - на сервере нет live `mysql` / `mariadb` контейнеров;
+  - в `credentials_entity` live `n8n_prod` нет MySQL-credential типов;
+  - в live export workflows и credentials не найдено `mysql` / `mariadb` ссылок;
+  - текущий боевой runtime = `Postgres`, `postgres_memory`, `call_center`, без отдельного MySQL слоя.
+- После миграции найден live-дефект не базы, а runtime-сборки webhook-слоя:
+  - `POST /webhook/eleven/outbound-call` сначала отвечал `404 unknown webhook`;
+  - `POST /webhook/eleven/tool/call-log` тоже сначала отвечал `404 unknown webhook`.
+- Выяснено, что часть webhook workflow была активна в базе, но не все production webhooks были подняты после cutover и рестартов.
+- Отдельно найден compose/env дефект:
+  - в `docker-compose.yml` для `n8n` после migration cutover был подключён `.env.n8n_postgres`, но отсутствовал `.env.callcenter`;
+  - из-за этого outbound-path внутри `n8n` не видел `ELEVENLABS_API_KEY` и `ELEVEN_OUTBOUND_RELAY_TOKEN`.
+- Исправлено:
+  - `docker-compose.yml` теперь подключает:
+    - `.env.email_followup`
+    - `.env.callcenter`
+    - `.env.n8n_postgres`
+  - `n8n` пересоздан с новым набором env;
+  - runtime внутри контейнера снова видит callcenter secrets.
+- После controlled re-activation / restart подтверждены live smoke-tests:
+  - `POST https://www.n-8-n.site/webhook/voice-agent-inbound` -> `200 OK`, webhook жив;
+  - `POST https://www.n-8-n.site/webhook/eleven/tool/context` -> `200 OK`, context bridge жив;
+  - `POST https://www.n-8-n.site/webhook/eleven/tool/send-sms` -> `200 OK`, send-sms bridge жив;
+  - `POST https://www.n-8-n.site/webhook/eleven/outbound-call` -> `ok=true`, `action=call_requested`, Eleven вернул `conversation_id` и `sip_call_id`;
+  - `POST https://www.n-8-n.site/webhook/eleven/tool/call-log` -> `ok=true`, строка записана в Google Sheet (`updated_range 'Лиды_обзвон'!A83:AM83`).
+- Для диагностики был импортирован отдельный workflow:
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` (`sHTbALayEZdy8Mzs`);
+  - он остался неактивным и не является обязательной частью live-контура после того, как основной `VOICE_INBOUND_AGENT` снова начал корректно обслуживать `eleven/outbound-call`.
+
+### На чем остановились
+- Postgres migration подтверждена не только health-check'ом UI, но и реальными live webhook smoke-test'ами звонкового контура.
+- На текущий момент рабочими подтверждены:
+  - `voice-agent-inbound`
+  - `eleven/tool/context`
+  - `eleven/tool/send-sms`
+  - `eleven/outbound-call`
+  - `eleven/tool/call-log`
+- `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` снова активирован и после последнего рестарта реально поднялся на старте `n8n`.
+
+### Что делать дальше
+- Следующий шаг уже не инфраструктурный, а поведенческий:
+  - проверить живой цикл `AUTODIAL_DISPATCHER_RECOVERY_2026-05-26_V2` поверх нового Postgres-backed `n8n`.
+- Если всё стабильно, отдельно решить судьбу диагностического workflow `sHTbALayEZdy8Mzs`:
+  - либо удалить как временный артефакт;
+  - либо сохранить как backup-шаблон для outbound webhook isolation.
+
+## 1.10) Обновление 2026-05-26: малый live smoke на 2-3 звонка после Postgres cutover
+
+### Сделано
+- Выполнен маленький ручной outbound smoke без массового старта dispatcher:
+  - использованы live webhook-вызовы `POST https://www.n-8-n.site/webhook/eleven/outbound-call`;
+  - протестированы как минимум `row_2`, `row_3`, затем контрольный `row_4`.
+- Подтверждено, что outbound-path после migration fix работает:
+  - `row_2` -> `call_requested`, Eleven вернул `conversation_id = conv_0501ksj4b35jfhjvea9ydwkxvmvy`;
+  - `row_4` -> `call_requested`, Eleven вернул `conversation_id = conv_3301ksj4eexkf3c8f9f4sbwxsc7t`;
+  - `row_3` в live Sheet позже отразился как:
+    - `source_system = elevenlabs`
+    - `call_result = send_kp_pending_callback`
+    - `next_step = call_manager`
+    - note: `Администратор примет информацию для передачи ответственному специалисту.`
+- Свежий live sheet report после дыма:
+  - `events_filtered = 2`
+  - `provider_failures_raw = 0`
+  - `provider_failures_unresolved = 0`
+  - `machine_like_notes = 0`
+- Это подтверждает:
+  - сам outbound webhook уже не сломан после Postgres cutover;
+  - новых технических `provider_rejected` / `outbound_request_failed` в этом маленьком прогоне не появилось;
+  - минимум один живой кейс дошёл до полезного secretary/intermediary handoff.
+
+### На чем остановились
+- В коротком окне наблюдения после ручных звонков в Sheet попал только один новый реальный business-outcome (`row_3` -> `send_kp_pending_callback`).
+- Для `row_2` и `row_4` в момент этого среза итоговые строки `call_log` ещё не успели появиться в таблице.
+- Незакрытый долг остаётся тем же:
+  - `eleven_conv_id` в live Sheet по-прежнему пустой;
+  - трассировка звонков в таблице пока неполная даже после успешного outbound acceptance.
+
+### Что делать дальше
+- Следующий малый цикл делать уже не вручную по одному webhook, а через сам `AUTODIAL_DISPATCHER_RECOVERY_2026-05-26_V2`, чтобы проверить:
+  - ушёл ли старый runtime-drift dispatcher;
+  - пишет ли он снова `dialing` и финальные outcomes поверх Postgres-backed `n8n`.
+- Отдельно продолжать дожимать traceability:
+  - почему `eleven_conv_id` не попадает в `call_log` rows даже когда outbound accepted и у Eleven есть `conversation_id`.
+
+## 1.11) Обновление 2026-05-26: новый screening-pattern по `conv_1201ksj4b9hnedrs3nphhjqjbmeq`
+
+### Сделано
+- По свежему кейсу `conv_1201ksj4b9hnedrs3nphhjqjbmeq` пользователь явно переопределил классификацию:
+  - линия, которая спрашивает только цель звонка, сроки ответа, предлагает manager callback или SMS и не проявляет живой личный контекст, считается автоответчиком / screening-service.
+- Source-of-truth prompt обновлён:
+  - [08_ELEVENLABS_SYSTEM_PROMPT_RU.md](/home/max/n8n_ai_call_center/docs/agent_kb_lipolong/08_ELEVENLABS_SYSTEM_PROMPT_RU.md)
+  - [08_ELEVENLABS_SYSTEM_PROMPT_EN.md](/home/max/n8n_ai_call_center/docs/agent_kb_lipolong/08_ELEVENLABS_SYSTEM_PROMPT_EN.md)
+- В prompt теперь отдельно закреплено:
+  - шаблонный screening-бот, который только собирает цель звонка, сроки и callback-канал, не считать полезным secretary/intermediary handoff;
+  - полезный handoff оставлять только для явно живого администратора/секретаря.
+
+### На чем остановились
+- Это правило зафиксировано в source-of-truth и handoff-документах.
+- Отдельный live end-to-end звонок именно на такой screening-pattern после этой фиксации ещё не снят.
+
+### Что делать дальше
+- Следующий похожий разговор использовать как контрольный кейс:
+  - не уходит ли агент в `manager_call` / `send_kp_pending_callback`;
+  - не продолжает ли он нормальный диалог со screening-line;
+  - завершает ли звонок как non-human / screening outcome.
 
 ## 1.7) Обновление 2026-05-25: intermediary/message-transfer block в live Main
 

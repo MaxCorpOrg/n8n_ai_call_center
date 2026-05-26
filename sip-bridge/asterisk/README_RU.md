@@ -28,6 +28,9 @@ cp .env.example .env
 
 - `PUBLIC_IP` — IP VPS.
 - `MANGO_IP` — SIP source IP Mango (если неизвестен, временно `81.88.86.55`, потом уточнить у поддержки).
+- `MANGO_OUT_FROM_USER` — исходящий caller ID / trunk user для плеча `Asterisk -> Mango`.
+- `MANGO_OUT_FROM_DOMAIN` — Mango SIP domain, например `vpbx400365310.mangosip.ru`.
+- `ELEVEN_BRIDGE_USERNAME` / `ELEVEN_BRIDGE_PASSWORD` — логин и пароль SIP trunk в Eleven для плеча `Eleven -> Asterisk`.
 - `TARGET_NUMBER_E164` — целевой номер для ElevenLabs в quick mode (например `+79923298897`).
 - `BRIDGE_EXT` — extension для quick mode (по умолчанию `100`).
 
@@ -68,6 +71,10 @@ pjsip set logger on
 ```
 
 Сделайте тестовый звонок на номер в Mango и смотрите INVITE/ответы.
+
+Важно:
+- для `Eleven -> Asterisk` endpoint должен использовать `auth=...` и `identify_by=auth_username,ip`, иначе после смены source IP у Eleven можно снова получить `No matching endpoint found` / `Failed to authenticate`;
+- whitelist по `match=` полезен как дополнительная защита, но не должен быть единственным способом узнать входящий SIP от Eleven.
 
 ## 6) Дальше после стабильного SIP
 

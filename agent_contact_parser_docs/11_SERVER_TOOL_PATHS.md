@@ -14,6 +14,7 @@ This note tells future agents where the browser and scraping tools live on the p
 - Site Control Kit browser runtime: `/home/aicore/.local/share/site-control-kit-browser`
 - Site Control Kit browser launcher: `/home/aicore/n8n-server/scripts/run_site_control_browser_client.sh`
 - Site Control Kit hub env: `/etc/site-control-kit/hub.env`
+- Site Control Kit browser timer: `/etc/systemd/system/site-control-kit-browser.timer`
 - cosmetologist hunter env: `/home/aicore/n8n-server/.env.cosmetologist_hunter`
 
 ## Canonical localhost endpoints
@@ -40,6 +41,7 @@ Reason:
 
 Do not assume Site Control Kit is usable just because the hub service is running.
 The hub still needs at least one connected browser client.
+In production the browser client should start on demand for real parsing, with an optional low-frequency timer as a fallback.
 
 Check tool status through:
 

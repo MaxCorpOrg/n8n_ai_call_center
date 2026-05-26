@@ -9,7 +9,8 @@
 - Endpoint:
   - `POST https://www.n-8-n.site/webhook/eleven/tool/call-log`
 - Целевая таблица:
-  - `https://docs.google.com/spreadsheets/d/1FUHh8lS8pEx58eRK2Rt6AYn3cy6ogWSO32vZWqYw_Fc/edit`
+  - `https://docs.google.com/spreadsheets/d/1kAXIwaa_-rC4MO5vV3mFV-Geha08iL_6pJNCNxlQPAU/edit`
+  - Drive name: `контакты_косметологов_москва_50`
   - Лист: `Лиды_обзвон`
   - Источник: native Google Sheet, сконвертированный из файла `контакты_косметологов_москва_47.xlsx`
 

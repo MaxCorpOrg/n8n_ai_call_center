@@ -12,12 +12,14 @@
 - n8n как webhook/tools/логика интеграции;
 - `postgres_memory` как memory-слой;
 - `call_center` Postgres как operational data layer;
+- основной `n8n` database runtime теперь тоже на Postgres (`n8n_prod`), а не на локальном SQLite;
 - `postgrest` и `adminer` как часть текущего серверного контура;
 - Google Sheet как лог звонков через `call_log`.
 
 ## 2. Что работает сейчас
 
 Работает:
+- основной live `n8n` после миграции `SQLite -> Postgres`;
 - live звонковый контур;
 - `context_fetch`;
 - `call_log`;
@@ -39,6 +41,52 @@
 - для этих workflow отключено сохранение success/error execution payloads;
 - старые execution payloads с секретами очищены;
 - контрольный `call_log` smoke после правки прошёл успешно и записал `smoke_secret_hardening_envflag` в Google Sheet, диапазон `'Лиды_обзвон'!A905:AM905`.
+
+Обновление `2026-05-26` по основному `n8n`:
+- основной live `n8n` переведён с SQLite на Postgres;
+- новые БД:
+  - `n8n_stage`
+  - `n8n_prod`
+- боевой контейнер читает дополнительный env-файл:
+  - `/home/aicore/n8n-server/.env.n8n_postgres`
+- owner/project/settings и active workflow state перенесены из live SQLite в `n8n_prod`;
+- после cutover:
+  - `https://www.n-8-n.site` отвечает `HTTP 200`;
+  - контейнер `n8n-server-n8n-1` healthy;
+  - в `n8n_prod` подтверждены `32` workflows, `13` credentials и `22` active workflow;
+- старый SQLite snapshot оставлен как rollback-резерв:
+  - `/var/lib/docker/volumes/n8n-server_n8n_data/_data/database.sqlite`
+  - полный backup-пакет: `/home/aicore/backups/n8n/sqlite_to_postgres_2026-05-26/`
+- После первого post-migration smoke найден и исправлен отдельный live-env дефект:
+  - `docker-compose.yml` для `n8n` поначалу подключал `.env.n8n_postgres`, но не подключал `.env.callcenter`;
+  - из-за этого внутри контейнера не было `ELEVENLABS_API_KEY` и `ELEVEN_OUTBOUND_RELAY_TOKEN`, и `eleven/outbound-call` сначала возвращал `provider_rejected / forbidden`;
+  - compose обновлён, `n8n` пересоздан, secrets снова видны в runtime.
+- После controlled re-activation/restarт smoke-проверки дали:
+  - `voice-agent-inbound` -> `200 OK`
+  - `eleven/tool/context` -> `200 OK`
+  - `eleven/tool/send-sms` -> `200 OK`
+  - `eleven/outbound-call` -> `ok=true`, `action=call_requested`, есть `conversation_id` и `sip_call_id`
+  - `eleven/tool/call-log` -> `ok=true`, запись ушла в live Google Sheet
+- Важное уточнение по инфраструктуре:
+  - отдельного live MySQL/MariaDB слоя для основного `n8n` сейчас нет;
+  - текущий live runtime = `Postgres` + `postgres_memory` + `call_center`.
+- `2026-05-26` выполнен маленький ручной smoke на `2-3` outbound-звонка уже после migration fix:
+  - `row_2` и `row_4` вернули `call_requested` с реальными `conversation_id` от Eleven;
+  - `row_3` в live Sheet отразился как `send_kp_pending_callback / call_manager`;
+  - в этом коротком прогоне не появилось новых `provider_rejected` / `outbound_request_failed`.
+- `2026-05-26` по кейсу `conv_1201ksj4b9hnedrs3nphhjqjbmeq` добавлено новое screening-правило:
+  - если линия только выясняет цель звонка, сроки ответа, предлагает manager callback/SMS и при этом звучит как шаблонный screening/auto-answer, это не считать полезным handoff;
+  - такие кейсы больше не должны попадать в обычный полезный secretary/intermediary сценарий.
+- `2026-05-26` применён отдельный latency trim в live `Eleven Main`:
+  - `turn_timeout = 4.0`
+  - `tts.optimize_streaming_latency = 2`
+  - live prompt ужат примерно с `18.1k` до `5.5k` символов, чтобы снизить паузу после живого ответа человека;
+  - backup и payload лежат в:
+    - `/home/max/n8n_ai_call_center/backups/2026-05-26_eleven_latency_trim/`
+  - актуальная live version после правки:
+    - `agtvrsn_3501ksj5y73qevps47674t661c6g`
+- Для следующего входа добавлена локальная графическая схема live-контура:
+  - `/home/max/n8n_ai_call_center/docs/architecture/callcenter_live_architecture.svg`
 
 Отдельно в live работает и email-followup контур:
 
@@ -118,8 +166,9 @@
 - `stability = 0.5`
 - `similarity_boost = 0.78`
 - `turn_eagerness = normal`
-- `turn_timeout = 5.0`
+- `turn_timeout = 4.0`
 - `speculative_turn = false`
+- `tts.optimize_streaming_latency = 2`
 - built-in tools: `end_call`, `skip_turn`, `voicemail_detection`
 - active tools: `context_fetch`, `call_log`, `send_sms_info`, `end_call`
 - `tool_ids`:
@@ -302,6 +351,21 @@
 - `2026-05-25`: кейс `conv_2601ksf5p04zfnzr3w1ec85aj9kk` отдельно закреплён как source-of-truth:
   - `МТС Защитник / MTS Defender / это рекламный звонок / звонок записывается сервисом защиты` считать автоответчиком или screening-service;
   - агент не должен вести диалог с такой линией и не должен оставлять ей сообщение.
+- `2026-05-26`: recovery по остановке autodial показал, что проблема уже не в одном старом workflow ID:
+  - fresh-import recovery клоны `AUTODIAL_DISPATCHER_RECOVERY_2026-05-26` (`vIXJSsiKh2R4jsWG`) и `AUTODIAL_DISPATCHER_RECOVERY_2026-05-26_V2` (`70B9BSNOu0LXPBqe`) были реально активированы на старте `n8n`;
+  - при этом и recovery execution внутри live `n8n` всё равно приходят в `Dispatcher | Finish Exhausted`, хотя standalone-прогон того же `Parse Sheet Rows` JS на тех же live Sheet данных выбирает `action = dial`, `reason = candidate_selected`, `eligible_count = 46`;
+  - это сместило основную гипотезу с “битый старый dispatcher” на “runtime/versioning рассинхрон текущего `n8n` на SQLite”.
+- На конец `2026-05-26 14:00 MSK` окно обзвона уже закрыто, а live recovery V2 уходит в `Dispatcher | Finish Outside Window`.
+- Текущий активный recovery dispatcher в `n8n`:
+  - `AUTODIAL_DISPATCHER_RECOVERY_2026-05-26_V2`
+  - workflow id: `70B9BSNOu0LXPBqe`
+- Практический статус прямо сейчас:
+  - боевой обзвон **ещё не перепроверен новым полноценным циклом dispatcher уже после миграции на Postgres**;
+  - `VOICE_INBOUND_AGENT` и `ELEVEN_TOOL_CALL_LOG_BRIDGE` активны;
+  - `eleven/outbound-call` и `eleven/tool/call-log` уже подтверждены ручными live smoke-тестами после migration fix;
+  - маленький ручной smoke после migration уже показал минимум один полезный business-case без технического reject (`row_3 -> send_kp_pending_callback`);
+  - старый корень подозрения был в published/cached execution representation `n8n` на SQLite;
+  - после миграции на Postgres это нужно перепроверить уже новым live tick.
 
 ## 8. Email-followup live контур
 

@@ -58,6 +58,8 @@ services:
     restart: always
     env_file:
       - ${SERVER_RUNTIME_ROOT:-.}/.env.email_followup
+      - ${SERVER_RUNTIME_ROOT:-.}/.env.callcenter
+      - ${SERVER_RUNTIME_ROOT:-.}/.env.n8n_postgres
     depends_on:
       redis:
         condition: service_healthy

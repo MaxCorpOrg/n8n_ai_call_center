@@ -2,6 +2,7 @@
 Description=Site Control Kit Hub
 After=network-online.target
 Wants=network-online.target
+PartOf=site-control-kit-browser.service
 
 [Service]
 Type=simple
@@ -9,8 +10,9 @@ User=aicore
 WorkingDirectory=/home/aicore/agent-tools/site-control-kit
 EnvironmentFile=-/etc/site-control-kit/hub.env
 ExecStart=/home/aicore/agent-tools/site-control-kit/.venv/bin/python -m webcontrol serve --host ${SITECTL_HOST} --port ${SITECTL_PORT} --token ${SITECTL_TOKEN} --state-file ${SITECTL_STATE_FILE}
-Restart=always
+Restart=on-failure
 RestartSec=5
+StopWhenUnneeded=yes
 
 [Install]
 WantedBy=multi-user.target

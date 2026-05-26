@@ -19,6 +19,7 @@
 - запускной скрипт браузерного клиента: `/home/aicore/n8n-server/scripts/run_site_control_browser_client.sh`
 - env сервиса агента: `/home/aicore/n8n-server/.env.cosmetologist_hunter`
 - env хаба `site-control-kit`: `/etc/site-control-kit/hub.env`
+- timer браузерного окна: `/etc/systemd/system/site-control-kit-browser.timer`
 
 ## Сетевые адреса по умолчанию
 
@@ -96,6 +97,10 @@ curl -H "Authorization: Bearer <token>" http://127.0.0.1:8787/tooling/status
 ## Важный нюанс по `site-control-kit`
 
 Сам хаб может жить на сервере без проблем, но для реального browser fallback нужен подключённый browser client с загруженным расширением.
+При этом не рекомендуется держать Chromium поднятым 24/7: он заметно нагружает сервер даже в режиме ожидания.
+Рекомендуемый режим:
+- основной режим: `on-demand`, запуск только перед реальным browser fallback;
+- резервный режим: редкий timer, не чаще двух раз в день.
 
 Поэтому есть два режима:
 - `hub-only`: сервер знает про `site-control-kit`, но клиентов ещё нет;
@@ -103,15 +108,29 @@ curl -H "Authorization: Bearer <token>" http://127.0.0.1:8787/tooling/status
 
 ## Как довести `site-control-kit` до рабочего browser fallback
 
-1. Запустить хаб `site-control-kit`.
-2. Поднять серверный браузерный клиент:
+1. Установить unit-файлы хаба, браузерного клиента и timer.
 
 ```bash
 sudo cp /home/aicore/n8n-server/deploy/systemd/site-control-kit-browser.service.example \
   /etc/systemd/system/site-control-kit-browser.service
+sudo cp /home/aicore/n8n-server/deploy/systemd/site-control-kit-browser.timer.example \
+  /etc/systemd/system/site-control-kit-browser.timer
+sudo cp /home/aicore/n8n-server/deploy/systemd/site-control-kit-hub.service.example \
+  /etc/systemd/system/site-control-kit-hub.service
 sudo systemctl daemon-reload
-sudo systemctl enable --now site-control-kit-browser.service
+sudo systemctl disable --now site-control-kit-browser.service || true
+sudo systemctl disable --now site-control-kit-hub.service || true
+sudo systemctl enable --now site-control-kit-browser.timer
 ```
 
-3. Проверить, что в `GET /tooling/status` появился хотя бы `1` connected client.
-4. После этого hunter сможет целиться в клиент `client-cosmetologist-browser`.
+2. По умолчанию browser client должен стартовать `on-demand`, когда hunter действительно дошёл до backend `site_control`.
+Дополнительно можно оставить редкий timer-режим как резервный прогрев.
+Текущий шаблон timer рассчитан на сервер в `UTC` и запускает окна в `06:00` и `18:00 UTC`,
+что соответствует `09:00` и `21:00 Europe/Moscow`.
+
+3. Каждый запуск браузерного клиента живёт ограниченное время:
+- `RuntimeMaxSec=15m`
+- стартовая страница: `about:blank`, а не тяжёлая `Yandex Maps`
+
+4. Проверить, что во время окна в `GET /tooling/status` появился хотя бы `1` connected client.
+5. После этого hunter сможет целиться в клиент `client-cosmetologist-browser`.

@@ -16,8 +16,10 @@
 1. Telegram-бот принимает команду или обычное текстовое сообщение.
 2. Mistral интерпретирует намерение: показать настройки, поменять город, поменять лимит или запустить поиск.
 3. `n8n` вызывает локальный сервис `cosmetologist_hunter_service.py`.
-4. Сервис ищет новые контакты косметологов по источникам `2GIS`, `Yandex Maps` и `Prodoctorov`.
+4. Сервис ищет новые контакты косметологов по источникам `Prodoctorov`, `Yandex Maps` и `2GIS`.
+   Для задачи частных косметологов текущий live-режим сначала берёт врачебные профили и отсекает клиники/центры/салоны до записи результата.
 5. Для загрузки страниц сервис может использовать серверный `Firecrawl`, а при необходимости и `site-control-kit` как browser fallback.
+   Серверный browser client рекомендуется запускать `on-demand` перед реальным browser fallback, а не держать 24/7.
 6. Результат записывается в новую Google-таблицу и в локальный `.xlsx` в формате вашего call center.
 7. Telegram возвращает ссылку на Google Sheets и путь к локальному файлу.
 
@@ -28,6 +30,7 @@
 - дедупликация по телефонам against исходный лист и уже созданные таблицы по тому же городу
 - дедупликация по `phone_primary`, `phone_secondary`, названию компании и связке `название + адрес`
 - жёсткий приоритет именно на косметологов, а не случайные салоны красоты
+- private-only фильтр для частных косметологов Москвы: `doctor_profile`, `private_keyword` или имя специалиста, без clinic/company results
 - endpoint диагностики инструментов: `GET /tooling/status`
 - endpoint трассировки fetch-слоя: `GET /debug/fetch-trace?limit=20`
 - endpoint debug summary: `GET /debug/summary?chat_id=<id>&estimate_cap=30&refresh=1`
@@ -54,3 +57,13 @@
 - лист `Лиды_обзвон`
 - те же колонки `A:AM`
 - совместимость с текущим обзвоном и постобработкой
+
+## Последний проверенный результат
+- Дата: `2026-05-25`
+- Режим: частные косметологи, Москва
+- Google Sheet: `https://docs.google.com/spreadsheets/d/14X6j699O5J_RtjfUZ4JDddugisbIV0XdAr3HFP5a2kg/edit`
+- Последний файл на 50 строк: `/home/max/n8n_ai_call_center/ Таблицы_контактов /контакты_косметологов_москва_50.xlsx`
+- Preview 50 строк: `/home/max/n8n_ai_call_center/.runtime/cosmetologist_hunter/previews/контакты_косметологов_москва_50.json`
+- Лог сборки 50 строк: `/home/max/n8n_ai_call_center/.runtime/cosmetologist_hunter/logs/2026-05-25_private_cosmetologists_50_build.log`
+- Строгий live-прогон с Google Sheet дал 5 проверенных врачебных контактов: `/home/max/n8n_ai_call_center/ Таблицы_контактов /контакты_косметологов_москва_49.xlsx`
+- Live Prodoctorov после серии запросов начал отдавать ограничение доступа; поэтому `_50.xlsx` собран как private-practice кандидатная база из результатов агента и требует ручной QA нижних строк, если нужен только формат “ФИО частного врача”.

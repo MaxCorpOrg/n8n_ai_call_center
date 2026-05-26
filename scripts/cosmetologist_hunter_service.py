@@ -5,6 +5,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import threading
 import time
 import urllib.parse
@@ -57,6 +58,22 @@ DEFAULT_SITE_CONTROL_ROOT = os.getenv(
 DEFAULT_SITE_CONTROL_SERVER_URL = os.getenv("COSMETOLOGIST_HUNTER_SITE_CONTROL_SERVER_URL", "").strip()
 DEFAULT_SITE_CONTROL_TOKEN = os.getenv("COSMETOLOGIST_HUNTER_SITE_CONTROL_TOKEN", "").strip()
 DEFAULT_SITE_CONTROL_CLIENT_ID = os.getenv("COSMETOLOGIST_HUNTER_SITE_CONTROL_CLIENT_ID", "").strip()
+DEFAULT_SITE_CONTROL_BROWSER_SERVICE = os.getenv(
+    "COSMETOLOGIST_HUNTER_SITE_CONTROL_BROWSER_SERVICE", "site-control-kit-browser.service"
+).strip()
+DEFAULT_SITE_CONTROL_HUB_SERVICE = os.getenv(
+    "COSMETOLOGIST_HUNTER_SITE_CONTROL_HUB_SERVICE", "site-control-kit-hub.service"
+).strip()
+DEFAULT_SITE_CONTROL_BROWSER_TIMER = os.getenv(
+    "COSMETOLOGIST_HUNTER_SITE_CONTROL_BROWSER_TIMER", "site-control-kit-browser.timer"
+).strip()
+DEFAULT_SITE_CONTROL_ON_DEMAND = os.getenv("COSMETOLOGIST_HUNTER_SITE_CONTROL_ON_DEMAND", "1").strip().lower() not in {
+    "0",
+    "false",
+    "no",
+    "off",
+}
+DEFAULT_SEARCH_TIMEOUT_SECONDS = int(os.getenv("COSMETOLOGIST_HUNTER_SEARCH_TIMEOUT_SECONDS", "90") or "90")
 DEFAULT_PORT = 8787
 MAX_FETCH_TRACE_ITEMS = 120
 
@@ -114,19 +131,49 @@ CITY_PRESETS = {
     },
 }
 
-BASE_QUERIES = [
-    "косметолог",
-    "клиника косметологии",
-    "кабинет косметолога",
-    "частный косметолог",
-    "косметология",
-    "врач косметолог",
-    "эстетическая косметология",
-]
+SEARCH_STRATEGIES = {
+    "core": [
+        "косметолог",
+        "косметология",
+        "эстетическая косметология",
+        "косметологический кабинет",
+    ],
+    "private": [
+        "частный косметолог",
+        "частный врач косметолог",
+        "косметолог частная практика",
+        "косметолог на дому",
+        "частный кабинет косметолога",
+        "врач косметолог частный кабинет",
+        "дерматолог косметолог частная практика",
+        "косметолог инъекции частный",
+    ],
+    "doctor": [
+        "врач косметолог",
+        "врач-косметолог",
+        "дерматолог косметолог",
+        "врач дерматолог косметолог",
+        "инъекционная косметология",
+        "косметолог эстетист",
+        "дерматовенеролог косметолог",
+        "трихолог косметолог",
+    ],
+    "clinic": [
+        "клиника косметологии",
+        "центр косметологии",
+        "клиника эстетической медицины",
+        "центр эстетической медицины",
+        "косметологическая клиника",
+    ],
+}
 
 STRICT_NAME_KEYS = [
     "космет",
     "эстет",
+    "дермат",
+    "медиц",
+    "clinic",
+    "doctor",
     "лазер",
     "laser",
     "эпил",
@@ -141,6 +188,41 @@ STRICT_RUBRIC_ALIASES = {
     "ehpilyaciya",
     "permanentnyjj_makiyazh",
 }
+
+PRIVATE_POSITIVE_KEYS = [
+    "частн",
+    "частная практика",
+    "на дому",
+    "кабинет косметолога",
+    "врач косметолог",
+    "врач-косметолог",
+    "дерматолог косметолог",
+    "дерматолог-косметолог",
+    "косметолог эстетист",
+    "ип ",
+]
+
+PRIVATE_ORG_REJECT_KEYS = [
+    "клиник",
+    "медицинский центр",
+    "медцентр",
+    "центр косметологии",
+    "центр эстет",
+    "центр красоты",
+    "салон",
+    "студия",
+    "spa",
+    "спа",
+    "beauty",
+    "бьюти",
+    "пространство красоты",
+    "многопроф",
+    "стоматолог",
+    "лаборатор",
+    "ооо",
+    "зао",
+    "ао ",
+]
 GOOGLE_AUTH_RETRY_MARKERS = (
     "Method doesn't allow unregistered callers",
     "PERMISSION_DENIED",
@@ -291,13 +373,55 @@ def relevant_text(value):
     return any(key in text for key in STRICT_NAME_KEYS)
 
 
+def looks_like_person_name(value):
+    text = fix_text(value or "").strip()
+    parts = re.findall(r"\b[А-ЯЁ][а-яё]{2,}\b", text)
+    return len(parts) >= 2
+
+
+def private_cosmetologist_match(item):
+    name = fix_text(item.get("company_name") or "").strip()
+    source = str(item.get("source") or "").strip().lower()
+    haystack = " ".join(
+        fix_text(value or "").strip()
+        for value in [
+            name,
+            item.get("address") or "",
+            item.get("private_hint") or "",
+            item.get("source_url") or "",
+        ]
+    ).lower()
+
+    if not ("космет" in haystack or "дермат" in haystack or source == "prodoctorov"):
+        return False, "no_cosmetology_signal"
+
+    if source == "prodoctorov" and looks_like_person_name(name):
+        return True, "doctor_profile"
+
+    if any(key in haystack for key in PRIVATE_ORG_REJECT_KEYS):
+        if "кабинет косметолога" not in haystack and "частн" not in haystack and not looks_like_person_name(name):
+            return False, "organization_keyword"
+
+    if any(key in haystack for key in PRIVATE_POSITIVE_KEYS):
+        return True, "private_keyword"
+
+    if looks_like_person_name(name):
+        return True, "person_name"
+
+    return False, "not_private_enough"
+
+
 def score_name(name):
     text = str(name or "").lower()
     score = 0
     if "космет" in text:
         score += 60
+    if "дермат" in text:
+        score += 25
     if "эстет" in text:
         score += 40
+    if "медиц" in text or "clinic" in text:
+        score += 20
     if "лазер" in text or "laser" in text:
         score += 25
     if "эпил" in text:
@@ -457,14 +581,29 @@ class FirecrawlClient:
 
 
 class SiteControlKitClient:
-    def __init__(self, server_url="", token="", client_id="", root_path=""):
+    def __init__(
+        self,
+        server_url="",
+        token="",
+        client_id="",
+        root_path="",
+        browser_service="",
+        hub_service="",
+        browser_timer="",
+        on_demand=True,
+    ):
         self.server_url = str(server_url or "").rstrip("/")
         self.token = str(token or "").strip()
         self.client_id = str(client_id or "").strip()
         self.root_path = str(root_path or "").strip()
+        self.browser_service = str(browser_service or DEFAULT_SITE_CONTROL_BROWSER_SERVICE).strip()
+        self.hub_service = str(hub_service or DEFAULT_SITE_CONTROL_HUB_SERVICE).strip()
+        self.browser_timer = str(browser_timer or DEFAULT_SITE_CONTROL_BROWSER_TIMER).strip()
+        self.on_demand = bool(on_demand)
         self.session = requests.Session()
         self._clients_cache = []
         self._clients_cache_at = 0.0
+        self._started_on_demand = False
 
     def enabled(self):
         return bool(self.server_url and self.token)
@@ -485,6 +624,66 @@ class SiteControlKitClient:
         resp = self.session.post(f"{self.server_url}{path}", headers=self._headers(), json=payload, timeout=timeout)
         resp.raise_for_status()
         return resp.json()
+
+    def _run_systemctl(self, *args, timeout=30):
+        if not self.on_demand:
+            return False
+        if not shutil.which("sudo"):
+            return False
+        try:
+            subprocess.run(
+                ["sudo", "-n", "systemctl", *args],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=timeout,
+            )
+            return True
+        except Exception:
+            return False
+
+    def _service_state(self, unit_name):
+        if not unit_name:
+            return "unknown"
+        try:
+            result = subprocess.run(
+                ["systemctl", "is-active", unit_name],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            return (result.stdout or result.stderr or "unknown").strip()
+        except Exception:
+            return "unknown"
+
+    def ensure_browser_ready(self, timeout=35):
+        client = self.pick_client()
+        if client:
+            return client
+        if not self.on_demand:
+            return None
+        started_hub = self._run_systemctl("start", self.hub_service, timeout=20)
+        started_browser = self._run_systemctl("start", self.browser_service, timeout=20)
+        if started_hub or started_browser:
+            self._started_on_demand = True
+        deadline = time.time() + max(5, int(timeout or 35))
+        while time.time() < deadline:
+            client = self.pick_client()
+            if client:
+                return client
+            time.sleep(1)
+        return None
+
+    def shutdown(self):
+        if not self.on_demand or not self._started_on_demand:
+            return False
+        stopped = self._run_systemctl("stop", self.browser_service, timeout=20)
+        self._run_systemctl("stop", self.hub_service, timeout=20)
+        self._clients_cache = []
+        self._clients_cache_at = time.time()
+        self._started_on_demand = False
+        return stopped
 
     def list_clients(self, force=False):
         if not self.enabled():
@@ -552,7 +751,7 @@ class SiteControlKitClient:
         return self._wait_command(command_id, timeout=wait_timeout)
 
     def fetch_html(self, url, wait_timeout=45):
-        client = self.pick_client()
+        client = self.ensure_browser_ready(timeout=max(20, wait_timeout))
         if not client:
             return ""
         client_id = str(client.get("client_id", "")).strip()
@@ -586,6 +785,12 @@ class SiteControlKitClient:
             "server_url": self.server_url,
             "root_path": self.root_path,
             "client_id": self.client_id,
+            "on_demand": self.on_demand,
+            "browser_service": self.browser_service,
+            "hub_service": self.hub_service,
+            "browser_timer": self.browser_timer,
+            "browser_service_state": self._service_state(self.browser_service),
+            "hub_service_state": self._service_state(self.hub_service),
             "connected_clients": len(clients),
             "selected_client_id": str((selected or {}).get("client_id", "")).strip(),
         }
@@ -843,17 +1048,22 @@ class CosmetologistHunter:
         self.fetch_trace = deque(maxlen=MAX_FETCH_TRACE_ITEMS)
 
     def _record_fetch_attempt(self, url, backend, html, required_markers, duration_ms, accepted, reason=""):
-        self.fetch_trace.append(
-            {
-                "url": url,
-                "backend": backend,
-                "html_length": len(html or ""),
-                "required_markers": [str(marker or "") for marker in (required_markers or []) if str(marker or "")],
-                "accepted": bool(accepted),
-                "reason": str(reason or "").strip(),
-                "duration_ms": int(duration_ms),
-                "at": now_text(),
-            }
+        item = {
+            "url": url,
+            "backend": backend,
+            "html_length": len(html or ""),
+            "required_markers": [str(marker or "") for marker in (required_markers or []) if str(marker or "")],
+            "accepted": bool(accepted),
+            "reason": str(reason or "").strip(),
+            "duration_ms": int(duration_ms),
+            "at": now_text(),
+        }
+        self.fetch_trace.append(item)
+        print(
+            "fetch_attempt "
+            f"backend={item['backend']} accepted={item['accepted']} reason={item['reason']} "
+            f"html_length={item['html_length']} duration_ms={item['duration_ms']} url={item['url']}",
+            flush=True,
         )
 
     def get_fetch_trace(self, limit=30):
@@ -864,26 +1074,28 @@ class CosmetologistHunter:
     def _preferred_backends(self, url):
         lower_url = str(url or "").lower()
         if "2gis.ru" in lower_url:
-            return ["direct"]
+            return ["direct", "firecrawl", "site_control"]
         if "prodoctorov.ru" in lower_url:
-            return ["direct"]
+            if "/vrach/" in lower_url:
+                return ["direct"]
+            return ["direct", "firecrawl", "site_control"]
         if "yandex." in lower_url:
-            return ["direct", "firecrawl"]
+            return ["direct", "firecrawl", "site_control"]
         return ["direct", "firecrawl", "site_control"]
 
     def _backend_timeout(self, url, backend):
         lower_url = str(url or "").lower()
         if backend == "direct" and "2gis.ru" in lower_url:
-            return 8
+            return 5
         if backend == "direct" and "prodoctorov.ru" in lower_url:
-            return 12
+            return 6
         if backend == "direct" and "yandex." in lower_url:
-            return 10
+            return 6
         if backend == "firecrawl":
-            return 30
+            return 12
         if backend == "site_control":
-            return 25
-        return 20
+            return 12
+        return 10
 
     def _matches_required_markers(self, html, required_markers=None):
         if not html:
@@ -941,8 +1153,24 @@ class CosmetologistHunter:
             )
         return ""
 
+    def _candidate_queries(self, max_queries=None):
+        out = []
+        seen = set()
+        limit = max_queries or sum(len(values) for values in SEARCH_STRATEGIES.values())
+        ordered_groups = ["private", "doctor", "core"]
+        for group in ordered_groups:
+            for query in SEARCH_STRATEGIES.get(group, []):
+                prepared = f"{query} {self.city}".strip()
+                if prepared in seen:
+                    continue
+                seen.add(prepared)
+                out.append(prepared)
+                if len(out) >= limit:
+                    return out
+        return out
+
     def build_yandex_urls(self, max_queries=None):
-        queries = [f"{query} {self.city}".strip() for query in BASE_QUERIES[: max_queries or len(BASE_QUERIES)]]
+        queries = self._candidate_queries(max_queries=max_queries)
         preset = CITY_PRESETS.get(self.city_lc)
         urls = []
         if preset:
@@ -957,8 +1185,8 @@ class CosmetologistHunter:
     def build_2gis_urls(self, max_queries=None, max_pages=3):
         preset = CITY_PRESETS.get(self.city_lc)
         urls = []
-        pages = range(1, max(2, int(max_pages or 3)) + 1)
-        queries = [f"{query} {self.city}".strip() for query in BASE_QUERIES[: max_queries or len(BASE_QUERIES)]]
+        pages = range(1, max(1, int(max_pages or 3)) + 1)
+        queries = self._candidate_queries(max_queries=max_queries)
         if preset:
             for query in queries:
                 q = urllib.parse.quote(query)
@@ -1028,6 +1256,7 @@ class CosmetologistHunter:
                     "source": "yandex",
                     "source_url": source_url,
                     "city": self.city,
+                    "private_hint": categories,
                     "score": score_name(name) + 10,
                 }
             )
@@ -1100,6 +1329,7 @@ class CosmetologistHunter:
                 "source": "2gis",
                 "source_url": f"https://2gis.ru/moscow/firm/{firm_id}",
                 "city": self.city,
+                "private_hint": " ".join(rubric_names),
                 "score": score_name(name) + (20 if any(alias == "kosmetolog" for alias in rubric_aliases) else 0),
             }
         ]
@@ -1166,13 +1396,14 @@ class CosmetologistHunter:
                     "source": "prodoctorov",
                     "source_url": url,
                     "city": self.city,
+                    "private_hint": " ".join(speciality_names),
                     "score": 85 if "космет" in " ".join(speciality_names).lower() else 65,
                 }
             )
         return records
 
     def _candidate_buffer_size(self, count):
-        return max(count + 10, count * 2)
+        return count if count >= 30 else max(count + 3, count * 2)
 
     def _collect_candidates(self, count, existing_signatures):
         existing_phones = set(existing_signatures.get("phones") or set())
@@ -1182,8 +1413,15 @@ class CosmetologistHunter:
         candidates = {}
         seen_names = set()
         seen_company_addresses = set()
-        max_queries = 4 if count <= 20 else 6
-        max_pages = 2 if count <= 20 else 3
+        max_queries = 4 if count <= 20 else 8
+        max_pages = 1 if count <= 20 else 8
+        search_timeout = DEFAULT_SEARCH_TIMEOUT_SECONDS
+        if count > 20:
+            search_timeout = max(search_timeout, count * 6)
+        deadline = time.time() + max(20, search_timeout)
+
+        def timed_out():
+            return time.time() >= deadline
 
         def add_records(items):
             for item in items:
@@ -1193,6 +1431,10 @@ class CosmetologistHunter:
                 company_address_key = make_company_address_key(item.get("company_name") or "", item.get("address") or "")
                 if not primary_phone:
                     continue
+                is_private, private_reason = private_cosmetologist_match(item)
+                if not is_private:
+                    continue
+                item["private_match_reason"] = private_reason
                 if primary_phone in existing_phones or primary_phone in candidates:
                     continue
                 if secondary_phone and secondary_phone in existing_phones:
@@ -1212,10 +1454,75 @@ class CosmetologistHunter:
                 if company_address_key:
                     seen_company_addresses.add(company_address_key)
 
+        if not timed_out():
+            profile_links = []
+            profile_seen = set()
+            max_profile_links = max(buffer_size * 3, 60)
+            for url in self.build_prodoctorov_urls(max_pages=max_pages):
+                if timed_out():
+                    break
+                for profile_url in self.parse_prodoctorov_list_url(url):
+                    if profile_url in profile_seen:
+                        continue
+                    profile_seen.add(profile_url)
+                    profile_links.append(profile_url)
+                    if len(profile_links) >= max_profile_links:
+                        break
+                if len(profile_links) >= max_profile_links:
+                    break
+
+            threads = []
+            lock = threading.Lock()
+
+            def profile_worker(profile_url):
+                if timed_out():
+                    return
+                try:
+                    records = self.parse_prodoctorov_profile(profile_url)
+                    if records:
+                        with lock:
+                            add_records(records)
+                except Exception:
+                    return
+
+            for profile_url in profile_links:
+                if timed_out():
+                    break
+                thread = threading.Thread(target=profile_worker, args=(profile_url,))
+                thread.start()
+                threads.append(thread)
+                if len(threads) >= 8:
+                    for active in threads:
+                        active.join(timeout=8)
+                    threads = []
+                    if len(candidates) >= buffer_size:
+                        return list(candidates.values())
+            for active in threads:
+                active.join(timeout=8)
+
+        print(f"candidate_stage stage=prodoctorov count={len(candidates)}", flush=True)
+        if len(candidates) >= buffer_size or timed_out():
+            return list(candidates.values())
+
+        for url in self.build_yandex_urls(max_queries=max_queries):
+            if timed_out():
+                break
+            add_records(self.parse_yandex_url(url))
+            if len(candidates) >= buffer_size:
+                return list(candidates.values())
+
+        print(f"candidate_stage stage=yandex count={len(candidates)}", flush=True)
+        if len(candidates) >= buffer_size or timed_out():
+            return list(candidates.values())
+        if count >= 30:
+            return list(candidates.values())
+
         firm_ids = []
         firm_seen = set()
-        max_firm_ids = max(buffer_size * 2, 40)
+        max_firm_ids = max(buffer_size * 2, 16)
         for url in self.build_2gis_urls(max_queries=max_queries, max_pages=max_pages):
+            if timed_out():
+                break
             for firm_id in self.parse_2gis_search_url(url):
                 if firm_id in firm_seen:
                     continue
@@ -1230,6 +1537,8 @@ class CosmetologistHunter:
         lock = threading.Lock()
 
         def worker(fid):
+            if timed_out():
+                return
             try:
                 records = self.parse_2gis_firm(fid)
                 if records:
@@ -1239,63 +1548,19 @@ class CosmetologistHunter:
                 return
 
         for firm_id in firm_ids:
+            if timed_out():
+                break
             thread = threading.Thread(target=worker, args=(firm_id,))
             thread.start()
             threads.append(thread)
-            if len(threads) >= 8:
+            if len(threads) >= 4:
                 for active in threads:
-                    active.join()
+                    active.join(timeout=14)
                 threads = []
                 if len(candidates) >= buffer_size:
                     return list(candidates.values())
         for active in threads:
-            active.join()
-
-        if len(candidates) >= buffer_size:
-            return list(candidates.values())
-
-        profile_links = []
-        profile_seen = set()
-        max_profile_links = max(buffer_size * 2, 40)
-        for url in self.build_prodoctorov_urls(max_pages=max_pages):
-            for profile_url in self.parse_prodoctorov_list_url(url):
-                if profile_url in profile_seen:
-                    continue
-                profile_seen.add(profile_url)
-                profile_links.append(profile_url)
-                if len(profile_links) >= max_profile_links:
-                    break
-            if len(profile_links) >= max_profile_links:
-                break
-
-        threads = []
-
-        def profile_worker(profile_url):
-            try:
-                records = self.parse_prodoctorov_profile(profile_url)
-                if records:
-                    with lock:
-                        add_records(records)
-            except Exception:
-                return
-
-        for profile_url in profile_links:
-            thread = threading.Thread(target=profile_worker, args=(profile_url,))
-            thread.start()
-            threads.append(thread)
-            if len(threads) >= 6:
-                for active in threads:
-                    active.join()
-                threads = []
-                if len(candidates) >= buffer_size:
-                    return list(candidates.values())
-        for active in threads:
-            active.join()
-
-        for url in self.build_yandex_urls(max_queries=max_queries):
-            add_records(self.parse_yandex_url(url))
-            if len(candidates) >= buffer_size:
-                return list(candidates.values())
+            active.join(timeout=14)
 
         return list(candidates.values())
 
@@ -1327,6 +1592,10 @@ class HunterService:
             token=DEFAULT_SITE_CONTROL_TOKEN,
             client_id=DEFAULT_SITE_CONTROL_CLIENT_ID,
             root_path=DEFAULT_SITE_CONTROL_ROOT,
+            browser_service=DEFAULT_SITE_CONTROL_BROWSER_SERVICE,
+            hub_service=DEFAULT_SITE_CONTROL_HUB_SERVICE,
+            browser_timer=DEFAULT_SITE_CONTROL_BROWSER_TIMER,
+            on_demand=DEFAULT_SITE_CONTROL_ON_DEMAND,
         )
         self.source_spreadsheet_id = source_spreadsheet_id
         self.source_sheet_name = source_sheet_name
@@ -1364,7 +1633,10 @@ class HunterService:
             return cached.get("payload") or {}
         existing_signatures = self.google.existing_signatures_for_city(resolved_city)
         hunter = CosmetologistHunter(resolved_city, firecrawl=self.firecrawl, site_control=self.site_control)
-        contacts = hunter.find_contacts(estimate_cap, existing_signatures)
+        try:
+            contacts = hunter.find_contacts(estimate_cap, existing_signatures)
+        finally:
+            hunter.site_control.shutdown()
         payload = {
             "city": resolved_city,
             "estimate_cap": estimate_cap,
@@ -1439,8 +1711,11 @@ class HunterService:
             title = build_sheet_title(city, ordinal)
             existing_signatures = self.google.existing_signatures_for_city(city)
             hunter = CosmetologistHunter(city, firecrawl=self.firecrawl, site_control=self.site_control)
-            contacts = hunter.find_contacts(count, existing_signatures)
-            self.last_fetch_trace = hunter.get_fetch_trace(limit=MAX_FETCH_TRACE_ITEMS)
+            try:
+                contacts = hunter.find_contacts(count, existing_signatures)
+                self.last_fetch_trace = hunter.get_fetch_trace(limit=MAX_FETCH_TRACE_ITEMS)
+            finally:
+                hunter.site_control.shutdown()
             if len(contacts) < count:
                 raise RuntimeError(
                     f"Недостаточно новых контактов косметологов для города {city}: найдено {len(contacts)}, нужно {count}"
