@@ -1,0 +1,11 @@
+        id        |                name                 | active |              versionId               | activeVersionId | versionCounter |         updatedAt          
+------------------+-------------------------------------+--------+--------------------------------------+-----------------+----------------+----------------------------
+ kZSdJrsAHWWIC2l6 | ELEVEN_TOOL_CALL_LOG_BRIDGE (draft) | f      | b202175b-e5eb-4431-99c9-237846f046d3 |                 |            111 | 2026-06-05 12:44:26.104+03
+(1 row)
+
+              versionId               | authors |         createdAt          |                name                 
+--------------------------------------+---------+----------------------------+-------------------------------------
+ b202175b-e5eb-4431-99c9-237846f046d3 | codex   | 2026-06-05 12:44:26.104+03 | ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)
+ 88217459-7ad0-481d-ab64-d90fc621074a | import  | 2026-05-26 14:48:44.326+03 | ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)
+(2 rows)
+

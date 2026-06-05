@@ -5,8 +5,8 @@
 ## Что делает контур
 
 1. Берет контакты из Google Sheet:
-   - `https://docs.google.com/spreadsheets/d/1kAXIwaa_-rC4MO5vV3mFV-Geha08iL_6pJNCNxlQPAU/edit?gid=199760593#gid=199760593`
-   - файл в Drive: `контакты_косметологов_москва_50`
+   - `https://docs.google.com/spreadsheets/d/1SyoGWXrvLNevGzjWQjfSP7eRqVCMOzR0MzXeWSL7HOo/edit?gid=199760593#gid=199760593`
+   - файл в Drive: `Первая таблица частных косметологов`
 2. Целевую вкладку выбирает по `gid = 199760593`, а не по жестко прошитому имени листа.
 3. Читает историю и состояние прямо из той же таблицы:
    - исходные лиды;
@@ -36,7 +36,7 @@
 - Рабочее окно: `10:00–14:00` МСК.
 - Предпочтительный пик: `10:00–12:00` МСК.
 - Максимум живых разговоров в день: `15`.
-- Максимум строк `dialing` от автодозвона в день: `50`.
+- Максимум строк `dialing` от автодозвона в день: `30`.
 - Максимум коротких non-human разговоров в день: `10`.
 - Максимум `outbound_request_failed` в день: `8`.
 - Максимум автодозвонов на один номер в день: `2`.
@@ -115,7 +115,7 @@ Dispatcher сначала резолвит нужную вкладку по `gid
 - `SIP 486 Busy Here` со стороны outbound/SIP тоже трактуется как `busy`, а не как `outbound_request_failed`, поэтому не должен раздувать `provider_circuit_breaker`
 - Если окно уже закрыто, следующий шаг всегда уходит на завтра
 - Если подряд накопилось `3` свежих `outbound_request_failed` за короткое окно, dispatcher включает `provider_circuit_breaker` и не продолжает бессмысленно жечь попытки
-- Если за день накопилось `50` строк `dialing`, dispatcher завершает с причиной `daily_dialing_limit_reached`
+- Если за день накопилось `30` строк `dialing`, dispatcher завершает с причиной `daily_dialing_limit_reached`
 - Если за день накопилось `10` коротких non-human разговоров с валидным `conv_...` и исходами `busy`, `no_answer` или `send_kp_pending_callback`, dispatcher завершает с причиной `nonhuman_conversation_limit_reached`
 - Если за день накопилось `8` исходов `outbound_request_failed`, dispatcher завершает с причиной `daily_provider_failure_limit_reached`
 - Если за день накопилось слишком много чисто технических исходов без живых разговоров, dispatcher завершает с причиной `tech_waste_limit_reached`

@@ -328,7 +328,7 @@
     }
   },
   "createdAt": "2026-02-26T15:10:38.848+03:00",
-  "updatedAt": "2026-06-05T09:09:05.219324Z",
+  "updatedAt": "2026-06-05T12:21:40.237+03:00",
   "settings": {
     "executionOrder": "v1",
     "callerPolicy": "workflowsFromSameOwner",
@@ -345,7 +345,7 @@
   "meta": null,
   "parentFolderId": null,
   "isArchived": false,
-  "versionCounter": 106,
+  "versionCounter": 110,
   "description": null,
   "activeVersionId": null
 }

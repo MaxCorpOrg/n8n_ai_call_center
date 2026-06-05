@@ -47,7 +47,7 @@
 - первая живая реплика агента должна сразу быть полным business-opener;
 - до живого ответа человека продажный opener не запускается;
 - после живого ответа человека текущий target-opener должен быть таким:
-  - `Здравствуйте, наша компания является официальным представителем липолитика премиум класса lipolong, предлагаем вам сотрудничество с нашей компанией на выгодных условиях.`
+  - `Здравствуйте, наша компания является официальным представителем липолитика премиум класса ЛипоЛонг, предлагаем вам сотрудничество с нашей компанией на выгодных условиях. А еще, сотрудничая с нами, вы можете быть уверены на 100%, что получаете оригинальную продукцию и не рискуете попасть на подделку`
   - затем короткое:
     - `Вам это в принципе интересно?`
 - включены built-in tools `skip_turn` и `voicemail_detection`;
@@ -93,17 +93,77 @@
   - нужное поведение: сразу `call_log` с `call_result=no_answer`, `next_step=callback`, короткой пометкой `Автоответчик/электронный помощник: сообщение не оставляли, звонок завершен сразу`, затем `end_call`;
   - на `2026-05-22` прямой API-доступ к ElevenLabs из текущего окружения заблокирован `302/403`, поэтому эту правку нужно внести через доступный ElevenLabs UI/API и подтвердить ручным voicemail/SIP тестом;
 - отдельное правило по intermediary-линии:
-  - `я передам ответственному специалисту`, `оставьте контакт`, `мы передадим информацию`, `я только передам` считать полезным handoff-контактом;
+  - `я передам ответственному специалисту`, `оставьте контакт`, `мы передадим информацию`, `я только передам` считать полезным handoff-контактом только если это явно живой человек, а не screening/service-шаблон;
   - не превращать это в длинный sales-диалог;
   - оставлять один короткий контакт и логировать как `send_kp_pending_callback`.
+  - если линия повторяет шаблонные service-фразы вроде `в течение какого времени нужно дать ответ`, `нужно передать ещё что-то`, `что-то хотите добавить`, `я всё передам абоненту`, `зафиксировал информацию`, это уже не полезный handoff, а screening/intermediary assistant; в таких кейсах agent должен не продолжать диалог, а быстро логировать `no_answer/busy` и завершать звонок.
+- отдельное правило по тишине и `...`:
+  - если после соединения или после opener в transcript идут только `...`, silence markers или пустые non-semantic куски;
+  - agent не должен говорить `Пожалуйста, подскажите, вы на связи? Могу продолжить разговор.` или `Вы меня слышите? Если удобно, дайте знать, чтобы я могла продолжить.`;
+  - нужное поведение: короткое ожидание, затем `call_log(no_answer)` и silent `end_call`.
 - обязательное уточнение имени собеседника после подтверждения релевантности;
 - follow-up сценарий без почты и без `@username`;
 - агент не должен собирать, диктовать или перепроверять email-адреса;
 - если клиент просит `на почту`, live-flow должен переводить его в SMS/manager contact/callback, а не зависать на email-диктовке;
 - правило `на этот номер` -> использовать `system__called_number`, не пересобирать номер из речи;
 - активные live-tools: `context_fetch`, `call_log`, `send_sms_info`, `end_call`.
-- stable live `call_log` сейчас привязан к валидному relaxed tool id `tool_8601km62h97qft5b3nfprvxnvdkd`;
+- stable live `call_log` сейчас привязан к валидному relaxed tool id `tool_2201ktbptaagfqxa8f713g76dd6q`;
 - на stable live нельзя возвращать жёсткую dynamic-variable schema для `call_log`, пока ручные SIP/manual tests не гарантируют наличие `lead_id`, `request_id`, `source_record_key`, `phone_primary` и других runtime-полей уже на старте звонка;
+- `2026-06-04` после реального voicemail-case `conv_3301kt8tj8vyftq97vwbc0jn7c96` live prompt дополнительно ужесточён:
+  - bare `call_log` с одними `call_result / next_step / notes_short` теперь явно запрещён;
+  - в финальном `call_log` на `voicemail / no_answer / busy / screening` обязательно должны быть:
+    - `lead_id`
+    - `caller`
+    - `phone_primary`
+    - `source_record_key`
+    - `company_name` / `contact_name` при наличии
+    - `eleven_conv_id` как реальный conversation id, а не literal `system__conversation_id`
+  - если первая tool-попытка не содержит identity package, agent должен перегенерировать `call_log` правильно, а не завершать звонок с дырявой трассировкой;
+  - после voicemail/message-service нельзя произносить `Спасибо, перезвоним позже.` и вообще нельзя оставлять spoken-farewell: только `call_log` и silent `end_call`.
+- `2026-06-05` это уже подтверждено на новом live-тесте `conv_0601ktbh7vvbf398yp0zbpw1me8d`:
+  - spoken-farewell действительно ушёл;
+  - `end_call` был вызван с пустым `system__message_to_speak`.
+- Но на том же тесте осталось расхождение по tool usage:
+  - agent всё ещё передал `eleven_conv_id = system__conversation_id` literal-значением;
+  - bridge после re-activation не отрезал это так жёстко, как ожидалось;
+  - поэтому после теста был сделан ещё один live patch уже в `Main`:
+    - в prompt отдельно зафиксировано, что `call_log` обязан включать `phone_primary` и `source_record_key`;
+    - `eleven_conv_id` обязан быть реальным `conv_*`, а не literal `system__conversation_id`;
+    - если literal `system__conversation_id` появляется в draft tool-call, agent должен перегенерировать `call_log` до корректного вида.
+  - дополнительно в live tool-schema `call_log` добавлены отсутствовавшие поля:
+    - `phone_primary`
+    - `source_record_key`
+  - новая live version после этого patch:
+    - `agtvrsn_6501ktbptasbfm2btq7dfq1mc16y`
+  - следующий шаг теперь уже не в новый prompt-патч, а в один одиночный live-test для проверки:
+    - дошли ли `phone_primary` и `source_record_key` до webhook-body;
+    - стал ли `eleven_conv_id` реальным `conv_*`.
+- `2026-06-05` такой одиночный test действительно был выполнен, но оказался нерелевантным для проверки schema-fix:
+  - разговор `conv_7901ktbqpbewfksb5d807a721v3v` уже шёл на новой live version `agtvrsn_6501ktbptasbfm2btq7dfq1mc16y`;
+  - однако transcript состоял только из одной пользовательской фразы:
+    - `Трехэтажный дом.`
+  - затем линия завершилась как `Client disconnected: 1000`;
+  - agent не дошёл до `call_log`, поэтому тест не подтвердил и не опроверг новую schema/tool-правку.
+- Затем по `row_5` и `row_6` был добит именно `eleven_conv_id`:
+  - на `row_5` machine-path уже корректно записал `lead_id`, `source_record_key` и `phone_primary`, но `eleven_conv_id` ещё ушёл как `conv_5`;
+  - после этого live `Main` был дополнительно усилен антипримером:
+    - запрещены `conv_5`, `conv_6` и любые сокращённые `conv_*`, собранные из `row_*` или номера;
+    - `eleven_conv_id` нужно копировать verbatim из `system__conversation_id`;
+  - новая live version после этого patch:
+    - `agtvrsn_4801ktbw46wde348tvxnf4ewx54q`
+  - следующий одиночный тест `row_6` подтвердил исправление:
+    - `conversation_id = conv_5801ktbw5twre5a8srggqhzqh5yv`
+    - в `call_log` записался уже правильный полный `eleven_conv_id = conv_5801ktbw5twre5a8srggqhzqh5yv`
+    - вместе с ним корректно доехали `lead_id = row_6`, `source_record_key = row_6`, `phone_primary = +79182007944`
+  - то есть traceability на machine-path теперь закрыта; незакрытым остаётся только live-human проверка точного двухфразного opener.
+- `2026-06-05` следующий одиночный тест по `row_7` показал ещё один edge-case:
+  - voicemail-path снова отработал корректно без opener и без spoken farewell;
+  - но agent переиспользовал старый `conv_1901...` из prompt-примера вместо текущего `conv_2101...`;
+  - после этого буквальный valid-example был убран из live prompt;
+  - вместо него оставлено только общее правило формы текущего `conv_*` и отдельный запрет переиспользовать `conv_*` из прошлого звонка, примера, transcript или tool-result;
+  - новая live version после этой де-копипаст правки:
+    - `agtvrsn_1001ktbys8ftfpys5gykctxrqka5`
+  - этот фикс уже в live, но ещё не подтверждён следующим звонком.
 - sales-логика усилена без изменения `first_message`:
   - `не интересно` и `перезвоните позже` не должны завершать разговор автоматически;
   - ближний callback фиксируется с уточнением `первая половина / вторая половина дня`;
@@ -133,6 +193,24 @@
 11. Не уехал ли live traffic с `Main` на экспериментальную ветку.
 12. Не появилась ли у `call_log` жёсткая dynamic-variable привязка, которая ломает ручной SIP/manual test ещё до `accepted_time`.
 13. Есть ли свежий backup branch/config до live patch.
+14. Не разговаривает ли agent с screening/intermediary шаблонами после фраз:
+   - `в течение какого времени нужно дать ответ`
+   - `нужно передать ещё что-то`
+   - `что-то хотите добавить`
+   - `я всё передам абоненту`
+   - `зафиксировал информацию`
+15. Не вернулись ли service-фразы на тишине и `...`:
+   - `Пожалуйста, подскажите, вы на связи? Могу продолжить разговор.`
+   - `Вы меня слышите? Если удобно, дайте знать, чтобы я могла продолжить.`
+16. Не уходит ли voicemail/message-service в spoken-farewell после `call_log`, особенно в фразу `Спасибо, перезвоним позже.`.
+17. Есть ли в финальном `call_log` полный identity package:
+   - `lead_id`
+   - `caller`
+   - `phone_primary`
+   - `source_record_key`
+   - `eleven_conv_id`
+18. После re-activation `ELEVEN_TOOL_CALL_LOG_BRIDGE` реально ли webhook обслуживает свежую patched/published version, а не старую runtime-копию.
+
 
 ## 6. Основной риск
 

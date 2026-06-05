@@ -1,5 +1,648 @@
 # 09. Состояние проекта и последние изменения
 
+## 1.0) Обновление 2026-06-05: `row_7` снова ушёл в voicemail, opener на человеке ещё не проверен, `conv_*` усилен от reuse
+
+### Сделано
+- Выполнен следующий одиночный звонок по порядку:
+  - `row_7`
+  - `+79627956556`
+  - `Евгения Волкова`
+  - `request_id = manual.2026-06-05.ROW7.openercheck`
+- Новый разговор:
+  - `conversation_id = conv_2101ktbynrjkffsaw7ttmhvxjxcd`
+  - `version_id = agtvrsn_4801ktbw46wde348tvxnf4ewx54q`
+- Линия снова оказалась машинной:
+  - `Сообщаем, что абонент не отвечает. Звонок был перенаправлен на голосовой почтовый ящик. Вы можете оставить сообщение после звукового сигнала.`
+- Agent повёл себя правильно по voicemail-path:
+  - не начал sales-opener;
+  - вызвал `call_log`;
+  - завершил звонок через silent `end_call`.
+- Но всплыл новый traceability-регресс:
+  - вместо текущего `conv_2101ktbynrjkffsaw7ttmhvxjxcd` в `call_log` снова ушёл прошлый `conv_1901ktbtzw94ek4rzngccvtqka9k`;
+  - это показало, что прежний prompt-fix убрал сокращение `conv_5/conv_6`, но сам literal valid-example начал “прилипать” как reusable value.
+- После этого live `Main` ещё раз ужесточён:
+  - из prompt убран буквальный пример старого `conv_1901...`;
+  - вместо него оставлено только правило формы:
+    - длинный текущий `conv_*`, скопированный из `system__conversation_id` символ в символ;
+  - добавлено прямое правило:
+    - никогда не использовать `conv_*` из предыдущего звонка, предыдущего примера, предыдущего transcript или старого tool-result.
+- Новая live version после этого patch:
+  - `agtvrsn_1001ktbys8ftfpys5gykctxrqka5`
+
+### На чем остановились
+- Минимальные workflow снова выключены.
+- `n8n-server-n8n-1` healthy.
+- Точный двухфразный opener на живом человеке всё ещё не проверен, потому что `row_5`, `row_6`, `row_7` подряд ушли в machine/voicemail ветки.
+- Последняя правка по `conv_*` уже в live, но ещё не подтверждена следующим реальным звонком.
+
+### Что делать дальше
+- Следующий одиночный тест делать по `row_8`.
+- Цели следующего звонка:
+  1. если будет machine/voicemail, проверить, что `call_log` пишет уже текущий `conv_*`, а не reuse из прошлого вызова;
+  2. если будет живой человек, проверить точный двухфразный opener слово в слово;
+  3. после этого снова остановиться и дать короткий отчёт.
+
+## 1.0) Обновление 2026-06-05: `eleven_conv_id` добит, одиночный test-cycle по `row_6` прошёл успешно
+
+### Сделано
+- После неудачной попытки починить `eleven_conv_id` через dynamic-variable schema подтверждено:
+  - Eleven API не даёт пропатчить поле `eleven_conv_id` через `dynamic_variable` в текущем формате tool-schema;
+  - ответ API:
+    - `Can only set one of: description, dynamic_variable, is_system_provided, constant_value, or is_omitted`
+- Вместо этого live `Main` усилен prompt-правилом:
+  - `eleven_conv_id` нужно копировать verbatim из `system__conversation_id`;
+  - явные invalid examples добавлены прямо в prompt:
+    - `conv_5`
+    - `conv_6`
+    - любой сокращённый `conv_*`, полученный из `row_*` или номера телефона
+  - valid example shape тоже добавлен:
+    - `conv_1901ktbtzw94ek4rzngccvtqka9k`
+- Новая live version после этого prompt-fix:
+  - `agtvrsn_4801ktbw46wde348tvxnf4ewx54q`
+- После patch выполнен следующий одиночный тест уже по следующей строке:
+  - `row_6`
+  - `+79182007944`
+  - `Анна`
+  - `request_id = manual.2026-06-05.ROW6.convfix`
+- Новый разговор:
+  - `conversation_id = conv_5801ktbw5twre5a8srggqhzqh5yv`
+  - `version_id = agtvrsn_4801ktbw46wde348tvxnf4ewx54q`
+- Это снова оказался machine/silence path:
+  1. user:
+     - `...`
+  2. agent:
+     - сразу `call_log`
+  3. agent:
+     - затем silent `end_call`
+- На этом тесте нужная цель закрыта:
+  - в `call_log` ушёл уже правильный полный:
+    - `eleven_conv_id = conv_1901ktbtzw94ek4rzngccvtqka9k` ? no, correction:
+    - `eleven_conv_id = conv_5801ktbw5twre5a8srggqhzqh5yv`
+  - вместе с ним корректно доехали:
+    - `lead_id = row_6`
+    - `source_record_key = row_6`
+    - `phone_primary = +79182007944`
+  - запись ушла в Google Sheet:
+    - `'Лиды_обзвон'!A42:AM42`
+
+### На чем остановились
+- Минимальные workflow после теста снова выключены:
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` = `false`
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` = `false`
+  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)` = `false`
+- `n8n-server-n8n-1` снова `healthy`.
+- Главный долг по traceability закрыт:
+  - `lead_id`
+  - `source_record_key`
+  - `phone_primary`
+  - `eleven_conv_id`
+  теперь доходят корректно хотя бы на machine-path.
+- Точный двухфразный opener всё ещё не проверен на живом человеке, потому что `row_5` и `row_6` ушли в machine/no-answer ветки.
+
+### Что делать дальше
+- Не запускать новый цикл автоматически.
+- Следующий полезный тест делать уже по `row_7`.
+- Цель следующего одиночного звонка:
+  1. поймать именно live-human start;
+  2. проверить, что первая spoken-реплика идёт ровно фиксированным двухфразным opener-блоком;
+  3. после этого снова остановиться и дать короткий отчёт.
+
+## 1.0) Обновление 2026-06-05: одиночный test-cycle по `row_5`, machine-path сработал, но `eleven_conv_id` всё ещё битый
+
+### Сделано
+- После восстановления точного opener был выполнен следующий одиночный test-cycle уже по следующему номеру по порядку:
+  - `row_5`
+  - `+79879860736`
+  - `Анаит`
+  - `request_id = manual.2026-06-05.ROW5.exactopener`
+- Для теста поднимались только:
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)`
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)`
+  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)`
+- Во время старта найден и исправлен отдельный technical blocker:
+  - у этих трёх workflow было `active = true`, но пустой `activeVersionId`;
+  - из-за этого `n8n` возвращал:
+    - `Active version not found for workflow with id "sHTbALayEZdy8Mzs"`
+  - `activeVersionId` синхронизирован с `versionId`, после чего webhook снова начал реально работать.
+- После этого outbound-call прошёл и создал новый разговор:
+  - `conversation_id = conv_1901ktbtzw94ek4rzngccvtqka9k`
+  - `version_id = agtvrsn_7501ktbswz9aemy9xa71r5nnf0wt`
+- Это оказался не живой ответ, а машинная линия:
+  1. user:
+     - `Продолжаем дозваниваться. Оставайтесь на линии.`
+  2. agent:
+     - `skip_turn`
+  3. user:
+     - `Абонент не берёт трубку. Попробуйте перезвонить позднее. Если вы хотите отправить ему бесплатное смс-сообщение с просьбой перезвонить, нажмите один.`
+  4. agent:
+     - `call_log`
+     - затем silent `end_call`
+- В этом смысле machine-path сработал правильно:
+  - агент не начал sales opener;
+  - агент не проговорил лишний spoken-farewell;
+  - после машинной фразы он залогировал исход и завершил звонок.
+- Полезный прогресс по traceability:
+  - в `call_log` реально доехали:
+    - `lead_id = row_5`
+    - `source_record_key = row_5`
+    - `phone_primary = +79879860736`
+  - запись ушла в live Google Sheet:
+    - `updated_range = 'Лиды_обзвон'!A41:AM41`
+- Но незакрытый дефект остался:
+  - `eleven_conv_id` в tool-call и в tool-result ушёл как:
+    - `conv_5`
+  - вместо реального:
+    - `conv_1901ktbtzw94ek4rzngccvtqka9k`
+
+### На чем остановились
+- Минимальные workflow после теста снова выключены:
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` = `false`
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` = `false`
+  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)` = `false`
+- `n8n-server-n8n-1` снова `healthy`.
+- Точный opener в live уже зафиксирован, но этим тестом он не проверился, потому что линия была машинной.
+- `call_log` стал заметно лучше по identity package, но `eleven_conv_id` ещё не исправлен.
+
+### Что делать дальше
+- Не запускать новый цикл автоматически.
+- Следующий полезный шаг:
+  1. добить именно формирование `eleven_conv_id` в live agent/tool path;
+  2. затем сделать ещё один одиночный звонок по следующему номеру по порядку (`row_6`);
+  3. отдельно проверить:
+     - если попадём в live-human path, стартует ли агент ровно новым fixed opener;
+     - если попадём в machine path, пишет ли `call_log` уже реальный `conv_*`, а не `conv_6` / `conv_5`.
+
+## 1.0) Обновление 2026-06-05: live opener восстановлен ровно по тексту пользователя
+
+### Сделано
+- После нового замечания пользователя подтверждено, что live-agent начал уходить в укороченный opener и пропускал вторую часть про оригинальную продукцию.
+- В live `Eleven Main` first human opener восстановлен ровно в требуемом виде:
+  - `Здравствуйте, наша компания является официальным представителем липолитика премиум класса ЛипоЛонг, предлагаем вам сотрудничество с нашей компанией на выгодных условиях. А еще, сотрудничая с нами, вы можете быть уверены на 100%, что получаете оригинальную продукцию и не рискуете попасть на подделку`
+- Дополнительно убран внутренний конфликт prompt:
+  - раньше рядом с этим opener оставались старые укороченные формулировки в духе `one sentence` / `or a second sentence`;
+  - теперь live prompt явно трактует opener как фиксированный двухфразный блок и запрещает добавлять уже только третью фразу или лишний хвост.
+- Новая live-версия агента после этой правки:
+  - `agtvrsn_7501ktbswz9aemy9xa71r5nnf0wt`
+
+### На чем остановились
+- Сам звонковый контур остаётся на паузе.
+- Новый opener уже поправлен в live, но новым реальным звонком в этом ходе не проверялся.
+
+### Что делать дальше
+- Следующий боевой шаг делать уже отдельным коротким циклом:
+  - поднять только минимальные workflow;
+  - сделать один последовательный тестовый звонок по следующей строке базы;
+  - проверить, что первый spoken opener идёт ровно новым фиксированным двухфразным блоком, без укорочения и без лишнего хвоста.
+
+## 1.0) Обновление 2026-06-05: следующий одиночный тест по `row_4`, живой ранний ответ, но снова без `call_log`
+
+### Сделано
+- После замечания пользователя про запрет повторных тестов по одному и тому же номеру следующий одиночный test-cycle выполнен уже по следующей строке базы:
+  - `row_4`
+  - `+79252149935`
+  - `Алиса Широкова`
+  - `request_id = manual.2026-06-05.143212.row_4.schemafix`
+- Временно поднимались только:
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)`
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)`
+  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)`
+- Артефакты цикла:
+  - `/home/max/n8n_ai_call_center/.runtime/single_call_2026-06-05_row_4_schema_fix_live/`
+- Новый разговор:
+  - `conversation_id = conv_0601ktbrw785f03rvv0tket817tx`
+  - `version_id = agtvrsn_6501ktbptasbfm2btq7dfq1mc16y`
+- Важное наблюдение:
+  - это уже не voicemail и не короткий мусорный fragment как в прошлом тесте;
+  - человек/линия дал живой ранний ответ:
+    - `Хорошо.`
+  - agent затем спросил:
+    - `Вам это в принципе интересно?`
+  - пользователь ответил негативно/сбивчиво:
+    - `Такие вот истории, блин, зачем их найти?`
+  - agent начал product-pitch:
+    - `Мы предлагаем официальные поставки липолитика lipolong ...`
+  - и после этого линия завершилась как:
+    - `Client disconnected: 1000`
+- Главный факт этого цикла:
+  - agent снова не дошёл до `call_log`;
+  - в live Sheet за `2026-06-05` новая строка не появилась;
+  - значит schema-fix `phone_primary/source_record_key/eleven_conv_id` опять не был реально проверен в бою, уже по другой причине.
+- Одновременно surfaced новый практический дефект:
+  - на очень короткий ранний человеческий ответ типа `Хорошо.` agent слишком быстро переходит в follow-up / opener path;
+  - если линия потом реагирует скептически и быстро обрывает звонок, мы теряем и звонок, и `call_log`.
+- После этого цикла три workflow снова выключены, `n8n` перезапущен и healthy.
+
+### На чем остановились
+- Весь звонковый контур снова на паузе:
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` = `inactive`
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` = `inactive`
+  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)` = `inactive`
+  - `AUTODIAL_DISPATCHER_RECOVERY_2026-05-26_V2` = `inactive`
+  - `VOICE_INBOUND_AGENT (draft)` = `inactive`
+  - `ELEVEN_TOOL_SEND_SMS_BRIDGE (draft)` = `inactive`
+- `n8n-server-n8n-1` healthy.
+- Честная текущая картина:
+  1. voicemail silent-exit уже работает;
+  2. live `Main` уже обновлён до `agtvrsn_6501ktbptasbfm2btq7dfq1mc16y`;
+  3. но проверка нового `call_log` schema всё ещё не закрыта;
+  4. помимо voicemail-path всплыл ещё один UX-риск: ранний короткий live-answer может слишком быстро переводить агента в боевой pitch до устойчивого интереса.
+
+### Что делать дальше
+- Не запускать новый цикл автоматически.
+- Следующий полезный одиночный тест лучше делать уже по `row_5`, чтобы не жечь один и тот же номер повторно.
+- На следующем шаге нужно решить, что важнее проверить первым:
+  1. снова попытаться поймать voicemail/screening и добить `call_log` schema;
+  2. либо сначала поджать ранний follow-up после короткого ответа `Хорошо/Да`, чтобы агент не терял живой контакт до логирования.
+
+## 1.0) Обновление 2026-06-05: один тест после schema-fix, но звонок оборвался до `call_log`
+
+### Сделано
+- После live patch `Main` с новой версией `agtvrsn_6501ktbptasbfm2btq7dfq1mc16y` был поднят только минимальный набор workflow:
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)`
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)`
+  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)`
+- Выполнен ровно один manual-call по:
+  - `row_3`
+  - `+79657700655`
+  - `Александр`
+  - `request_id = manual.2026-06-05.141131.row_3.schemafix`
+- Артефакты сохранены в:
+  - `/home/max/n8n_ai_call_center/.runtime/single_call_2026-06-05_row_3_schema_fix_live/`
+- HTTP-старт снова вернул старую особенность outbound-path:
+  - `POST /webhook/eleven/outbound-call` -> `HTTP 200`
+  - body пустой
+- Реальный разговор при этом был создан:
+  - `conversation_id = conv_7901ktbqpbewfksb5d807a721v3v`
+  - `version_id = agtvrsn_6501ktbptasbfm2btq7dfq1mc16y`
+- Но этот тест не дошёл до нужной нам ветки `call_log`:
+  - transcript содержит только одну пользовательскую фразу:
+    - `Трехэтажный дом.`
+  - дальше линия завершилась как `Client disconnected: 1000`
+  - agent не успел вызвать:
+    - `call_log`
+    - `end_call`
+  - therefore:
+    - схема `call_log` с новыми `phone_primary/source_record_key` на этом звонке не была реально проверена;
+    - новый prompt-bлок по `eleven_conv_id = conv_*` тоже не прошёл боевую валидацию на tool-call.
+- Дополнительно снят live Sheet report за `2026-06-05`:
+  - там по-прежнему только одна старая строка `elevenlabs / no_answer` по `row_3`;
+  - новый тест `conv_7901ktbqpbewfksb5d807a721v3v` ничего в Sheet не записал, потому что до `call_log` не дошёл.
+- После этого одинарного цикла все три workflow снова выключены.
+
+### На чем остановились
+- Звонковый контур снова полностью на паузе:
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` = `inactive`
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` = `inactive`
+  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)` = `inactive`
+  - `AUTODIAL_DISPATCHER_RECOVERY_2026-05-26_V2` = `inactive`
+  - `VOICE_INBOUND_AGENT (draft)` = `inactive`
+  - `ELEVEN_TOOL_SEND_SMS_BRIDGE (draft)` = `inactive`
+- `n8n-server-n8n-1` после рестарта `running healthy`.
+- Честный статус после этого цикла:
+  1. новая live version `6501...` уже реально участвовала в звонке;
+  2. но тест оказался не voicemail/screening, а коротким disconnect до tool-path;
+  3. значит ключевая проверка `phone_primary/source_record_key/eleven_conv_id` всё ещё не закрыта.
+
+### Что делать дальше
+- Не включать контур автоматически.
+- Следующий правильный шаг:
+  1. снова поднять только минимальные workflow;
+  2. сделать ещё один одиночный звонок;
+  3. но выбирать кейс, где выше шанс дойти именно до voicemail/screening или хотя бы до `call_log`.
+- На следующем тесте проверять:
+  - был ли вообще вызван `call_log`;
+  - если был, есть ли в webhook-body:
+    - `phone_primary`
+    - `source_record_key`
+    - `eleven_conv_id = conv_*`;
+  - если `call_log` не был вызван, считать тест непригодным для проверки schema-fix.
+
+## 1.0) Обновление 2026-06-05: live `Main` усилен для `call_log`, схема теперь принимает `phone_primary` и `source_record_key`
+
+### Сделано
+- Во время полной паузы звонкового контура дополнительно пропатчен live `Eleven Main` у агента `AI_CALL_AGENT_1`, без запуска новых звонков.
+- Перед правкой снят свежий backup live-конфига:
+  - `/home/max/n8n_ai_call_center/backups/2026-06-05_eleven_call_log_schema_fix/current_ai_call_agent_1.before.json`
+- После правки сохранены:
+  - `/home/max/n8n_ai_call_center/backups/2026-06-05_eleven_call_log_schema_fix/main_call_log_schema_fix_payload.slim_v2.json`
+  - `/home/max/n8n_ai_call_center/backups/2026-06-05_eleven_call_log_schema_fix/patch_response_slim_v2.json`
+  - `/home/max/n8n_ai_call_center/backups/2026-06-05_eleven_call_log_schema_fix/current_ai_call_agent_1.after_patch.json`
+- Новая live version агента после patch:
+  - `agtvrsn_6501ktbptasbfm2btq7dfq1mc16y`
+- Суть live-правки:
+  1. В `prompt` жёстко уточнено:
+     - `call_log` теперь должен всегда включать `phone_primary` и `source_record_key`;
+     - `eleven_conv_id` обязан быть реальным `conv_*`, а не literal `system__conversation_id`;
+     - если в черновике tool-call появляется literal `system__conversation_id`, agent должен перегенерировать `call_log` до правильного вида.
+  2. В live tool-schema `call_log` добавлены недостающие свойства:
+     - `phone_primary`
+     - `source_record_key`
+  3. Описание `eleven_conv_id` усилено прямо в tool-schema:
+     - использовать реальный текущий `conv_*` id этого звонка;
+     - literal `system__conversation_id` недопустим.
+- Важное уточнение:
+  - это не возврат к жёсткой dynamic-variable schema;
+  - required-поля не расширялись;
+  - меняли только live prompt и список допустимых полей webhook-schema, чтобы не сломать manual/SIP path.
+
+### На чем остановились
+- Весь звонковый контур остаётся на паузе:
+  - `AUTODIAL_DISPATCHER_RECOVERY_2026-05-26_V2` = `inactive`
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` = `inactive`
+  - `VOICE_INBOUND_AGENT (draft)` = `inactive`
+  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)` = `inactive`
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` = `inactive`
+  - `ELEVEN_TOOL_SEND_SMS_BRIDGE (draft)` = `inactive`
+- `n8n-server-n8n-1` healthy.
+- Последний подтверждённый live-факт до этой правки:
+  - silent voicemail exit уже работал;
+  - но `call_log` терял `source_record_key` и не доносил реальный `eleven_conv_id`.
+- После текущего patch звонки ещё не запускались, поэтому effect пока подтверждён только по live-config, а не по новому разговору.
+
+### Что делать дальше
+- Не включать весь контур автоматически.
+- Следующий безопасный шаг:
+  1. поднять только минимальные workflow для одного manual-call теста;
+  2. сделать один одиночный voicemail/screening test;
+  3. проверить одновременно:
+     - spoken-farewell по-прежнему отсутствует;
+     - `phone_primary` и `source_record_key` реально дошли до webhook-body;
+     - `eleven_conv_id` пришёл как `conv_*`, а не как literal `system__conversation_id`;
+     - `call_log` записался в Sheet с корректным identity package.
+
+## 1.0) Обновление 2026-06-05: один live-тест после identity guard, voicemail без spoken-farewell, но traceability ещё не добита
+
+### Сделано
+- На паузе поднят только минимальный набор workflow для одного manual-call:
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` (`sHTbALayEZdy8Mzs`)
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` (`kZSdJrsAHWWIC2l6`)
+  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)` (`tdiAEZM9FZDEP7k4`)
+- `AUTODIAL_DISPATCHER`, `VOICE_INBOUND_AGENT` и `ELEVEN_TOOL_SEND_SMS_BRIDGE` не включались.
+- Выполнен один тестовый звонок по уже известному voicemail-лиду:
+  - `row_3`
+  - `+79657700655`
+  - `Александр`
+  - `request_id = manual.2026-06-05.121845.row_3`
+- Артефакты сохранены в:
+  - `/home/max/n8n_ai_call_center/.runtime/single_call_2026-06-05_row_3_guard_check/`
+- Особенность outbound-старта:
+  - webhook `POST /webhook/eleven/outbound-call` вернул `HTTP 200`, но body оказался пустым;
+  - при этом реальный разговор всё равно был создан в Eleven.
+- Новый разговор:
+  - `conversation_id = conv_0601ktbh7vvbf398yp0zbpw1me8d`
+  - статус `done`
+  - version `agtvrsn_4901kt8tykm7fk8t5z9d1s6xe767`
+  - summary `Voicemail Detected`
+- Подтверждено важное улучшение:
+  - spoken-farewell после voicemail ушёл;
+  - `end_call` был вызван с пустым `system__message_to_speak`;
+  - фраза `Спасибо, перезвоним позже.` больше не прозвучала.
+- Одновременно подтверждено, что traceability всё ещё не доведена до конца:
+  - agent уже отправил расширенный `call_log` payload;
+  - но `eleven_conv_id` ушёл literal-строкой `system__conversation_id`;
+  - bridge не заблокировал эту запись после re-activation;
+  - итоговая строка в Google Sheet ушла в диапазон:
+    - `'Лиды_обзвон'!A40:AM40`
+  - фактическая строка показала:
+    - `lead_id = row_3`
+    - `source_system = elevenlabs`
+    - `source_record_key = 79657700655`
+    - `phone_primary = 79657700655`
+    - `eleven_conv_id = ''`
+    - `notes_short = Голосовая почта, сообщение не оставлено.`
+- Это значит:
+  - fix на silent voicemail уже работает;
+  - но identity package до таблицы по-прежнему доезжает неполно;
+  - при re-activation `call_log` bridge, судя по результату, всё ещё использовал не ту published/runtime-репрезентацию, которую ожидали после patch.
+- После завершения этого одного теста все три поднятых workflow снова выключены.
+
+### На чем остановились
+- После одиночного теста контур снова полностью на паузе:
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` = `inactive`
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` = `inactive`
+  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)` = `inactive`
+  - `AUTODIAL_DISPATCHER_RECOVERY_2026-05-26_V2` = `inactive`
+  - `VOICE_INBOUND_AGENT (draft)` = `inactive`
+  - `ELEVEN_TOOL_SEND_SMS_BRIDGE (draft)` = `inactive`
+- `n8n-server-n8n-1` после теста снова `healthy`.
+- Текущее честное состояние:
+  1. voicemail больше не получает spoken-farewell;
+  2. `call_log` теперь лучше, чем раньше, но всё ещё не гарантирует корректные `source_record_key / eleven_conv_id` после re-activation;
+  3. outbound webhook с пустым `HTTP 200` body тоже остаётся отдельной странностью.
+
+### Что делать дальше
+- Не включать контур автоматически.
+- Следующий правильный шаг уже не про prompt, а про слой публикации/runtime-версии `ELEVEN_TOOL_CALL_LOG_BRIDGE`:
+  1. проверить, какая published version реально обслуживает webhook после re-activation;
+  2. принудительно синхронизировать/перепубликовать bridge так, чтобы в runtime точно был identity guard;
+  3. только потом делать следующий одиночный voicemail-test.
+- На следующем тесте проверять три пункта сразу:
+  - spoken-farewell отсутствует;
+  - `source_record_key = row_*`, а не номер телефона;
+  - `eleven_conv_id = conv_*`, а не пусто и не `system__conversation_id`.
+
+## 1.0) Обновление 2026-06-05: identity guard для `call_log` на паузе, без включения звонков
+
+### Сделано
+- Во время полной паузы звонкового контура разобран корень последней traceability-проблемы по кейсу `conv_3301kt8tj8vyftq97vwbc0jn7c96`.
+- Подтверждено по реальному conversation JSON:
+  - в `conversation_initiation_client_data` уже приезжали правильные runtime-идентификаторы:
+    - `lead_id = row_3`
+    - `source_record_key = row_3`
+    - `phone_primary = +79657700655`
+    - `eleven_conv_id = conv_3301kt8tj8vyftq97vwbc0jn7c96`
+  - но старый `call_log` всё равно принимал и записывал "голый" payload только с:
+    - `call_result`
+    - `next_step`
+    - `notes_short`
+  - из-за этого в Google Sheet улетала строка без identity-пакета.
+- На live-паузе пропатчен `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` (`kZSdJrsAHWWIC2l6`) без включения звонков:
+  - добавлен `Tool | Validate Identity`;
+  - добавлен `Tool | Identity Switch`;
+  - `Tool | Normalize Call Log` теперь:
+    - фильтрует буквальные плейсхолдеры (`{{lead_id}}`, `system__conversation_id` и т.п.);
+    - предпочитает `source_record_key` раньше, чем fallback на номер телефона;
+    - отдельно собирает identity seed.
+  - новый identity guard:
+    - для `source_system = elevenlabs` теперь обязательны:
+      - `lead_id`
+      - `caller`
+      - `phone_primary`
+      - `source_record_key`
+      - `eleven_conv_id`
+    - для `source_system = autodial_dispatcher` guard мягче:
+      - `lead_id`
+      - `phone_primary`
+      - `source_record_key`
+      - `eleven_conv_id` может оставаться пустым на lock/outbound-failure строках.
+  - если identity-пакет неполный:
+    - строка в Google Sheet больше не append'ится;
+    - workflow отвечает `ok=false`, `warning=missing_identity_package`, плюс список недостающих полей.
+- Патч применён одновременно:
+  - в live `workflow_entity`;
+  - в локальный файл `workflows/ELEVEN_TOOL_CALL_LOG_BRIDGE_DRAFT.json`.
+- Сняты backup-артефакты:
+  - `/home/max/n8n_ai_call_center/backups/2026-06-05_call_log_identity_guard/ELEVEN_TOOL_CALL_LOG_BRIDGE.live_before.json`
+  - `/home/max/n8n_ai_call_center/backups/2026-06-05_call_log_identity_guard/ELEVEN_TOOL_CALL_LOG_BRIDGE.live_after.json`
+  - `/home/max/n8n_ai_call_center/backups/2026-06-05_call_log_identity_guard/ELEVEN_TOOL_CALL_LOG_BRIDGE.local_before.json`
+- Выполнена сухая проверка без реальных звонков:
+  - bare agent payload -> `identity_ok = false`, missing все 5 полей;
+  - валидный `autodial_dispatcher` payload -> `identity_ok = true` даже без `eleven_conv_id`;
+  - валидный agent payload с `row_3 + conv_...` -> `identity_ok = true`.
+
+### На чем остановились
+- Звонковый контур всё ещё полностью на паузе:
+  - `AUTODIAL_DISPATCHER_RECOVERY_2026-05-26_V2` = `inactive`
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` = `inactive`
+  - `VOICE_INBOUND_AGENT (draft)` = `inactive`
+  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)` = `inactive`
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` = `inactive`
+  - `ELEVEN_TOOL_SEND_SMS_BRIDGE (draft)` = `inactive`
+- `n8n-server-n8n-1` остаётся healthy.
+- Теперь основной незакрытый вопрос уже уже не "пропустит ли `call_log` пустую запись", а:
+  - сможет ли агент после свежего prompt-patch и нового identity guard реально отправить полноценный `call_log` на следующем одиночном тесте.
+
+### Что делать дальше
+- Ничего не включать автоматически.
+- Следующий безопасный шаг только по команде пользователя:
+  1. поднять минимально нужные workflow для одного manual-call теста;
+  2. сделать ровно один звонок;
+  3. проверить:
+     - не осталось ли spoken-farewell после voicemail / screening;
+     - прошёл ли `call_log` уже с полным identity-пакетом;
+     - не вернулся ли `missing_identity_package`.
+- Если следующий agent-call снова упрётся в `missing_identity_package`, дальше править уже не bridge, а сам live-tool usage/schema в ElevenLabs.
+
+## 1.0) Обновление 2026-06-04: одиночный live-звонок по новой базе, relay-timeout и точечный traceability fix
+
+### Сделано
+- Выполнен ровно один controlled manual cycle по новой таблице `Первая таблица частных косметологов`:
+  - тестовый лид: `row_3`
+  - номер: `+79657700655`
+  - контакт: `Александр`
+- Для этого временно был поднят только `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` (`sHTbALayEZdy8Mzs`), без включения autodial.
+- Первый ручной запрос в `POST /webhook/eleven/outbound-call` ушёл в relay-timeout:
+  - relay-host `151.241.228.232`
+  - `2026-06-04 11:04 MSK`
+  - `Upstream failed (10058ms): The read operation timed out`
+- При этом подтвердилось более неприятное поведение:
+  - несмотря на relay-timeout, Eleven всё равно создал реальный разговор `conv_3301kt8tj8vyftq97vwbc0jn7c96`;
+  - звонок дошёл до голосовой почты;
+  - агент корректно распознал voicemail и залогировал `no_answer / callback`;
+  - но в Google Sheet строка ушла без `lead_id`, `source_record_key` и `eleven_conv_id`.
+- Второй ручной запрос по тому же лиду дал уже явный технический отказ без соединения:
+  - `conversation_id = conv_7801kt8tnrkje75sydp92kfw06wj`
+  - `status = failed`
+  - `error.code = 1011`
+  - `error.reason = max auth retry attempts reached for SIP invite`
+  - accepted-time не было, длительность `0s`.
+- Сняты и сохранены live-артефакты этого цикла:
+  - `/home/max/n8n_ai_call_center/.runtime/single_call_2026-06-04_row_3/outbound_headers_retry1.txt`
+  - `/home/max/n8n_ai_call_center/.runtime/single_call_2026-06-04_row_3/outbound_body_retry1.json`
+  - `/home/max/n8n_ai_call_center/.runtime/single_call_2026-06-04_row_3/conv_3301kt8tj8vyftq97vwbc0jn7c96.json`
+  - `/home/max/n8n_ai_call_center/.runtime/single_call_2026-06-04_row_3/conv_7801kt8tnrkje75sydp92kfw06wj.json`
+  - `/home/max/n8n_ai_call_center/backups/2026-06-04_single_call_cycle/ELEVEN_OUTBOUND_CALL_BRIDGE_before_publish.json`
+- По результату этого одного цикла внесён узкий live-fix в `Eleven Main`:
+  - добавлен жёсткий блок `Traceability and silent machine exit`
+  - для `call_log` теперь отдельно зафиксировано требование всегда включать:
+    - `lead_id`
+    - `caller`
+    - `phone_primary`
+    - `source_record_key`
+    - `company_name` / `contact_name` при наличии
+    - `eleven_conv_id` как реальный conversation id, а не literal `system__conversation_id`
+  - для voicemail/message-service добавлен прямой запрет на spoken-farewell после `call_log`:
+    - нельзя говорить `Спасибо, перезвоним позже.`
+    - после machine/voicemail должен идти silent `end_call`
+  - patch-артефакт:
+    - `/home/max/n8n_ai_call_center/backups/2026-06-04_single_call_cycle/main_prompt_traceability_voicemail_patch_payload.json`
+  - backup до правки:
+    - `/home/max/n8n_ai_call_center/.runtime/single_call_2026-06-04_row_3/current_ai_call_agent_1.before.json`
+  - backup после правки:
+    - `/home/max/n8n_ai_call_center/.runtime/single_call_2026-06-04_row_3/current_ai_call_agent_1.after.json`
+  - новая live version:
+    - `agtvrsn_4901kt8tykm7fk8t5z9d1s6xe767`
+- После завершения цикла `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` снова выключен.
+
+### На чем остановились
+- После отдельной команды пользователя `ПОКА ОСТАНОВИ ВСЕ` весь звонковый контур остановлен полностью:
+  - `AUTODIAL_DISPATCHER_RECOVERY_2026-05-26_V2` = `inactive`
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` = `inactive`
+  - `VOICE_INBOUND_AGENT (draft)` = `inactive`
+  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)` = `inactive`
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` = `inactive`
+  - `ELEVEN_TOOL_SEND_SMS_BRIDGE (draft)` = `inactive`
+- `n8n-server-n8n-1` после остановки healthy.
+- Главные текущие незакрытые проблемы после этого цикла:
+  1. relay-timeout всё ещё может маскировать реально начавшийся звонок;
+  2. SIP-слой может возвращать `max auth retry attempts reached for SIP invite`;
+  3. traceability в call-log до этого live-patch была дырявой и уже дала строку `no_answer` без идентификаторов по сегодняшнему voicemail-case.
+
+### Что делать дальше
+- Ничего не включать автоматически.
+- Следующий безопасный шаг только по команде пользователя:
+  1. сначала поднять только нужный минимум для следующего одиночного теста:
+     - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)`
+     - при необходимости `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` и `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)`
+  2. сделать один новый manual call по следующему лиду;
+  3. проверить две вещи одновременно:
+     - ушла ли spoken-фраза после voicemail;
+     - доехали ли в `call_log` `lead_id / source_record_key / eleven_conv_id`.
+- Если снова появится `max auth retry attempts reached for SIP invite`, дальше копать уже не prompt, а SIP/outbound-auth слой.
+
+## 1.0) Обновление 2026-06-03: новая база частных косметологов привязана к колл-центру
+
+### Сделано
+- Взяты контакты из файла:
+  - `/home/max/Документы/Контакты косметологов /косметологи_37_телефонов.txt`
+- Добавлен служебный импорт-скрипт:
+  - `/home/max/n8n_ai_call_center/scripts/import_contacts_txt_to_callcenter_sheet.py`
+- На его основе создана новая Google Sheet для будущего обзвона:
+  - title: `Первая таблица частных косметологов`
+  - spreadsheet_id: `1SyoGWXrvLNevGzjWQjfSP7eRqVCMOzR0MzXeWSL7HOo`
+  - sheet gid: `199760593`
+  - URL: `https://docs.google.com/spreadsheets/d/1SyoGWXrvLNevGzjWQjfSP7eRqVCMOzR0MzXeWSL7HOo/edit?gid=199760593#gid=199760593`
+- Таблица загружена именно в рабочую Drive-папку обзвонов:
+  - `https://drive.google.com/drive/u/0/folders/1YguwTRirqR1KFzqTevqsEZzvtxksslUo`
+- Локальная `.xlsx` копия сохранена сюда:
+  - `/home/max/n8n_ai_call_center/ Таблицы_контактов /Первая таблица частных косметологов.xlsx`
+- Preview и разметка строк сохранены сюда:
+  - `/home/max/n8n_ai_call_center/.runtime/contact_imports/Первая таблица частных косметологов.preview.json`
+- В таблицу загружено `37` строк.
+- Из них `24` строки сразу помечены `do_not_call=true`, чтобы автодозвон позже не трогал заведомо шумные записи:
+  - форумные/чатовые self-rows;
+  - `8-800`;
+  - нероссийские номера;
+  - явные организации.
+- Live-привязка переключена на новую таблицу:
+  - `AUTODIAL_DISPATCHER_RECOVERY_2026-05-26_V2` теперь читает `1SyoGWXrvLNevGzjWQjfSP7eRqVCMOzR0MzXeWSL7HOo`;
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` теперь пишет в `1SyoGWXrvLNevGzjWQjfSP7eRqVCMOzR0MzXeWSL7HOo`;
+  - для этого live `n8n` был перепубликован и перезапущен.
+- Серверные backup-артефакты перед переключением сняты локально:
+  - `/home/max/n8n_ai_call_center/backups/2026-06-03_13-57-31_first_private_cosmetologists_sheet_switch/`
+
+### На чем остановились
+- `AUTODIAL_DISPATCHER_RECOVERY_2026-05-26_V2` снова выключен после привязки:
+  - `active=false`
+- `VOICE_INBOUND_AGENT (draft)` по-прежнему выключен:
+  - `active=false`
+- `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` остаётся активным:
+  - `active=true`
+- То есть:
+  - новая таблица уже привязана к live-контуру;
+  - но сам колл-центр автоматически звонить сейчас не должен.
+
+### Что делать дальше
+- Не включать обзвон без отдельной команды пользователя.
+- Следующий безопасный шаг по этой новой базе:
+  1. при команде пользователя включить только короткий test-cycle;
+  2. сделать `2-3` звонка;
+  3. остановиться;
+  4. снять логи и разобрать автоответчики / screening / traceability.
+- Если понадобится следующая похожая база, использовать:
+  - `/home/max/n8n_ai_call_center/scripts/import_contacts_txt_to_callcenter_sheet.py`
+  чтобы не собирать новую Google Sheet руками.
+
 ## 1) Актуальное состояние (оперативный снимок)
 - Проект: `n8n_ai_call_center`.
 - Базовая инфраструктура: Ubuntu 24.04 + Docker + Traefik + HTTPS.
@@ -11,6 +654,127 @@
   - входящий Telegram webhook удален;
   - server backup сохранен в `/home/aicore/backups/n8n/C8Wmmjuv5hC425PM_2026-05-25_091327.json`.
 - Отдельный Telegram-бот `@PeptideExpert_Bot` (`YJdwp45LI1dmrsLy`) остается активным и не является тем же самым контуром, что `PostMaker`.
+
+## 1.0) Обновление 2026-05-27: live recovery dispatcher после Postgres cutover
+
+### Сделано
+- Найдена и подтверждена реальная причина, почему recovery dispatcher не доходил до живого обзвона даже после Postgres cutover:
+  - live workflow работал уже в `publish/unpublish` модели `n8n`, а не в старой простой схеме через `active=true`;
+  - из-за этого правки только в `workflow_entity` не всегда попадали в реально исполняемую published version.
+- Через `workflow_history`, `publish:workflow` и повторные controlled restart-циклы восстановлен нормальный минутный запуск `AUTODIAL_DISPATCHER_RECOVERY_2026-05-26_V2` (`70B9BSNOu0LXPBqe`).
+- Починен битый `Dispatcher | Finish Exhausted`, из-за которого workflow раньше падал с `Unexpected token '}'`.
+- Починен `Dispatcher | Parse Sheet Rows`:
+  - убран неудачный debug-хвост, из-за которого был `Unexpected identifier '__codex_result'`;
+  - код упрощён до более консервативного recovery-варианта;
+  - логика выбора кандидата отдельно проверена локально на живой Google Sheet и дала `action = dial`.
+- Найден отдельный live OAuth-дефект в Google-ветке dispatcher:
+  - `Google | Build Sheet Payload` отдавал literal-плейсхолдеры `{{GOOGLE_CLIENT_ID}}`, `{{GOOGLE_CLIENT_SECRET}}`, `{{GOOGLE_REFRESH_TOKEN}}`;
+  - из-за этого `Google | Refresh Access Token` возвращал `invalid_client`, а downstream логика получала не таблицу, а `PERMISSION_DENIED / Method doesn't allow unregistered callers`.
+- Дефект с Google OAuth исправлен:
+  - секреты снова не зашиты в code node;
+  - `Google | Refresh Access Token` теперь берёт `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` через `$env.*`;
+  - `Google | Build Sheet Payload` возвращает только не-секретные поля.
+- Найден и исправлен ещё один recovery-баг:
+  - dispatcher держал старый `autodial_dispatcher / dialing` как вечный активный lock даже после того, как по тому же номеру уже пришёл более свежий `elevenlabs`-результат;
+  - в `Parse Sheet Rows` активным теперь считается только самый свежий статус по номеру, а не любая историческая строка `dialing`.
+- После этих правок выполнен controlled live cycle:
+  - `row_14` -> `autodial_dispatcher / dialing`, затем `elevenlabs / no_answer` c note `МТС Защитник, сообщение не оставлено`;
+  - `row_15` -> `autodial_dispatcher / dialing`, затем `autodial_dispatcher / outbound_request_failed`;
+  - после достижения stop-условия dispatcher снят с публикации и остановлен.
+- После остановки dispatcher выполнен отдельный ручной mini-cycle на `3` вызова через боевой webhook `POST /webhook/eleven/outbound-call`, без изменения окна автодозвона:
+  - артефакты сохранены в `/home/max/n8n_ai_call_center/.runtime/manual_call_cycle_2026-05-27/`;
+  - перед циклом на relay-хосте `151.241.228.232` поднят `RELAY_TIMEOUT: 8 -> 10`, `RELAY_RETRY_COUNT` оставлен `0`;
+  - `row_15 / +79993451709` -> relay принял запрос и Eleven вернул `conversation_id = conv_1801ksmm8dp0f15ar3tkyjx9x51e` за `~9.3s`;
+  - `row_16 / +79269980886` -> relay вернул `502 relay_upstream_failed`, причина `The read operation timed out` примерно на `10025 ms`;
+  - `row_17 / +79257992418` -> relay принял запрос и Eleven вернул `conversation_id = conv_0101ksmm95xmf2p9e0rvfvhgpz9n` за `~7.5s`;
+  - в live Sheet после этого появился как минимум один новый итог `elevenlabs / no_answer` с note `Нет ответа, не оставляю сообщение.`
+
+### На чем остановились
+- Dispatcher в конце recovery-cycle уже остановлен:
+  - `workflow_entity.active = false`
+  - `activeVersionId = null`
+- Live-контур не в полностью финальном состоянии:
+  - сам dispatcher снова умеет стартовать, читать Google Sheet, классифицировать machine-case и делать как минимум следующий вызов;
+  - но текущий cycle остановлен специально после короткого controlled прогона;
+  - в live-таблице остаётся unresolved `outbound_request_failed` по `row_15`;
+  - `eleven_conv_id` по-прежнему не пишется в Sheet;
+  - `row_14` dialing-lock исторически остаётся в таблице как журнал, поэтому следующий цикл надо оценивать именно по самой свежей строке по номеру, а не по наличию старых lock-рядов.
+- По ручному cycle `2026-05-27` дополнительно подтверждено:
+  - outbound-path после `RELAY_TIMEOUT=10` уже не падает массово: `2` из `3` ручных вызовов были реально приняты Eleven;
+  - один вызов всё ещё упирается в новый предел `10s`, то есть проблема narrowed down до relay/upstream latency, а не до dispatcher-логики;
+  - traceability остаётся неполной: новый `elevenlabs / no_answer` попал в Sheet как `lead=unknown`, то есть `lead_id/source_record_key/eleven_conv_id` всё ещё не проходят до результата так, как должны.
+
+### Что делать дальше
+- Не запускать следующий звонковый цикл без явной команды пользователя.
+- Следующий правильный шаг уже узкий и понятный:
+  - либо поднять relay timeout ещё на один маленький шаг (`10 -> 12`) и прогнать следующий короткий цикл;
+  - либо оставить `10s` и отдельно добить traceability/`lead_id` раньше, чем продолжать;
+  - отдельно разобрать, почему один из двух accepted manual calls не дал нормальную строку с `lead_id` и `eleven_conv_id` в Sheet.
+- После этого цикла отдельно добить:
+  - запись `eleven_conv_id` в live Sheet;
+  - нормальную очистку/склейку `dialing -> elevenlabs result`, чтобы таблица была не только рабочей, но и понятной для оператора.
+
+## 1.0) Обновление 2026-06-01: stop по автоответчикам и разбор screening-линий
+
+### Сделано
+- Выполнен свежий live-срез на `2026-06-01`:
+  - в Google Sheet за день новых строк не было;
+  - autodial-workflow уже не был активен;
+  - однако по live Eleven conversations подтвердились старые и всё ещё важные проблемные сценарии.
+- Через official ElevenLabs Conversations API с relay-хоста `151.241.228.232` сняты детали последних показательных разговоров агента `AI_CALL_AGENT_1`:
+  - `conv_0101ksmm95xmf2p9e0rvfvhgpz9n`
+  - `conv_1801ksmm8dp0f15ar3tkyjx9x51e`
+  - `conv_3301ksj4eexkf3c8f9f4sbwxsc7t`
+  - `conv_1201ksj4b9hnedrs3nphhjqjbmeq`
+  - `conv_8801ksfbpec2fz5bcvn6wt9h05p1`
+  - `conv_4501ksfbp2sqe69rg9289xshwhs5`
+  - `conv_6201ksfbnq77echv3j7e4j2h8qha`
+  - `conv_2601ksf5p04zfnzr3w1ec85aj9kk`
+- Артефакты сохранены в:
+  - `/home/max/n8n_ai_call_center/.runtime/eleven_conversation_probe_2026-06-01/conversations.json`
+- По этим транскриптам подтверждены два живых дефекта:
+  1. agent всё ещё может разговаривать с screening/intermediary линиями после фраз:
+     - `в течение какого времени нужно дать ответ`
+     - `нужно передать ещё что-то`
+     - `что-то хотите добавить`
+     - `я всё передам абоненту`
+     - `зафиксировал информацию`
+  2. agent всё ещё может говорить service-rescue фразы на тишине и transcript `...`:
+     - `Пожалуйста, подскажите, вы на связи? Могу продолжить разговор.`
+     - `Вы меня слышите? Если удобно, дайте знать, чтобы я могла продолжить.`
+- Для немедленной паузы live-контур остановлен жёстче:
+  - `VOICE_INBOUND_AGENT (draft)` (`bfNbTwtyXNSFzMc2`) снят с публикации;
+  - `AUTODIAL_DISPATCHER_RECOVERY_2026-05-26_V2` (`70B9BSNOu0LXPBqe`) подтверждён как `inactive`;
+  - `n8n-server-n8n-1` перезапущен, чтобы изменения вступили в силу.
+- Обновлён live `Main` prompt в ElevenLabs минимальным patch-ом:
+  - backup до правки:
+    - `/home/max/n8n_ai_call_center/backups/2026-06-01_machine_screening_hardening/current_ai_call_agent_1.before.json`
+  - payload:
+    - `/home/max/n8n_ai_call_center/backups/2026-06-01_machine_screening_hardening/main_prompt_screening_patch_payload.json`
+  - backup после правки:
+    - `/home/max/n8n_ai_call_center/backups/2026-06-01_machine_screening_hardening/current_ai_call_agent_1.after_patch.json`
+- В prompt добавлены буквальные screening/assistant patterns и запрет на service-rescue фразы на `...` / silence.
+
+### На чем остановились
+- Колл-центр сейчас поставлен на паузу:
+  - `VOICE_INBOUND_AGENT (draft)` = `active=false`
+  - `AUTODIAL_DISPATCHER_RECOVERY_2026-05-26_V2` = `active=false`
+- То есть новых звонков через обычный боевой контур сейчас быть не должно.
+- Правка в live prompt уже внесена, но на живых звонках после неё ещё не проверялась, потому что пользователь сначала попросил остановить контур.
+
+### Что делать дальше
+- Не включать колл-центр обратно без явной команды пользователя.
+- Следующий безопасный шаг:
+  - выполнить маленький test-cycle на `2-3` звонка уже после нового prompt patch;
+  - проверить, исчезли ли:
+    - разговоры с `МТС Защитник`
+    - разговоры с `я всё передам абоненту / что-то хотите добавить`
+    - service-rescue реплики на `...`
+- После этого отдельно добить traceability:
+  - `lead_id`
+  - `source_record_key`
+  - `eleven_conv_id`
+  в `call_log`.
 
 ## 1.0) Обновление 2026-05-26: latency trim после ответа человека
 
@@ -1913,7 +2677,7 @@
   - первая живая реплика после ответа человека теперь должна сразу быть полным business-opener;
   - отдельное standalone `Здравствуйте.` как самостоятельный ход убрано;
   - целевой opener:
-    `Здравствуйте, наша компания является официальным представителем липолитика премиум класса lipolong, предлагаем вам сотрудничество с нашей компанией на выгодных условиях.`
+    `Здравствуйте, наша компания является официальным представителем липолитика премиум класса ЛипоЛонг, предлагаем вам сотрудничество с нашей компанией на выгодных условиях. А еще, сотрудничая с нами, вы можете быть уверены на 100%, что получаете оригинальную продукцию и не рискуете попасть на подделку`
   - следующий короткий вопрос:
     `Вам это в принципе интересно?`
   - вопрос про закупки или ответственного специалиста теперь допустим только после явного сигнала, что собеседник не ЛПР;

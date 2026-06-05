@@ -19,10 +19,10 @@ LIVE_CALL_LOG_WORKFLOW_ID = "kZSdJrsAHWWIC2l6"
 LIVE_WORKFLOW_TEMP = pathlib.Path("/tmp/autodial_dispatcher_sheet_first_live.json")
 N8N_BASE_URL = "https://www.n-8-n.site"
 N8N_ENV_FILE = pathlib.Path("/home/max/.config/lipolong-eleven-relay.env")
-LIVE_SPREADSHEET_ID = "1kAXIwaa_-rC4MO5vV3mFV-Geha08iL_6pJNCNxlQPAU"
+LIVE_SPREADSHEET_ID = "1SyoGWXrvLNevGzjWQjfSP7eRqVCMOzR0MzXeWSL7HOo"
 LIVE_SHEET_GID = "199760593"
 LIVE_SHEET_NAME = "Лиды_обзвон"
-LIVE_SHEET_URL = f"https://docs.google.com/spreadsheets/d/{LIVE_SPREADSHEET_ID}/edit?gid={LIVE_SHEET_GID}#gid={LIVE_SHEET_GID}"
+LIVE_SHEET_URL = f"https://docs.google.com/spreadsheets/d/1SyoGWXrvLNevGzjWQjfSP7eRqVCMOzR0MzXeWSL7HOo/edit?gid=199760593#gid=199760593"
 
 
 def load_n8n_api_key() -> str:

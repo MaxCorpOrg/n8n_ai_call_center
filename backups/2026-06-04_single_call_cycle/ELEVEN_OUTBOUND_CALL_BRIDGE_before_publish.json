@@ -1,0 +1,382 @@
+Error tracking disabled because this release is older than 6 weeks.
+[
+  {
+    "updatedAt": "2026-05-26T12:20:04.115Z",
+    "createdAt": "2026-05-26T12:20:04.115Z",
+    "id": "sHTbALayEZdy8Mzs",
+    "name": "ELEVEN_OUTBOUND_CALL_BRIDGE (draft)",
+    "description": null,
+    "active": false,
+    "isArchived": false,
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "eleven/outbound-call",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "name": "Eleven | Webhook Outbound Call",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -1280,
+          1744
+        ],
+        "id": "498ef547-39ec-41c9-9409-dd5a2022826e",
+        "webhookId": "989c1f7b-63e4-42aa-80a6-16dae766f389"
+      },
+      {
+        "parameters": {
+          "jsCode": "const body = ($json.body && typeof $json.body === 'object') ? $json.body : ($json.body ?? $json);\nconst source = (body && typeof body === 'object' && !Array.isArray(body)) ? { ...body } : {};\n\nconst toNumber = String(source.to_number ?? source.to ?? '').trim();\nconst firstMessage = String(source.first_message ?? '').trim();\nconst dynamicContext = String(source.context ?? '').trim();\n\nreturn [{\n  ...source,\n  to_number: toNumber,\n  first_message: firstMessage,\n  context: dynamicContext,\n  agent_id_override: String(source.agent_id_override ?? source.agent_id ?? '').trim(),\n  agent_phone_number_id_override: String(source.agent_phone_number_id_override ?? source.agent_phone_number_id ?? '').trim(),\n}];"
+        },
+        "name": "Eleven | Parse Request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -992,
+          1744
+        ],
+        "id": "8814468e-0079-4ddb-b549-cca36566c1f3"
+      },
+      {
+        "parameters": {
+          "jsCode": "const defaultAgentId = 'agent_8801kgybyekned2a8yae6rp8hk3q';\nconst defaultAgentPhoneNumberId = 'phnum_8501khxz93vnfnnsvdjqn1g92yfs';\nreturn [{ ...$json, agent_id: $json.agent_id_override || defaultAgentId, agent_phone_number_id: $json.agent_phone_number_id_override || defaultAgentPhoneNumberId, eleven_api_key_present: Boolean($env.ELEVENLABS_API_KEY) }];"
+        },
+        "name": "Eleven | Config",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -800,
+          1744
+        ],
+        "id": "64a45f83-373e-499c-ad66-195a4d7a3a05"
+      },
+      {
+        "parameters": {
+          "jsCode": "const to = String($json.to_number ?? '');\nconst phoneId = String($json.agent_phone_number_id ?? '');\nconst hasPhoneId = !!phoneId;\nconst validTo = /^\\+\\d{8,15}$/.test(to);\nconst ok = hasPhoneId && validTo;\n\nconst validationMessage = ok\n  ? ''\n  : !hasPhoneId\n    ? 'Не заполнен agent_phone_number_id (ElevenLabs phone/SIP trunk).'\n    : 'Неверный формат to_number. Используйте E.164, например +79991234567.';\n\nreturn [{\n  ...$json,\n  ok,\n  validation_message: validationMessage,\n}];"
+        },
+        "name": "Eleven | Validate Request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -560,
+          1744
+        ],
+        "id": "9eb6c77c-59ec-4f96-8e82-2b95ef84246e"
+      },
+      {
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.ok ? \"ok\" : \"error\" }}",
+                      "rightValue": "ok",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "OK"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.ok ? \"ok\" : \"error\" }}",
+                      "rightValue": "error",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "Error"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "name": "Eleven | Route Validation",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          -320,
+          1744
+        ],
+        "id": "e8657288-f3e4-49da-9a09-2a7991e053c2"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "http://151.241.228.232:8787/eleven/outbound-call",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "xi-api-key",
+                "value": "={{ $env.ELEVENLABS_API_KEY || '' }}"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "X-Relay-Token",
+                "value": "={{ $env.ELEVEN_OUTBOUND_RELAY_TOKEN || '' }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\"agent_id\":\"{{$json.agent_id}}\",\"agent_phone_number_id\":\"{{$json.agent_phone_number_id}}\",\"to_number\":\"{{$json.to_number}}\",\"conversation_initiation_client_data\":{\"type\":\"conversation_initiation_client_data\",\"user_id\":\"{{$json.source_record_key || $json.lead_id || $json.client_ref || $json.to_number}}\",\"dynamic_variables\":{\"lead_id\":\"{{$json.source_record_key || $json.lead_id || $json.client_ref || $json.to_number}}\",\"caller\":\"{{$json.phone_primary || $json.to_number}}\",\"phone_primary\":\"{{$json.phone_primary || $json.to_number}}\",\"source_record_key\":\"{{$json.source_record_key || $json.lead_id || $json.client_ref || $json.to_number}}\",\"company_name\":\"{{$json.company_name || \"\"}}\",\"contact_name\":\"{{$json.contact_name || \"\"}}\",\"request_id\":\"{{$json.request_id || \"\"}}\",\"campaign_key\":\"{{$json.campaign_key || \"\"}}\",\"sheet_row_number\":\"{{$json.sheet_row_number || \"\"}}\"}}}",
+          "options": {
+            "response": {
+              "response": {
+                "neverError": true
+              }
+            },
+            "timeout": 10000
+          }
+        },
+        "name": "Eleven | Outbound HTTP",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -80,
+          1632
+        ],
+        "id": "c1a41e11-fc44-4e05-8647-631e74ff1d49"
+      },
+      {
+        "parameters": {
+          "jsCode": "const raw = Object.prototype.hasOwnProperty.call($json, 'data') ? $json.data : $json;\nconst text = typeof raw === 'string' ? raw : JSON.stringify(raw ?? {});\nconst lower = text.toLowerCase();\nconst looksLikeHtml = lower.includes('<!doctype html') || lower.includes('<html') || lower.includes('just a moment') || lower.includes('help.elevenlabs.io') || lower.includes('cloudflare');\nconst parsed = typeof raw === 'object' && raw !== null ? raw : null;\nconst explicitFailure = parsed && parsed.success === false;\nconst explicitError = parsed && (parsed.error || parsed.detail || (explicitFailure ? parsed.message : ''));\nconst hasAcceptedPayload = parsed && !explicitFailure && (\n  parsed.success === true ||\n  parsed.conversation_id ||\n  parsed.callSid ||\n  parsed.call_id ||\n  parsed.sip_call_id ||\n  parsed.id ||\n  parsed.status === 'queued' ||\n  parsed.status === 'initiated' ||\n  parsed.status === 'in_progress'\n);\n\nif (looksLikeHtml || explicitFailure || !hasAcceptedPayload) {\n  return [{\n    ok: false,\n    action: 'provider_rejected',\n    to_number: String($('Eleven | Validate Request').item.json.to_number ?? ''),\n    agent_id: String($('Eleven | Validate Request').item.json.agent_id ?? ''),\n    agent_phone_number_id: String($('Eleven | Validate Request').item.json.agent_phone_number_id ?? ''),\n    eleven_response: parsed ?? $json,\n    note: looksLikeHtml\n      ? 'ElevenLabs returned an HTML challenge or block page instead of API JSON.'\n      : String(explicitError || 'ElevenLabs did not return an accepted outbound-call payload.'),\n  }];\n}\n\nreturn [{\n  ok: true,\n  action: 'call_requested',\n  to_number: String($('Eleven | Validate Request').item.json.to_number ?? ''),\n  agent_id: String($('Eleven | Validate Request').item.json.agent_id ?? ''),\n  agent_phone_number_id: String($('Eleven | Validate Request').item.json.agent_phone_number_id ?? ''),\n  eleven_response: parsed ?? $json,\n  note: 'Запрос на исходящий звонок отправлен в ElevenLabs.',\n}];"
+        },
+        "name": "Eleven | Build Success Response",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          160,
+          1632
+        ],
+        "id": "820d9d8a-460e-4168-b86d-8588bc4793e9"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "a874d9ea-e018-4030-9601-d0568e9f12b6",
+                "name": "ok",
+                "value": "false",
+                "type": "boolean"
+              },
+              {
+                "id": "6d34a1be-9172-40a1-ae56-b880ac833091",
+                "name": "action",
+                "value": "validation_failed",
+                "type": "string"
+              },
+              {
+                "id": "09b334eb-9f37-4952-9357-7504500d7da2",
+                "name": "error",
+                "value": "={{ $json.validation_message }}",
+                "type": "string"
+              },
+              {
+                "id": "a0db72f7-7f01-41c0-8616-0178eb06dc9c",
+                "name": "to_number",
+                "value": "={{ $json.to_number }}",
+                "type": "string"
+              },
+              {
+                "id": "f360333f-dbb4-47b1-a603-cf18828b4ea7",
+                "name": "example",
+                "value": "{\"to_number\":\"+79991234567\"}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "name": "Eleven | Build Error Response",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -80,
+          1872
+        ],
+        "id": "cd4d3f13-a0fa-4eee-a1e9-b55fe456ac41"
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ $json }}",
+          "options": {}
+        },
+        "name": "Eleven | Respond Outbound",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          400,
+          1744
+        ],
+        "id": "393fa89a-c510-49af-bf0c-ee07462112c4"
+      }
+    ],
+    "connections": {
+      "Eleven | Webhook Outbound Call": {
+        "main": [
+          [
+            {
+              "node": "Eleven | Parse Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Eleven | Parse Request": {
+        "main": [
+          [
+            {
+              "node": "Eleven | Config",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Eleven | Config": {
+        "main": [
+          [
+            {
+              "node": "Eleven | Validate Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Eleven | Validate Request": {
+        "main": [
+          [
+            {
+              "node": "Eleven | Route Validation",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Eleven | Route Validation": {
+        "main": [
+          [
+            {
+              "node": "Eleven | Outbound HTTP",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Eleven | Build Error Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Eleven | Outbound HTTP": {
+        "main": [
+          [
+            {
+              "node": "Eleven | Build Success Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Eleven | Build Success Response": {
+        "main": [
+          [
+            {
+              "node": "Eleven | Respond Outbound",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Eleven | Build Error Response": {
+        "main": [
+          [
+            {
+              "node": "Eleven | Respond Outbound",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "callerPolicy": "workflowsFromSameOwner",
+      "availableInMCP": false,
+      "saveDataSuccessExecution": "none",
+      "saveExecutionProgress": false,
+      "saveDataErrorExecution": "none"
+    },
+    "staticData": null,
+    "meta": null,
+    "pinData": {},
+    "versionId": "fa191bde-c556-4d32-8977-33ceba9da603",
+    "activeVersionId": null,
+    "versionCounter": 1,
+    "triggerCount": 0,
+    "tags": [],
+    "shared": [
+      {
+        "updatedAt": "2026-05-26T12:20:04.115Z",
+        "createdAt": "2026-05-26T12:20:04.115Z",
+        "role": "workflow:owner",
+        "workflowId": "sHTbALayEZdy8Mzs",
+        "projectId": "PoVFjFvyj9uLZeWK",
+        "project": {
+          "updatedAt": "2026-02-06T11:21:49.983Z",
+          "createdAt": "2026-02-06T11:15:22.652Z",
+          "id": "PoVFjFvyj9uLZeWK",
+          "name": "Максим Михайлов <max.corp.org@gmail.com>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "creatorId": "862f49a6-a4d3-494b-9c9b-6c6ffba68472"
+        }
+      }
+    ]
+  }
+]
