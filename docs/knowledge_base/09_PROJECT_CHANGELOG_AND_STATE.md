@@ -1,5 +1,512 @@
 # 09. Состояние проекта и последние изменения
 
+## 1.0) Обновление 2026-06-06: `row_14` тоже закончился relay `502`, разговора не было
+
+### Сделано
+- После hard-rule по `абонент / абоненту / абонентам` выполнен следующий одиночный цикл по:
+  - `row_14`
+  - `+79963649952`
+  - `Mila Fon`
+- Перед тестом были подняты только:
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)`
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)`
+  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)`
+- Для всех трёх workflow снова подтверждено:
+  - `active = true`
+  - `activeVersionId = versionId`
+- Отправлен один `manual outbound-call`:
+  - `request_id = manual.2026-06-06.ROW14.after_abonent_rule`
+- Внешний webhook ответил:
+  - `HTTP 200`
+  - пустой body
+- Но реального разговора не было:
+  - в Eleven не создался conversation для `row_14`
+  - relay-host записал:
+    - `Relaying to https://api.elevenlabs.io/v1/convai/sip-trunk/outbound-call (546 bytes)`
+    - затем:
+      - `POST /eleven/outbound-call HTTP/1.1 502`
+- После цикла минимальные workflow снова выключены:
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` = `false`
+  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)` = `false`
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` = `false`
+  - `activeVersionId = null`
+
+### На чем остановились
+- Новый `абонент`-hard-rule этим циклом не проверился, потому что разговора не было.
+- Это уже второй подряд одиночный цикл (`row_13`, `row_14`), который умирает одинаково:
+  - relay / outbound upstream `502`
+- Значит сейчас у нас технический повторяемый blocker на outbound-path, а не речевая проблема агента.
+
+### Что делать дальше
+- Следующий шаг уже не новый prompt-patch, а разбор outbound relay path:
+  1. почему relay даёт `502`;
+  2. нужен ли ещё маленький шаг по timeout;
+  3. не изменился ли upstream response / SIP acceptance path.
+- Только после этого запускать следующий одиночный звонок.
+
+## 1.0) Обновление 2026-06-06: `абонент / абоненту / абонентам` закреплены как жёсткий machine-trigger
+
+### Сделано
+- По отдельной пользовательской команде усилено live-правило для message-service и автоответчиков.
+- Live `Main` обновлён prompt-only patch:
+  - новая live version:
+    - `agtvrsn_4301ktee0x3kf8es9y3f950rjzr8`
+- Теперь любое сервисное упоминание слов:
+  - `абонент`
+  - `абоненту`
+  - `абонентам`
+  в разговоре должно сразу считаться machine/message-service кейсом.
+- Отдельно в prompt добавлены буквальные примеры:
+  - `что передать абоненту?`
+  - `что бы вы хотели передать абоненту?`
+  - `что сказать абоненту?`
+  - `я передам абоненту`
+  - `если абонент захочет с вами связаться`
+- Поведение закреплено жёстко:
+  - не продавать;
+  - не уточнять;
+  - не оставлять callback message;
+  - не давать контакты менеджера;
+  - не продолжать диалог вообще;
+  - сразу:
+    - `call_log(no_answer|busy)`
+    - silent `end_call`
+- Патч применён без нового звонка, только в live prompt.
+
+### На чем остановились
+- Правило уже в live, но отдельным новым тестом после этой конкретной правки ещё не подтверждалось.
+- Контур звонков по-прежнему на паузе.
+
+### Что делать дальше
+- На следующем одиночном тесте отдельно контролировать:
+  - если линия говорит `что передать абоненту?` или похожую формулу с `абонент/абоненту/абонентам`, agent должен завершать сразу и ничего не продавать.
+
+## 1.0) Обновление 2026-06-06: `row_13` не дошёл до разговора, цикл закончился relay `502`
+
+### Сделано
+- После fix по `human-gate` и `call_log` traceability выполнен следующий одиночный цикл без автодозвона.
+- `row_12` был пропущен безопасно:
+  - `do_not_call = true`
+  - reason: `похоже на организацию`
+- Вместо него взят следующий callable номер:
+  - `row_13`
+  - `+79370639452`
+  - `Врач-косметолог, трихолог Елена Николаевна Шишкина/Бренд «Доктор Шик»`
+- Перед тестом были подняты только:
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)`
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)`
+  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)`
+- Для всех трёх подтверждено:
+  - `active = true`
+  - `activeVersionId = versionId`
+- Отправлен один `manual outbound-call`:
+  - `request_id = manual.2026-06-06.ROW13.gateconv`
+- Внешний webhook снова ответил:
+  - `HTTP 200`
+  - пустой body
+- Но реального разговора не было:
+  - в Eleven не появился ни один conversation с `user_id = row_13`
+  - и не нашёлся `request_id = manual.2026-06-06.ROW13.gateconv`
+- Relay-host `151.241.228.232` дал технический след:
+  - `Relaying to https://api.elevenlabs.io/v1/convai/sip-trunk/outbound-call (778 bytes)`
+  - затем:
+    - `POST /eleven/outbound-call HTTP/1.1 502`
+- Значит цикл закончился техническим upstream failure ещё до разговора и до `call_log`.
+- После цикла минимальные workflow снова выключены:
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` = `false`
+  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)` = `false`
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` = `false`
+  - у всех трёх `activeVersionId = null`
+
+### На чем остановились
+- Новый fix по `human-answer gate` и по нормализации `conv_*` этим циклом не подтвердился и не опровергся.
+- Причина простая: разговора не было, это был не speech-case, а чистый relay/provider failure.
+
+### Что делать дальше
+- Следующий одиночный тест делать уже по следующему callable номеру:
+  - `row_14`
+- Перед ним не вносить новые prompt-правки.
+- На следующем цикле снова проверять:
+  1. не срабатывает ли rescue слишком рано;
+  2. доезжает ли нормальный текущий `eleven_conv_id`.
+
+## 1.0) Обновление 2026-06-06: применены точечные fix без нового звонка для `human-gate` и `call_log` traceability
+
+### Сделано
+- Без нового live-звонка применены две отдельные правки, которые нужны были после `row_11`.
+- Live `Main` в ElevenLabs обновлён через relay-host `151.241.228.232`:
+  - новая live version:
+    - `agtvrsn_7601ktec2xpde6sbn0s4t2heszyz`
+  - `turn_timeout: 3.2 -> 2.0`
+  - `soft_timeout_config.timeout_seconds: 2.0 -> -1.0`
+  - `soft_timeout_config.message` оставлен непустым только для валидности API, но глобальный rescue-таймер теперь технически выключен
+- Это убирает ранний global `soft_timeout`-конфликт, который на `row_11` запускал:
+  - `Алло, меня слышно? Вы тут?`
+  ещё до нормального post-opener/human phase.
+- Prompt live-агента одновременно усилен:
+  - rescue-вопрос разрешён только после:
+    1. явного живого ответа;
+    2. уже сказанного opener;
+    3. следующего хода с `...`/тишиной без осмысленного ответа;
+  - до этого этапа agent должен оставаться в `human-answer gate`.
+- В live schema `call_log` добавлено каноническое поле:
+  - `conversation_id`
+  - оно, как и `eleven_conv_id`, теперь привязано к `system__conversation_id`
+- Отдельно обновлён live workflow:
+  - `kZSdJrsAHWWIC2l6 | ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)`
+- В live `Tool | Normalize Call Log` теперь реально исполняется новая нормализация:
+  - placeholder-значения вида `system__conversation_id` и `{{conversation_id}}` режутся;
+  - кривые `conv_*` отбрасываются, если:
+    - нет префикса `conv_`;
+    - suffix слишком короткий;
+    - suffix только цифровой;
+    - suffix выглядит как повторяющийся hex/byte-мусор вроде `8e2e7e...`;
+  - канонический `conversationId` теперь читается из `body.conversation_id`;
+  - `eleven_conv_id` нормализуется как:
+    - `body.eleven_conv_id`
+    - fallback -> `body.conversation_id`
+  - `source_record_key` теперь тоже может fallback-иться в валидный `conversationId`
+- Live `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` после импорта остаётся выключенным:
+  - `active = false`
+- Новый звонок после этих fix ещё не запускался; весь контур всё ещё на паузе.
+
+### На чем остановились
+- Технический конфликт global `soft_timeout` с `human-answer gate` снят конфигом.
+- Live `call_log` bridge синхронизирован с локальной защитой от malformed `conv_*`.
+- Но всё это пока подтверждено только конфигом и export-ами, без нового реального разговора.
+
+### Что делать дальше
+- Следующий шаг уже не правка, а один новый одиночный тест по `row_12`.
+- На этом тесте нужно проверить сразу две вещи:
+  1. rescue-вопрос больше не выстреливает слишком рано в pre-human фазе;
+  2. в ветке `human -> ... -> no_answer` доезжает уже нормальный текущий `eleven_conv_id`, а не byte-мусор.
+
+## 1.0) Обновление 2026-06-06: `row_11` подтвердил конфликт global `soft_timeout` с `human-answer gate`
+
+### Сделано
+- Выполнен следующий одиночный speech-тест по:
+  - `row_11`
+  - `+79533940071`
+  - `Татьяна Голубева Косметология, бьюти услуги`
+- Новый разговор:
+  - `conversation_id = conv_1301kte9dps8ejfvk7fzy4zstvxs`
+  - `version_id = agtvrsn_9401kte963xcf2j87t1wervbdtv5`
+- Разговор показал реальное поведение новой схемы `2s -> rescue -> 2s -> hangup`:
+  - на `3s` user дал только `...`
+  - agent сразу сказал:
+    - `Алло, меня слышно? Вы тут?`
+  - на `6s` user ответил:
+    - `Алло?`
+  - на `8s` agent уже произнёс полный business-opener
+  - затем user сказал:
+    - `Продолжайте, я слушаю.`
+  - agent задал follow-up:
+    - `Вам это в принципе интересно?`
+  - после следующего `...` agent корректно сделал:
+    - `call_log(no_answer)`
+    - silent `end_call`
+- Rescue-вопрос не повторялся второй раз.
+- Одновременно проявился важный дефект:
+  - `soft_timeout_config` срабатывает глобально по разговору, а не только после opener;
+  - из-за этого rescue может прозвучать слишком рано, ещё до нормального подтверждённого human-answer.
+- В том же `call_log` снова ушёл битый `eleven_conv_id`:
+  - записалось `conv_8e2e7e7e7e7e4e7e8e7e7e7e7e7e7e7e`
+  - вместо реального `conv_1301kte9dps8ejfvk7fzy4zstvxs`
+- После теста минимальные workflow снова выключены, контур возвращён в паузу.
+
+### На чем остановились
+- Подтверждено, что логика `one rescue only` работает.
+- Но текущая реализация через global `soft_timeout_config` конфликтует с `human-answer gate`.
+- Значит новый speech-test сейчас запускать рано: сначала нужно убрать зависимость от глобального `soft_timeout` или жёстко ограничить его только пост-opener фазой.
+- Параллельно не закрыт регресс по `eleven_conv_id` в ветке `human -> ... -> no_answer`.
+
+### Что делать дальше
+- Сначала исправить конфликт:
+  - rescue не должен звучать на первом `...` до нормального human-answer;
+  - он должен жить только после opener и после явного человеческого отклика.
+- Отдельно добить `eleven_conv_id` в human-silence ветке.
+- Только после этих двух правок делать следующий одиночный звонок уже по `row_12`.
+
+## 1.0) Обновление 2026-06-06: human-silence правило ужато до схемы `2s -> rescue -> 2s -> hangup`
+
+### Сделано
+- По новой команде пользователя live-правило тишины после живого ответа ужато ещё сильнее.
+- Теперь целевая схема такая:
+  1. после opener и уже подтверждённого live-human ответа;
+  2. если около `2` секунд нет осмысленного ответа;
+  3. agent один раз говорит:
+     - `Алло, меня слышно? Вы тут?`
+  4. если после этого ещё около `2` секунд нет нормального ответа;
+  5. agent сам:
+     - `call_log(no_answer)`
+     - silent `end_call`
+- Повторять rescue-вопрос второй раз запрещено.
+- Live `Main` обновлён:
+  - `soft_timeout_config.timeout_seconds: 3.0 -> 2.0`
+  - `soft_timeout_config.message = "Алло, меня слышно? Вы тут?"`
+  - `max_soft_timeouts_per_generation = 1`
+  - `turn_timeout = 3.2` оставлен без изменения
+- Prompt тоже синхронизирован под то же правило:
+  - первое окно тишины после opener = `~2` секунды;
+  - после rescue-вопроса второе окно тишины = `~2` секунды;
+  - rescue-вопрос только один.
+- Новая live version:
+  - `agtvrsn_9401kte963xcf2j87t1wervbdtv5`
+- Артефакты:
+  - `backups/2026-06-06_human_silence_2s_rule/current_ai_call_agent_1.before.json`
+  - `backups/2026-06-06_human_silence_2s_rule/prompt_before.txt`
+  - `backups/2026-06-06_human_silence_2s_rule/prompt_after.txt`
+  - `backups/2026-06-06_human_silence_2s_rule/main_human_silence_2s_rule_payload.json`
+  - `backups/2026-06-06_human_silence_2s_rule/current_ai_call_agent_1.after_patch.json`
+
+### На чем остановились
+- Новый одиночный звонок после этой уточняющей правки ещё не запускался.
+- Значит правило уже в live, но ещё не подтверждено свежим тестом.
+- Весь звонковый контур по-прежнему стоит на паузе.
+
+### Что делать дальше
+- Следующий speech-тест уже на этой версии:
+  - проверить, что rescue звучит через `~2` секунды;
+  - не повторяется;
+  - и затем при новой тишине agent молча завершает звонок примерно ещё через `~2` секунды.
+
+## 1.0) Обновление 2026-06-06: `row_10` не дошёл до разговора, `human-silence rescue` пока не проверен
+
+### Сделано
+- После включения нового `human-silence rescue` выполнен следующий одиночный звонок по:
+  - `row_10`
+  - `+77077080155`
+  - `svetlayaa73`
+  - `request_id = manual.2026-06-06.ROW10.humansilence`
+- По Eleven API найден новый разговор:
+  - `conversation_id = conv_4301kte251sdef79z7m4345qs744`
+  - `status = failed`
+  - `version_id = null`
+- Причина отказа:
+  - `INVITE failed: sip status: 480: Temporarily Unavailable (SIP 480)`
+- Transcript пустой, то есть до речи дело не дошло.
+
+### На чем остановились
+- Новый `human-silence rescue` этим тестом не проверился, потому что звонок не поднялся на уровне SIP/provider.
+- Это не prompt-регресс и не ошибка нового rescue, а телефонийный отказ на конкретном номере.
+- После теста минимальные workflow снова выключены.
+- `n8n-server-n8n-1` снова `running|healthy`.
+
+### Что делать дальше
+- Не запускать новый цикл автоматически.
+- Следующий speech-тест делать уже по:
+  - `row_11`
+- Если цель цикла именно проверка агентской речи, международные или нестабильные номера вроде `+7707...` лучше заранее отсекать из такого тестового прогона.
+
+## 1.0) Обновление 2026-06-06: `human-silence rescue` ограничен одним вопросом и быстрым сбросом
+
+### Сделано
+- По новой пользовательской правке уточнено поведение после тишины на живом человеке:
+  - после opener и уже подтверждённого live-human ответа;
+  - при отсутствии осмысленного ответа около `3` секунд;
+  - agent задаёт только один rescue-вопрос:
+    - `Алло, меня слышно? Вы тут?`
+  - если после этого вопроса ещё около `2` секунд нет осмысленного ответа, agent должен:
+    - `call_log(no_answer)`
+    - silent `end_call`
+  - повторять rescue-вопрос второй раз запрещено.
+- Это закреплено в live `Main`:
+  - prompt обновлён под правило `one rescue only`;
+  - `soft_timeout_config` оставлен:
+    - `timeout_seconds = 3.0`
+    - `message = "Алло, меня слышно? Вы тут?"`
+    - `max_soft_timeouts_per_generation = 1`
+- Новая live version после этой уточняющей правки:
+  - `agtvrsn_3301kte2vf9se8psr98j94hk24z6`
+- Артефакты:
+  - `backups/2026-06-06_human_silence_single_rescue_then_hangup/current_ai_call_agent_1.before.json`
+  - `backups/2026-06-06_human_silence_single_rescue_then_hangup/prompt_before.txt`
+  - `backups/2026-06-06_human_silence_single_rescue_then_hangup/prompt_after.txt`
+  - `backups/2026-06-06_human_silence_single_rescue_then_hangup/main_single_rescue_then_hangup_payload.json`
+  - `backups/2026-06-06_human_silence_single_rescue_then_hangup/current_ai_call_agent_1.after_patch.json`
+
+### На чем остановились
+- Новый одиночный звонок после этой уточняющей правки ещё не запускался.
+- Значит правило уже в live, но ещё не подтверждено свежим разговором.
+- Весь звонковый контур по-прежнему на паузе.
+
+### Что делать дальше
+- Следующий speech-тест уже с этой версией:
+  - проверить, что rescue-вопрос звучит только один раз;
+  - после него нет повторов;
+  - при новой тишине agent сам завершает звонок через `~2` секунды.
+
+## 1.0) Обновление 2026-06-06: добавлен human-silence rescue после opener
+
+### Сделано
+- По обратной связи пользователя изменена логика тишины после opener:
+  - если уже был подтверждён живой человек;
+  - agent уже произнёс opener;
+  - и после этого около `3` секунд нет осмысленного ответа;
+  - agent больше не должен сразу молча завершать звонок.
+- В live `Main` добавлено новое правило:
+  - один короткий rescue-вопрос:
+    - `Алло, меня слышно? Вы тут?`
+  - использовать его только после подтверждённого live-human ответа и только после opener;
+  - не использовать на IVR, voicemail, message-service, screening, ringback, музыке, машинной линии.
+- Технически это закреплено в двух слоях:
+  1. в prompt;
+  2. в `turn.soft_timeout_config`
+- Новый live turn config:
+  - `turn_timeout = 3.2`
+  - `soft_timeout_config.timeout_seconds = 3.0`
+  - `soft_timeout_config.message = "Алло, меня слышно? Вы тут?"`
+  - `max_soft_timeouts_per_generation = 1`
+- Новая live version:
+  - `agtvrsn_0401kte1n4fhek8snba466ra39t0`
+- Артефакты:
+  - `backups/2026-06-06_human_silence_rescue_prompt/current_ai_call_agent_1.before.json`
+  - `backups/2026-06-06_human_silence_rescue_prompt/prompt_before.txt`
+  - `backups/2026-06-06_human_silence_rescue_prompt/prompt_after.txt`
+  - `backups/2026-06-06_human_silence_rescue_prompt/main_human_silence_rescue_payload.json`
+  - `backups/2026-06-06_human_silence_rescue_prompt/current_ai_call_agent_1.after_patch.json`
+
+### На чем остановились
+- Новый live-звонок после этой правки ещё не запускался.
+- Значит правило уже в live, но ещё не подтверждено новым одиночным тестом.
+- Весь звонковый контур по-прежнему стоит на паузе.
+
+### Что делать дальше
+- Следующий одиночный тест делать уже с этим новым human-silence rescue.
+- Проверять:
+  1. звучит ли rescue-вопрос естественно;
+  2. не срабатывает ли он на machine-path;
+  3. не ломается ли после него `call_log`.
+
+## 1.0) Обновление 2026-06-06: `row_9` подтвердил ускорение ответа, но показал новый регресс `eleven_conv_id`
+
+### Сделано
+- После live-поджатия `turn_timeout: 4.0 -> 3.2` выполнен следующий одиночный звонок по:
+  - `row_9`
+  - `+79255138351`
+  - `Татьяна`
+  - `request_id = manual.2026-06-06.ROW9.latencycheck`
+- Новый разговор:
+  - `conversation_id = conv_8401kte14mqmeetatxqfh40cqjqv`
+  - `version_id = agtvrsn_4401kte0xffsfm1rnq9bbtajj65y`
+- Живой старт теперь действительно стал быстрее:
+  - user `Алло!` на `time_in_call_secs = 1`
+  - первый agent opener уже на `time_in_call_secs = 2`
+  - то есть ощущаемая пауза сократилась примерно до `~1` секунды вместо прежних почти `4`
+- Метрики старта:
+  - `convai_asr_trailing_service_latency ~= 0.162s`
+  - `convai_llm_service_ttfb ~= 0.410s`
+  - `convai_llm_service_ttf_sentence ~= 0.516s`
+  - `convai_tts_service_ttfb ~= 0.182s`
+- Дальше человек не продолжил осмысленный диалог:
+  - user: `...`
+  - agent корректно сделал:
+    - `call_log`
+    - silent `end_call`
+  - финал:
+    - `termination_reason = end_call tool was called.`
+    - запись в Sheet:
+      - `'Лиды_обзвон'!A44:AM44`
+
+### На чем остановились
+- Скорость после живого ответа реально улучшилась, и это уже подтверждено живым звонком.
+- Но на этом же тесте всплыл новый traceability-регресс:
+  - вместо текущего `conv_8401kte14mqmeetatxqfh40cqjqv` в `call_log` ушёл кривой:
+    - `conv_65e2e2e7e2e2e7e2e2e7e2e2e7e2e2e7`
+- То есть latency-цель здесь уже сработала, а следующий фронт снова сместился на корректную сборку `eleven_conv_id` после human-answer + silence ветки.
+- После теста минимальные workflow снова выключены.
+- `n8n-server-n8n-1` снова `running|healthy`.
+
+### Что делать дальше
+- Не запускать новый цикл автоматически.
+- Следующий шаг:
+  1. разобрать, почему в human-then-silence ветке agent собрал `eleven_conv_id` как мусорный `conv_65e2...`;
+  2. исправить это без отката ускорения ответа;
+  3. только потом делать следующий одиночный звонок по `row_10`.
+
+## 1.0) Обновление 2026-06-06: поджат human-answer latency, `turn_timeout` уменьшен `4.0 -> 3.2`
+
+### Сделано
+- По свежему живому кейсу `conv_2701ktdzmjz7fxqrmfczhea65r56` отдельно разобрана пауза перед первой agent-репликой.
+- Вывод по метрикам:
+  - это не “медленный GPT”;
+  - backend-часть уже была быстрой:
+    - `convai_asr_trailing_service_latency ~= 0.185s`
+    - `convai_llm_service_ttfb ~= 0.476s`
+    - `convai_llm_service_ttf_sentence ~= 0.574s`
+    - `convai_tts_service_ttfb ~= 0.351s`
+  - основная видимая пауза шла из turn-taking слоя, то есть из ожидания завершения живой реплики перед стартом ответа.
+- Чтобы не возвращать старый агрессивный режим, live `Main` поджат только одним безопасным шагом:
+  - `turn_timeout: 4.0 -> 3.2`
+  - `turn_eagerness` оставлен `normal`
+  - `speculative_turn` оставлен `false`
+  - `turn_model` оставлен `turn_v2`
+- Новый live version после этого patch:
+  - `agtvrsn_4401kte0xffsfm1rnq9bbtajj65y`
+- Backup и payload сохранены:
+  - `backups/2026-06-06_human_answer_latency_trim/current_ai_call_agent_1.before.json`
+  - `backups/2026-06-06_human_answer_latency_trim/main_turn_timeout_3_2_payload.json`
+  - `backups/2026-06-06_human_answer_latency_trim/current_ai_call_agent_1.after_patch.json`
+
+### На чем остановились
+- Новый live-звонок после этой правки ещё не запускался.
+- Поэтому улучшение уже внесено в live-конфиг, но пока не подтверждено новым разговором.
+- Весь звонковый контур остаётся на паузе между одиночными тестами.
+
+### Что делать дальше
+- Следующий одиночный тест по `row_9` уже снимать после этого latency-trim.
+- На следующем звонке отдельно смотреть:
+  1. сократилось ли субъективное ожидание после живого ответа;
+  2. не вернулись ли ранние перебивания;
+  3. если будет machine-path, не сломалось ли текущее `call_log` поведение.
+
+## 1.0) Обновление 2026-06-06: `row_8` дал живой ответ, точный opener подтвержден, контур снова на паузе
+
+### Сделано
+- Выполнен следующий одиночный звонок по порядку:
+  - `row_8`
+  - `+79217897373`
+  - `Марина`
+  - `request_id = manual.2026-06-06.ROW8.openerorconv`
+- Для теста поднимались только минимальные workflow:
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)`
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)`
+  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)`
+- Новый разговор:
+  - `conversation_id = conv_2701ktdzmjz7fxqrmfczhea65r56`
+  - `version_id = agtvrsn_1001ktbys8ftfpys5gykctxrqka5`
+- Это был живой ответ, а не voicemail:
+  - user: `«Лицо мечты», администратор Ольга, здравств`
+- Главная цель теста подтверждена:
+  - agent начал разговор ровно восстановленным opener-блоком;
+  - в сыром `original_message` зафиксирован полный текст:
+    - `Здравствуйте, наша компания является официальным представителем липолитика премиум класса ЛипоЛонг, предлагаем вам сотрудничество с нашей компанией на выгодных условиях. А еще, сотрудничая с нами, вы можете быть уверены на сто процентов, что получаете оригинальную продукцию и не рискуете попасть на подделку.`
+- По latency этот старт выглядел здорово:
+  - `convai_llm_service_ttfb ~= 0.476s`
+  - `convai_llm_service_ttf_sentence ~= 0.574s`
+  - `convai_tts_service_ttfb ~= 0.351s`
+
+### На чем остановились
+- Собеседник оборвал звонок очень рано:
+  - `termination_reason = Client disconnected: 1000`
+- Из-за этого agent не дошёл до:
+  - `call_log`
+  - `end_call`
+- Значит этот тест закрыл только human-opener часть, но не дал новой проверки финального `call_log` на живом разговоре.
+- После теста минимальные workflow снова выключены.
+- `n8n-server-n8n-1` после рестарта снова `running|healthy`.
+
+### Что делать дальше
+- Не запускать новый цикл автоматически.
+- Следующий одиночный тест делать уже по:
+  - `row_9`
+  - `+79255138351`
+  - `Татьяна`
+- На следующем звонке приоритет проверки такой:
+  1. если снова будет живой человек — смотреть, не ломается ли opener дальше по смыслу и доходит ли agent до нормальной следующей реплики;
+  2. если будет machine/voicemail — проверить, что `call_log` всё ещё пишет текущий `conv_*` без reuse;
+  3. после теста снова сразу выключить минимальные workflow и снять короткий отчёт.
+
 ## 1.0) Обновление 2026-06-05: `row_7` снова ушёл в voicemail, opener на человеке ещё не проверен, `conv_*` усилен от reuse
 
 ### Сделано

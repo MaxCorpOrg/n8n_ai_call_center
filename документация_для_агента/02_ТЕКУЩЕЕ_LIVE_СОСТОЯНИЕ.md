@@ -1,5 +1,260 @@
 # Текущее live-состояние
 
+Обновление `2026-06-06` по следующему одиночному циклу `row_14`:
+- тест пошёл по:
+  - `row_14`
+  - `+79963649952`
+  - `Mila Fon`
+- три минимальных workflow временно поднимались и были в валидном состоянии:
+  - `active = true`
+  - `activeVersionId = versionId`
+- manual `POST /webhook/eleven/outbound-call` снова ответил:
+  - `HTTP 200`
+  - body пустой
+- но реальный разговор не создался:
+  - в Eleven не появился `row_14`
+  - relay-host записал:
+    - `POST /eleven/outbound-call HTTP/1.1 502`
+- значит это снова технический upstream failure до speech-stage и до `call_log`
+- после цикла минимальные workflow снова выключены:
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` = `false`
+  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)` = `false`
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` = `false`
+  - `activeVersionId = null`
+- контур снова на паузе.
+
+Обновление `2026-06-06` по жёсткому правилу `абонент`:
+- live `Main` обновлён prompt-only patch:
+  - `version_id = agtvrsn_4301ktee0x3kf8es9y3f950rjzr8`
+- любое сервисное упоминание:
+  - `абонент`
+  - `абоненту`
+  - `абонентам`
+  теперь должно сразу трактоваться как автоответчик / message-service
+- отдельные буквальные примеры тоже зашиты в live:
+  - `что передать абоненту?`
+  - `что бы вы хотели передать абоненту?`
+  - `что сказать абоненту?`
+  - `я передам абоненту`
+  - `если абонент захочет с вами связаться`
+- нужное поведение:
+  - не продавать;
+  - не уточнять;
+  - не оставлять callback;
+  - не давать контакт менеджера;
+  - сразу `call_log` и silent `end_call`
+- новый звонок после этой правки ещё не делался;
+- весь контур всё ещё на паузе.
+
+Обновление `2026-06-06` по следующему одиночному циклу после fix:
+- `row_12` был пропущен:
+  - `do_not_call = true`
+  - причина: `похоже на организацию`
+- следующий callable тест пошёл по:
+  - `row_13`
+  - `+79370639452`
+  - `Врач-косметолог, трихолог Елена Николаевна Шишкина/Бренд «Доктор Шик»`
+- три минимальных workflow временно поднимались и были в валидном состоянии:
+  - `active = true`
+  - `activeVersionId = versionId`
+- manual `POST /webhook/eleven/outbound-call` ответил:
+  - `HTTP 200`
+  - body пустой
+- но реальный разговор не создался:
+  - в Eleven не появился `row_13`
+  - relay-host записал:
+    - `POST /eleven/outbound-call HTTP/1.1 502`
+- значит это технический upstream failure до speech-stage и до `call_log`
+- после цикла минимальные workflow снова выключены:
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` = `false`
+  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)` = `false`
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` = `false`
+  - `activeVersionId = null`
+- весь контур снова на паузе.
+
+Обновление `2026-06-06` по точечным fix после `row_11`, без нового звонка:
+- live `Main` в ElevenLabs обновлён:
+  - `version_id = agtvrsn_7601ktec2xpde6sbn0s4t2heszyz`
+- global rescue-таймер больше не должен конфликтовать с `human-answer gate`:
+  - `turn_timeout = 2.0`
+  - `soft_timeout_config.timeout_seconds = -1.0`
+  - `soft_timeout_config.message = "Алло, меня слышно? Вы тут?"`
+  - технически message оставлен непустым для валидности API, но сам global soft-timeout выключен
+- rescue-вопрос теперь должен жить только как prompt-правило post-opener/human phase, а не как общий таймер разговора
+- live schema `call_log` в Eleven теперь дополнена полем:
+  - `conversation_id`
+  - и `conversation_id`, и `eleven_conv_id` привязаны к `system__conversation_id`
+- live `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` повторно импортирован из локального draft:
+  - workflow id: `kZSdJrsAHWWIC2l6`
+  - `Tool | Normalize Call Log` теперь реально умеет:
+    - резать placeholder-значения;
+    - отбрасывать сокращённые и byte-like `conv_*`;
+    - брать канонический `conversationId` из `body.conversation_id`;
+    - использовать его как fallback для `eleven_conv_id` и `source_record_key`
+- новый live-звонок после этих fix ещё не запускался
+- весь звонковый контур всё ещё на паузе.
+
+Обновление `2026-06-06` по одиночному тесту `row_11`:
+- сделан следующий последовательный звонок по:
+  - `row_11`
+  - `+79533940071`
+  - `Татьяна Голубева Косметология, бьюти услуги`
+- новый разговор:
+  - `conv_1301kte9dps8ejfvk7fzy4zstvxs`
+  - `version_id = agtvrsn_9401kte963xcf2j87t1wervbdtv5`
+- выявлено реальное поведение новой схемы:
+  - на первом `...` rescue прозвучал слишком рано, ещё до нормального human-answer:
+    - `Алло, меня слышно? Вы тут?`
+  - затем user ответил:
+    - `Алло?`
+  - потом agent уже дал полный opener;
+  - позже после второго `...` agent корректно сделал:
+    - `call_log(no_answer)`
+    - silent `end_call`
+- значит `one rescue only` работает, но есть конфликт:
+  - global `soft_timeout_config` срабатывает до нужной пост-opener фазы;
+  - это конфликтует с `human-answer gate`
+- одновременно в `call_log` снова ушёл битый `eleven_conv_id`:
+  - `conv_8e2e7e7e7e7e4e7e8e7e7e7e7e7e7e7e`
+  - вместо `conv_1301kte9dps8ejfvk7fzy4zstvxs`
+- после теста минимальные workflow снова выключены;
+- весь контур опять на паузе.
+
+Обновление `2026-06-06` по правилу тишины `2s -> rescue -> 2s -> hangup`:
+- live-логика тишины после живого ответа ещё раз ужата:
+  - после opener и уже подтверждённого live-human ответа;
+  - если около `2` секунд нет осмысленного ответа;
+  - agent один раз говорит:
+    - `Алло, меня слышно? Вы тут?`
+  - если после этого ещё около `2` секунд нет нормального ответа;
+  - agent пишет `call_log(no_answer)` и молча кладёт трубку
+- rescue-вопрос нельзя повторять второй раз;
+- live-config теперь такой:
+  - `turn_timeout = 3.2`
+  - `soft_timeout_config.timeout_seconds = 2.0`
+  - `soft_timeout_config.message = "Алло, меня слышно? Вы тут?"`
+  - `max_soft_timeouts_per_generation = 1`
+- новая live version:
+  - `agtvrsn_9401kte963xcf2j87t1wervbdtv5`
+- новый звонок после этой правки ещё не запускался;
+- весь контур всё ещё на паузе.
+
+Обновление `2026-06-06` по rescue-вопросу после тишины:
+- правило уточнено ещё жёстче:
+  - после opener и уже подтверждённого живого ответа agent может задать только один rescue-вопрос:
+    - `Алло, меня слышно? Вы тут?`
+  - если после него ещё около `2` секунд нет осмысленного ответа, agent должен сам завершить звонок;
+  - повторять rescue-вопрос нельзя.
+- live-config:
+  - `turn_timeout = 3.2`
+  - `soft_timeout_config.timeout_seconds = 2.0`
+  - `soft_timeout_config.message = "Алло, меня слышно? Вы тут?"`
+  - `max_soft_timeouts_per_generation = 1`
+- новая live version:
+  - `agtvrsn_9401kte963xcf2j87t1wervbdtv5`
+- новый звонок после этой уточняющей правки ещё не запускался;
+- контур всё ещё на паузе.
+
+Обновление `2026-06-06` по одиночному тесту `row_10`:
+- сделан следующий последовательный звонок по:
+  - `row_10`
+  - `+77077080155`
+  - `svetlayaa73`
+- новый разговор:
+  - `conv_4301kte251sdef79z7m4345qs744`
+  - `status = failed`
+  - `version_id = null`
+- реального разговора не было;
+- причина:
+  - `INVITE failed: sip status: 480: Temporarily Unavailable (SIP 480)`
+- transcript пустой;
+- значит новый `human-silence rescue` этим тестом не проверился;
+- после теста минимальные workflow снова выключены и `n8n-server-n8n-1` снова `running|healthy`.
+
+Обновление `2026-06-06` по тишине после opener:
+- по новой пользовательской правке молчание после opener больше не должно сразу вести в silent finish;
+- теперь если:
+  - уже был подтверждён живой человек;
+  - agent уже произнёс opener;
+  - и затем около `3` секунд нет осмысленного ответа;
+  agent должен один раз спросить:
+  - `Алло, меня слышно? Вы тут?`
+- это исключение действует только для human-ветки после opener;
+- на IVR, voicemail, screening, message-service, ringback и music этот rescue-вопрос запрещён;
+- live-config уже обновлён:
+  - `turn_timeout = 3.2`
+  - `soft_timeout_config.timeout_seconds = 3.0`
+  - `soft_timeout_config.message = "Алло, меня слышно? Вы тут?"`
+- новая live version:
+  - `agtvrsn_0401kte1n4fhek8snba466ra39t0`
+- новый звонок после этой правки ещё не запускался;
+- весь контур всё ещё на паузе.
+
+Обновление `2026-06-06` по одиночному тесту `row_9` после latency-trim:
+- сделан следующий последовательный звонок по:
+  - `row_9`
+  - `+79255138351`
+  - `Татьяна`
+- новый разговор:
+  - `conv_8401kte14mqmeetatxqfh40cqjqv`
+  - `version_id = agtvrsn_4401kte0xffsfm1rnq9bbtajj65y`
+- на живом ответе ускорение подтвердилось:
+  - user `Алло!` на `time_in_call_secs = 1`
+  - agent opener уже на `time_in_call_secs = 2`
+- метрики старта:
+  - `ASR trailing ~= 0.162s`
+  - `LLM TTFB ~= 0.410s`
+  - `LLM first sentence ~= 0.516s`
+  - `TTS TTFB ~= 0.182s`
+- дальше человек дал только:
+  - `...`
+- agent корректно отработал как no-answer после opener:
+  - `call_log`
+  - silent `end_call`
+- но появился новый регресс в трассировке:
+  - вместо текущего `conv_8401kte14mqmeetatxqfh40cqjqv`
+  - в `call_log` ушёл мусорный `eleven_conv_id = conv_65e2e2e7e2e2e7e2e2e7e2e2e7e2e2e7`
+- после теста минимальные workflow снова выключены и `n8n-server-n8n-1` снова `running|healthy`.
+
+Обновление `2026-06-06` по задержке после живого ответа:
+- по разговору `conv_2701ktdzmjz7fxqrmfczhea65r56` подтверждено, что почти вся заметная пауза была не в LLM/TTS, а в turn-taking ожидании;
+- разбивка по метрикам:
+  - `convai_asr_trailing_service_latency ~= 0.185s`
+  - `convai_llm_service_ttfb ~= 0.476s`
+  - `convai_llm_service_ttf_sentence ~= 0.574s`
+  - `convai_tts_service_ttfb ~= 0.351s`
+- чтобы сократить ощущаемую паузу, live `Main` поджат безопасным шагом:
+  - `turn_timeout: 4.0 -> 3.2`
+  - `turn_eagerness = normal` без изменений
+  - `speculative_turn = false` без изменений
+- новая live version:
+  - `agtvrsn_4401kte0xffsfm1rnq9bbtajj65y`
+- новый звонок после этой правки ещё не запускался;
+- весь контур по-прежнему стоит на паузе между одиночными циклами.
+
+Обновление `2026-06-06` по одиночному тесту `row_8`:
+- сделан следующий последовательный звонок по:
+  - `row_8`
+  - `+79217897373`
+  - `Марина`
+- для теста временно поднимались только:
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)`
+  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)`
+  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)`
+- новый разговор:
+  - `conv_2701ktdzmjz7fxqrmfczhea65r56`
+  - `version_id = agtvrsn_1001ktbys8ftfpys5gykctxrqka5`
+- это уже был живой ответ, а не voicemail:
+  - user: `«Лицо мечты», администратор Ольга, здравств`
+- главное подтверждение:
+  - agent стартовал ровно фиксированным двухфразным opener-блоком;
+  - в `original_message` зафиксирован полный opener:
+    - `Здравствуйте, наша компания является официальным представителем липолитика премиум класса ЛипоЛонг, предлагаем вам сотрудничество с нашей компанией на выгодных условиях. А еще, сотрудничая с нами, вы можете быть уверены на сто процентов, что получаете оригинальную продукцию и не рискуете попасть на подделку.`
+- собеседник оборвал звонок очень рано:
+  - `termination_reason = Client disconnected: 1000`
+- поэтому до `call_log` и `end_call` agent не дошёл;
+- после теста минимальные workflow снова выключены и `n8n-server-n8n-1` снова `running|healthy`.
+
 Обновление `2026-06-05` по одиночному тесту `row_7`:
 - сделан следующий последовательный звонок по:
   - `row_7`
