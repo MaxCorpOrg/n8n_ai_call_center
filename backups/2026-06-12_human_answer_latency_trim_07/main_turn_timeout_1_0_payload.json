@@ -1,0 +1,24 @@
+{
+  "conversation_config": {
+    "turn": {
+      "turn_timeout": 1.0,
+      "initial_wait_time": null,
+      "silence_end_call_timeout": -1.0,
+      "mode": "turn",
+      "turn_eagerness": "eager",
+      "spelling_patience": "auto",
+      "speculative_turn": true,
+      "retranscribe_on_turn_timeout": false,
+      "turn_model": "turn_v2",
+      "interruption_ignore_terms": [],
+      "soft_timeout_config": {
+        "timeout_seconds": -1.0,
+        "message": "Алло, меня слышно? Вы тут?",
+        "additional_soft_timeout_messages": [],
+        "use_llm_generated_message": false,
+        "max_soft_timeouts_per_generation": 1,
+        "llm_generated_message_prompt_override": null
+      }
+    }
+  }
+}

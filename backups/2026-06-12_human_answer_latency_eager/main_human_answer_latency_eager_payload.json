@@ -1,0 +1,10 @@
+{
+  "conversation_config": {
+    "turn": {
+      "turn_timeout": 1.2,
+      "turn_eagerness": "eager",
+      "speculative_turn": true,
+      "turn_model": "turn_v2"
+    }
+  }
+}

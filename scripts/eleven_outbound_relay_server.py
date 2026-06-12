@@ -19,7 +19,7 @@ logger = logging.getLogger("eleven_relay")
 RELAY_BIND = os.getenv("RELAY_BIND", "127.0.0.1")
 RELAY_PORT = int(os.getenv("RELAY_PORT", "8787"))
 RELAY_SHARED_TOKEN = os.getenv("RELAY_SHARED_TOKEN", "")
-RELAY_TIMEOUT = int(os.getenv("RELAY_TIMEOUT", "8"))
+RELAY_TIMEOUT = int(os.getenv("RELAY_TIMEOUT", "20"))
 RELAY_RETRY_COUNT = int(os.getenv("RELAY_RETRY_COUNT", "0"))
 RELAY_RETRY_DELAY_MS = int(os.getenv("RELAY_RETRY_DELAY_MS", "500"))
 ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY", "")
@@ -80,6 +80,23 @@ def summarize_upstream_body(body: bytes) -> str:
     if not summary:
         summary["keys"] = sorted(payload.keys())[:12]
     return json.dumps(summary, ensure_ascii=False)[:300]
+
+
+def summarize_request_payload(payload: dict) -> str:
+    if not isinstance(payload, dict):
+        return "{}"
+
+    client_data = payload.get("conversation_initiation_client_data") or {}
+    dynamic = client_data.get("dynamic_variables") or {}
+
+    summary = {
+        "to_number": payload.get("to_number"),
+        "user_id": client_data.get("user_id"),
+        "lead_id": dynamic.get("lead_id"),
+        "source_record_key": dynamic.get("source_record_key"),
+        "request_id": dynamic.get("request_id"),
+    }
+    return json.dumps(summary, ensure_ascii=False)[:400]
 
 
 def should_retry_http_response(status: int, body: bytes, attempt: int) -> bool:
@@ -148,7 +165,12 @@ class RelayHandler(BaseHTTPRequestHandler):
             fail(self, 400, {"ok": False, "error": "invalid_json"})
             return
 
-        logger.info("Relaying to %s (%d bytes)", ELEVEN_OUTBOUND_URL, len(raw))
+        logger.info(
+            "Relaying to %s (%d bytes): %s",
+            ELEVEN_OUTBOUND_URL,
+            len(raw),
+            summarize_request_payload(payload),
+        )
 
         for attempt in range(RELAY_RETRY_COUNT + 1):
             req = build_request(payload)

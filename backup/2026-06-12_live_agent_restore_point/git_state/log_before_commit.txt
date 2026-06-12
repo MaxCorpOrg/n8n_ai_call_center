@@ -1,0 +1,10 @@
+a52572a Зафиксировать июньские live-тесты колл-центра и hardening автоответчиков
+28a4fd9 Зафиксировать серию одиночных тестов колл-центра и контрольные точки
+ba52015 Зафиксировать перенос n8n на Postgres и ускорение live-агента
+01d28bc Sync live handoff policy and migration pack
+b04e639 Stabilize live callcenter canary and checkpoints
+8a1a4d8 Добавить отдельный Telegram Desktop Contact Tool
+4683f63 Harden live agent ringback handling
+cdaa994 Обновить AGENTS и полный пакет документации по email-агенту
+fcc6687 Исправить утечку seed email и отсечь каталожные адреса
+020c392 Довести email-агента до прод-режима с вложением и обходом всех таблиц

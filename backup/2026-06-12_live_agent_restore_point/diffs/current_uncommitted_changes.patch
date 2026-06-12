@@ -1,0 +1,1598 @@
+diff --git a/docs/agent_kb_lipolong/08_ELEVENLABS_SYSTEM_PROMPT_EN.md b/docs/agent_kb_lipolong/08_ELEVENLABS_SYSTEM_PROMPT_EN.md
+index 4a6ce90..614ef73 100644
+--- a/docs/agent_kb_lipolong/08_ELEVENLABS_SYSTEM_PROMPT_EN.md
++++ b/docs/agent_kb_lipolong/08_ELEVENLABS_SYSTEM_PROMPT_EN.md
+@@ -1,5 +1,26 @@
+ # System Prompt for the ElevenLabs lipolong Agent
+ 
++## Live note 2026-06-12
++
++- Current confirmed live version:
++  - `agtvrsn_0901ktxsrethemqr4prhkw701wr2`
++- Current fixed opener in live:
++  - `Здравствуйте. Мы официальный представитель липолитика ЛипоЛонг, звоним по поводу сотрудничества для косметологов. Вам это в принципе интересно?`
++- Current live second-turn rule after opener:
++  - maximum `2` short sentences;
++  - maximum `1` simple next-step question;
++  - compact follow-up templates are explicitly embedded in the live prompt for:
++    - neutral / lightly positive answer;
++    - `what is the call about?`;
++    - busy response;
++    - clearly live intermediary handoff.
++- Current live refusal rule right after the opener:
++  - a flat immediate negative like `нет`, `не надо`, `не нужно`, `неинтересно` is no longer treated as final by default;
++  - the agent should first clarify whether this is `not_target` or just low current interest;
++  - if the contact is relevant, the agent should make one compact rescue move such as SMS or a manager callback;
++  - only after the clarification plus one rescue move may the call end as `refusal_soft`.
++- The long historical prompt body below is still useful as context, but the live opener wording and second-turn behavior should be taken from this note and from the latest checkpoints first.
++
+ ## Purpose
+ 
+ This is the current live-oriented English system prompt for the ElevenLabs sales agent.
+diff --git a/docs/agent_kb_lipolong/08_ELEVENLABS_SYSTEM_PROMPT_RU.md b/docs/agent_kb_lipolong/08_ELEVENLABS_SYSTEM_PROMPT_RU.md
+index 0990bb4..ff1950a 100644
+--- a/docs/agent_kb_lipolong/08_ELEVENLABS_SYSTEM_PROMPT_RU.md
++++ b/docs/agent_kb_lipolong/08_ELEVENLABS_SYSTEM_PROMPT_RU.md
+@@ -1,5 +1,26 @@
+ # System Prompt для ElevenLabs агента LipoLong
+ 
++## Live-заметка 2026-06-12
++
++- текущая подтверждённая live version:
++  - `agtvrsn_0901ktxsrethemqr4prhkw701wr2`
++- текущий fixed opener в live:
++  - `Здравствуйте. Мы официальный представитель липолитика ЛипоЛонг, звоним по поводу сотрудничества для косметологов. Вам это в принципе интересно?`
++- текущее live-правило для второго хода после opener:
++  - максимум `2` коротких предложения;
++  - максимум `1` простой вопрос;
++  - в самом live prompt уже закреплены короткие шаблоны для:
++    - нейтрального / мягко-позитивного ответа;
++    - вопроса `о чём звонок`;
++    - занятости;
++    - живого посредника.
++- текущее live-правило для короткого отказа сразу после opener:
++  - flat immediate negative вроде `нет`, `не надо`, `не нужно`, `неинтересно` больше не считаем финальным автоматически;
++  - сначала агент должен понять, это `not_target` или низкий текущий интерес;
++  - если контакт релевантный, агент делает один компактный rescue-move: SMS, callback менеджера или одну короткую value-line;
++  - только после уточнения и одного rescue-move кейс может уходить в `refusal_soft`.
++- длинное историческое тело prompt ниже всё ещё полезно как контекст, но wording opener и логика второго хода сейчас должны браться в первую очередь из этой заметки и из свежих checkpoint-документов.
++
+ ## Назначение
+ 
+ С `2026-04-07` live-версия prompt работает в режиме `human-answer gate`.
+diff --git a/docs/knowledge_base/09_PROJECT_CHANGELOG_AND_STATE.md b/docs/knowledge_base/09_PROJECT_CHANGELOG_AND_STATE.md
+index 20297be..ef90c00 100644
+--- a/docs/knowledge_base/09_PROJECT_CHANGELOG_AND_STATE.md
++++ b/docs/knowledge_base/09_PROJECT_CHANGELOG_AND_STATE.md
+@@ -1,5 +1,893 @@
+ # 09. Состояние проекта и последние изменения
+ 
++## 1.0) Обновление 2026-06-12: отказной блок после opener развернут обратно в дожим
++
++### Сделано
++- После обратной связи по live-продаже отменена слишком жёсткая логика:
++  - flat negative сразу после opener больше не считается финальным отказом по умолчанию.
++- Live `AI_CALL_AGENT_1` пропатчен заново.
++- Новая live version:
++  - `agtvrsn_0901ktxsrethemqr4prhkw701wr2`
++- В `Sales behavior` закреплён новый принцип работы с фразами:
++  - `нет`
++  - `не надо`
++  - `не нужно`
++  - `неинтересно`
++- Новая рабочая логика:
++  1. не считать такой ответ финальным автоматически;
++  2. сначала понять, это `not_target` или просто низкий текущий интерес;
++  3. задать один короткий уточняющий вопрос;
++  4. если контакт релевантный, но холодный — сделать ровно один компактный rescue-move:
++     - SMS;
++     - callback менеджера;
++     - или одна короткая value-line + next step;
++  5. если человек вообще не работает с этим направлением — логировать `not_target`;
++  6. если после уточнения и одного rescue-move всё равно отказ — логировать `refusal_soft`, коротко закрывать и не давить третий раз.
++- Обратным `GET` через relay-host подтверждено, что новая live version уже поднялась и rule-block реально в prompt.
++- Артефакты:
++  - `backups/2026-06-12_negative_recovery_dozhim/`
++
++### На чем остановились
++- Теперь live-логика снова соответствует боевой продаже:
++  - короткое `нет` после opener не должно обрывать шанс на дожим;
++  - но и в длинный спор агент уходить не должен.
++- Новый звонок на этой версии ещё не запускался.
++
++### Что делать дальше
++1. Следующий одиночный звонок делать уже на version `agtvrsn_0901ktxsrethemqr4prhkw701wr2`.
++2. Проверять именно отказной кейс после opener:
++   - есть ли один короткий уточняющий вопрос;
++   - есть ли один аккуратный rescue-move;
++   - не уходит ли агент в длинную лекцию;
++   - не бросает ли трубку слишком рано.
++
++## 1.0) Обновление 2026-06-12: `row_9` подтвердил новый opener, но вскрыл лишний refusal follow-up
++
++### Сделано
++- Для проверки нового opener и второго хода поднят только минимальный контур:
++  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)`
++  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)`
++  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)`
++- Во время старта повторно всплыл известный runtime-симптом:
++  - `POST /webhook/eleven/outbound-call` один раз вернул
++    - `404 Active version not found for workflow with id "sHTbALayEZdy8Mzs"`
++- После перепубликации/рестарта webhook path восстановился и manual call ушёл дальше по реальному outbound-path:
++  - `HTTP 200`
++  - body пустой
++- Relay журнал уже по реальному запросу зафиксировал accepted outbound:
++  - `request_id = manual.2026-06-12.ROW9.openersecondturn`
++  - `to_number = +79255138351`
++  - `Upstream 200 (11405ms, 139 bytes)`
++  - `conversation_id = conv_8601ktxqpc9ten2br2wktr460qbb`
++- Полный разговор материализовался в Eleven:
++  - `conversation_id = conv_8601ktxqpc9ten2br2wktr460qbb`
++  - `user_id = row_9`
++  - `version_id = agtvrsn_6301ktxp7b4cezb8mc8pba7fxyq9`
++  - `status = done`
++  - `termination_reason = Client disconnected: 1000`
++- Transcript показал:
++  1. user `1s`:
++     - `Алло!`
++  2. agent `3s`:
++     - `Здравствуйте. Мы официальный представитель липолитика ЛипоЛонг, звоним по поводу сотрудничества для косметологов. Вам это в принципе интересно?`
++  3. user `10s`:
++     - `Нет.`
++  4. agent `12s`:
++     - `Поняла, уточню — вы не работаете с инъекционной косметологией или просто сейчас не актуально?`
++  5. user `17s`:
++     - `Нет. Нет.`
++  6. agent `21s`:
++     - начал spoken close:
++       - `Спасибо, что ответили. Если появится инте...`
++  7. затем ушёл `call_log`
++     - `call_result = refusal_soft`
++     - `next_step = archive`
++     - Sheet update:
++       - `'Лиды_обзвон'!A49:AM49`
++     - bridge уже нормализовал битый draft и записал правильный:
++       - `eleven_conv_id = conv_8601ktxqpc9ten2br2wktr460qbb`
++
++### На чем остановились
++- Новый opener подтверждён на живом звонке именно в нужной wording-форме:
++  - `официальный представитель липолитика ЛипоЛонг`
++- Pre-opener path не сломался:
++  - agent сразу открылся после `Алло!`
++  - раннего rescue до opener не было
++- Но второй слой still wrong:
++  - короткое `Нет` после opener агент всё ещё трактует как повод для лишнего rescue-question;
++  - после второго `Нет` агент ещё и пытается сказать spoken-closing line.
++- Это уже не проблема opener.
++- Это точечная проблема refusal-logic сразу после opener.
++
++### Что делать дальше
++1. Не трогать подтверждённый opener.
++2. Не запускать следующий звонок на старой refusal-логике.
++3. Следующий микрошаг:
++   - запретить rescue/уточнение на flat immediate negative (`нет`, `не надо`, `не нужно`, `неинтересно`) сразу после opener;
++   - после такого ответа делать `call_log(refusal_soft)` и silent end без spoken farewell.
++
++## 1.0) Обновление 2026-06-12: opener уточнен до `липолитика`, второй ход после opener ужат
++
++### Сделано
++- Live `AI_CALL_AGENT_1` ещё раз точечно пропатчен через relay-host `151.241.228.232`.
++- Новый live version:
++  - `agtvrsn_6301ktxp7b4cezb8mc8pba7fxyq9`
++- Fixed opener теперь закреплён в точной формулировке:
++  - `Здравствуйте. Мы официальный представитель липолитика ЛипоЛонг, звоним по поводу сотрудничества для косметологов. Вам это в принципе интересно?`
++- Блок `Second turn after opener` ужат и конкретизирован:
++  - второй ход должен быть максимум `2` коротких предложения;
++  - максимум `1` простой вопрос;
++  - вместо общего sales-растекания даны короткие шаблоны для:
++    - нейтрального/мягко-позитивного ответа;
++    - вопроса `о чём звонок`;
++    - занятости;
++    - живого посредника, который готов передать информацию.
++- Новый prompt подтверждён обратным `GET` с relay-host:
++  - opener со словом `липолитика` реально в live version;
++  - правило `Keep the second turn compact` реально в live version.
++- Артефакты сохранены в:
++  - `backups/2026-06-12_opener_lipolitik_and_second_turn_trim/`
++
++### На чем остановились
++- Prompt-правка уже в live и подтверждена технически, но новым одиночным звонком ещё не проверялась.
++- Значит сейчас состояние такое:
++  - human-entry bundle (`short opener + pre-opener rescue guard`) уже подтверждён ранее;
++  - новая правка по wording opener и compact second-turn уже загружена;
++  - следующий риск теперь только в фактическом поведении на следующем реальном одиночном звонке.
++
++### Что делать дальше
++1. Не откатывать version `agtvrsn_6301ktxp7b4cezb8mc8pba7fxyq9`.
++2. Следующим шагом сделать один одиночный live-call по следующему номеру по порядку.
++3. На этом звонке проверить сразу три вещи:
++   - звучит ли opener именно с фразой `официальный представитель липолитика ЛипоЛонг`;
++   - стал ли второй ход короче и предметнее;
++   - не вылез ли обратно ранний rescue до opener.
++
++## 1.0) Обновление 2026-06-12: поверх `row_9` внесён refusal-fix для короткого `Нет`
++
++### Сделано
++- После разбора `conv_8601ktxqpc9ten2br2wktr460qbb` live prompt ещё раз точечно пропатчен.
++- Новый live version:
++  - `agtvrsn_5001ktxqwz6jer28593yds2asped`
++- В `Sales behavior` закреплено правило:
++  - если сразу после opener идёт flat immediate negative вроде `нет`, `не надо`, `не нужно`,
++    agent не должен делать rescue;
++  - agent не должен добавлять closing phrase;
++  - agent должен залогировать refusal и завершить звонок молча.
++- Артефакты патча:
++  - `backups/2026-06-12_row9_negative_refusal_trim/`
++
++### На чем остановились
++- Refusal-fix уже стоит в live, но отдельным новым звонком ещё не подтверждён.
++- Тестовый outbound-контур после `row_9` снова снят с публикации и поставлен на паузу.
++
++### Что делать дальше
++1. Следующий одиночный звонок делать уже на version `agtvrsn_5001ktxqwz6jer28593yds2asped`.
++2. Проверять не opener, а именно refusal-case:
++   - если человек говорит короткое `Нет`,
++   - agent не должен задавать дополнительный вопрос,
++   - agent не должен говорить `Спасибо, что ответили...`,
++   - должен быть только `call_log(refusal_soft)` и silent end.
++
++## 1.0) Обновление 2026-06-12: `row_8` подтвердил human-case без раннего rescue
++
++### Сделано
++- После версии `agtvrsn_8901ktxmrb3afycrp3qt18caaz4y`, где pre-opener rescue запрещён до fixed opener, выполнен ещё один одиночный test-call по следующему номеру по порядку:
++  - `row_8`
++  - `company_name = Марина`
++  - `contact_name = Марина`
++  - `phone_primary = +79217897373`
++  - `request_id = manual.2026-06-12.ROW8.humanguard`
++- Relay снова не дождался upstream в своём окне:
++  - `Upstream failed (20032ms): The read operation timed out`
++- Но разговор в Eleven материализовался и завершился:
++  - `conversation_id = conv_7701ktxn8n09edytw4rg9s6qcq8y`
++  - `status = done`
++  - `version_id = agtvrsn_8901ktxmrb3afycrp3qt18caaz4y`
++  - `termination_reason = Client disconnected: 1000`
++- Transcript короткий и очень показательный:
++  - user `1s`:
++    - `Добрый день, клиника «Леса мечты». Меня зовут Екатерина.`
++  - agent `5s`:
++    - `Здравствуйте. Мы официальный представитель ЛипоЛонг, звоним по поводу сотрудничества для косметологов. Вам это в принципе интересно?`
++
++### На чем остановились
++- Это первый чистый live-human confirm после двух последних правок одновременно:
++  1. короткий opener;
++  2. запрет раннего rescue до opener.
++- Главный вывод:
++  - ранний `Алло, меня слышно? Вы тут?` в human-case больше не вылез;
++  - agent стартовал сразу коротким opener после живого человеческого ответа.
++- Значит текущий bundle правок по human-entry в целом подтверждён на живом разговоре.
++- При этом relay timeout-path всё ещё остаётся как инфраструктурный шум:
++  - разговор живёт и завершается в Eleven;
++  - но внешний webhook по-прежнему может выглядеть как `502/read timeout`.
++
++### Что делать дальше
++- Следующий разумный фронт уже не opener и не pre-opener rescue.
++- Теперь можно переходить к следующему слою:
++  1. смотреть качество второго хода после opener;
++  2. убирать слишком длинный follow-up после первого согласия/нейтрального ответа;
++  3. отдельно продолжать работу по relay/reporting path, чтобы accepted human-calls не выглядели внешне как timeout.
++
++## 1.0) Обновление 2026-06-12: pre-opener rescue заблокирован, `row_7` молча ушёл в voicemail
++
++### Сделано
++- В live prompt добавлен отдельный жёсткий guard:
++  - rescue-вопрос `Алло, меня слышно? Вы тут?` теперь прямо запрещён до того, как уже прозвучал fixed opener.
++- Новый live version после этой правки:
++  - `agtvrsn_8901ktxmrb3afycrp3qt18caaz4y`
++- Артефакты prompt-правки:
++  - `backups/2026-06-12_preopener_rescue_block/current_ai_call_agent_1.before_preopener_rescue_block.json`
++  - `backups/2026-06-12_preopener_rescue_block/main_preopener_rescue_block_payload.json`
++  - `backups/2026-06-12_preopener_rescue_block/current_ai_call_agent_1.after_preopener_rescue_block.json`
++- Затем выполнен один новый одиночный test-call по следующему номеру по порядку:
++  - `row_7`
++  - `company_name = Евгения Волкова`
++  - `contact_name = Евгения Волкова`
++  - `phone_primary = +79627956556`
++  - `request_id = manual.2026-06-12.ROW7.preopenerguard`
++- По relay:
++  - upstream снова не успел ответить в окно relay:
++    - `Upstream failed (20034ms): The read operation timed out`
++  - но разговор в Eleven всё равно материализовался:
++    - `conversation_id = conv_3701ktxmtdh8f10ae63mzf63mj7f`
++    - `status = done`
++    - `version_id = agtvrsn_8901ktxmrb3afycrp3qt18caaz4y`
++- Transcript показал корректную voicemail-ветку:
++  - user:
++    - `Мой абонент не отвечает. Звонок был перенаправлен на голосовой почтовый ящик. Вы можете оставить сообщение после звукового сигнала.`
++  - agent:
++    - без spoken reply;
++    - `call_log`;
++    - `end_call`.
++- Это важно:
++  - ранний rescue не прозвучал;
++  - spoken voicemail-message не оставлялся;
++  - `call_log` фактически ушёл с корректным `conversation_id = conv_3701ktxmtdh8f10ae63mzf63mj7f`, хотя во внутреннем `params_as_json` по-прежнему виден мусорный `conv_75e2...` draft.
++
++### На чем остановились
++- Новый guard не сломал voicemail-ветку.
++- Наоборот, на `row_7` он отработал в правильную сторону:
++  - никакого лишнего `Алло, меня слышно? Вы тут?` до voicemail не было;
++  - никакого spoken-message в автоответчик не было.
++- Но это всё ещё не финальная проверка для human-case:
++  - `row_7` оказался voicemail, а не живым человеком;
++  - значит для окончательного подтверждения pre-opener guard нужен ещё один следующий одиночный live-human test.
++
++### Что делать дальше
++- Следующий шаг уже очень конкретный:
++  1. оставить текущие short opener + pre-opener guard как есть;
++  2. взять следующий номер по порядку;
++  3. сделать ещё один одиночный звонок;
++  4. проверить human-case:
++     - нет ли раннего rescue до opener;
++     - стартует ли сразу короткий opener после короткого живого ответа.
++
++## 1.0) Обновление 2026-06-12: live opener укорочен и проверен одиночным `row_6`
++
++### Сделано
++- В live `AI_CALL_AGENT_1` заменён тяжёлый fixed opener на короткий:
++  - было:
++    - длинный двухфразный sales-блок про официальный канал, выгодные условия и защиту от подделки;
++  - стало:
++    - `Здравствуйте. Мы официальный представитель ЛипоЛонг, звоним по поводу сотрудничества для косметологов. Вам это в принципе интересно?`
++- Новый live version после prompt-патча:
++  - `agtvrsn_4501ktxm8jppehds9her8yamry5n`
++- Артефакты prompt-правки сохранены в:
++  - `backups/2026-06-12_short_opener_try/current_ai_call_agent_1.before_short_opener.json`
++  - `backups/2026-06-12_short_opener_try/main_short_opener_payload.json`
++  - `backups/2026-06-12_short_opener_try/current_ai_call_agent_1.after_short_opener_retry.json`
++- После этого выполнен один новый одиночный live-call по следующему номеру по порядку:
++  - `row_6`
++  - `company_name = Анна`
++  - `contact_name = Анна`
++  - `phone_primary = +79182007944`
++  - `request_id = manual.2026-06-12.ROW6.shortopener`
++- Relay отработал штатно:
++  - `Upstream 200 (9989ms, 139 bytes)`
++  - `conversation_id = conv_8901ktxmazxpeyavvygxvzdkhgg3`
++- Detail по Eleven подтвердил:
++  - `status = done`
++  - `version_id = agtvrsn_4501ktxm8jppehds9her8yamry5n`
++  - `user_id = row_6`
++  - `external_number = +79182007944`
++  - `request_id = manual.2026-06-12.ROW6.shortopener`
++
++### На чем остановились
++- Короткий opener реально попал в live transcript и прозвучал как задумано.
++- Но одиночный тест показал ещё один важный нюанс:
++  1. первая реплика распозналась как `...`;
++  2. до opener сработал rescue-вопрос:
++     - `Алло, меня слышно? Вы тут?`
++  3. человек ответил:
++     - `Говорите.`
++  4. только после этого пошёл новый короткий opener.
++- То есть сам opener стал лучше и легче, но pre-opener human gate всё ещё иногда вставляет rescue раньше основной фразы, если первый ASR-кусок не распознался как явный живой ответ.
++- После opener разговор уже пошёл спокойнее, без мгновенного перебивания как в `row_5`.
++
++### Что делать дальше
++- Следующий фронт уже очень конкретный:
++  1. не трогать обратно короткий opener;
++  2. отдельно ослабить ложный ранний rescue до opener;
++  3. сохранить правило:
++     - rescue-вопрос только после уже состоявшегося opener и тишины после него;
++  4. затем сделать ещё один одиночный test-call по следующему номеру по порядку.
++
++## 1.0) Обновление 2026-06-12: одиночный `row_5` на минимальном `turn_timeout = 1.0s`
++
++### Сделано
++- После перевода live-агента на минимальный допустимый `turn_timeout = 1.0` выполнен один новый одиночный test-call по следующему номеру по порядку:
++  - `row_5`
++  - `company_name = Анаит`
++  - `contact_name = Анаит`
++  - `phone_primary = +79879860736`
++  - `request_id = manual.2026-06-12.ROW5.turn1_0`
++- Для этого временно был поднят только минимальный outbound-контур:
++  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` `sHTbALayEZdy8Mzs`
++  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)` `tdiAEZM9FZDEP7k4`
++  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` `kZSdJrsAHWWIC2l6`
++- Relay подтвердил нормальный accepted-path:
++  - `Upstream 200 (15701ms, 139 bytes)`
++  - `conversation_id = conv_0401ktxjmstcfzvs23vga1ah97h5`
++- Detail по Eleven подтвердил, что разговор реально шёл уже на новой live version:
++  - `version_id = agtvrsn_5001ktxj73befn6bgdqbd9sckd9s`
++  - `user_id = row_5`
++  - `external_number = +79879860736`
++  - `request_id = manual.2026-06-12.ROW5.turn1_0`
++  - `status = done`
++  - `call_duration_secs = 12`
++- Сырые turn-метрики по первой живой реплике:
++  - user `Алло!` at `0s`
++  - agent opener at `2s`
++  - `convai_asr_trailing_service_latency = 0.071s`
++  - `convai_llm_service_ttfb = 0.489s`
++  - `convai_tts_service_ttfb = 0.124s`
++  - `convai_llm_service_ttf_sentence = 0.678s`
++- Артефакты цикла сохранены в:
++  - `.runtime/single_call_2026-06-12_row_5_turn1_0_check/`
++
++### На чем остановились
++- Технически задержка после человеческой реплики теперь выглядит уже нормальной:
++  - не `2+` секунды чистого model-wait,
++  - а примерно `~0.49s` до первого байта LLM и `~0.12s` до первого байта TTS после финализации ASR.
++- Но сам разговор показал другой продуктовый дефект:
++  - агент начал слишком тяжёлый и длинный opener;
++  - человек не дослушал и перебил на `9s`:
++    - `Я тебе говорю,`
++- Значит субъективное ощущение “тормоза” теперь уже частично связано не с сырой latency, а с тем, что первый блок звучит тяжело и собеседник не успевает понять, кто звонит и что от него хотят.
++
++### Что делать дальше
++- Следующий фронт работ уже не `turn_timeout`, а opener-flow:
++  1. сократить и упростить первый spoken block;
++  2. быстрее маркировать, кто звонит и зачем, без длинной рекламной конструкции;
++  3. после правки сделать ещё один одиночный тест по следующему номеру по порядку;
++  4. отдельно смотреть, станет ли меньше перебиваний на первой фразе.
++
++## 1.0) Обновление 2026-06-12: live human-answer latency дожата до минимального `turn_timeout = 1.0s`
++
++### Сделано
++- После предыдущего latency-патча проверен следующий резерв именно по live turn-taking:
++  - подтверждено, что у активной версии `agtvrsn_0401ktxhpa5rfw39gs2evg7cqja3` стояло:
++    - `turn_timeout = 1.2`
++    - `turn_eagerness = eager`
++    - `speculative_turn = true`
++- Подготовлен отдельный partial-payload только для блока:
++  - `conversation_config.turn`
++- Во время попытки ужать таймаут ниже 1 секунды зафиксировано прямое ограничение Eleven API:
++  - `Turn timeout must be -1 or between 1 and 300 seconds`
++- Это значит, что ниже `1.0s` в live этот параметр опустить нельзя.
++- Затем в live успешно применён новый точечный patch:
++  - `turn_timeout: 1.2 -> 1.0`
++  - `turn_eagerness = eager` оставлен без изменений
++  - `speculative_turn = true` оставлен без изменений
++- Новая live version после патча:
++  - `agtvrsn_5001ktxj73befn6bgdqbd9sckd9s`
++- Сохранены артефакты этой контрольной точки:
++  - `backups/2026-06-12_human_answer_latency_trim_07/current_ai_call_agent_1.before_turn_0_7.json`
++  - `backups/2026-06-12_human_answer_latency_trim_07/main_turn_timeout_1_0_payload.json`
++  - `backups/2026-06-12_human_answer_latency_trim_07/current_ai_call_agent_1.after_turn_1_0.json`
++
++### На чем остановились
++- По live-конфигу latency сейчас уже дожата до нижней допустимой границы именно со стороны `turn_timeout`.
++- Дальше “срезать ещё секунду” этим же регулятором уже нельзя, потому что API не принимает значения `< 1.0`.
++- Значит оставшийся ощущаемый зазор после ответа человека теперь нужно искать не в самом `turn_timeout`, а в:
++  - длине и структуре клиентской реплики;
++  - prompt-логике human-answer gate;
++  - возможной паузе до осмысленного follow-up после opener;
++  - поведении на посредниках / администраторах / screening-line.
++
++### Что делать дальше
++- Следующий практический шаг:
++  1. поднять минимальный звонковый контур;
++  2. сделать один новый одиночный тест уже на версии `agtvrsn_5001ktxj73befn6bgdqbd9sckd9s`;
++  3. снять transcript и turn-level metrics;
++  4. подтвердить, что именно после этой правки субъективная пауза сократилась;
++  5. если пауза ещё чувствуется, править уже не timeout, а post-opener dialogue flow.
++
++## 1.0) Обновление 2026-06-12: live human-answer latency поджата через `eager + speculative + 1.2s`
++
++### Сделано
++- Из Eleven API снята фактическая текущая live-конфигурация агента и подтверждено, что до правки он реально работал на:
++  - `version_id = agtvrsn_8801ktxhmnyaeqcr6wwjh3k4m6tp`
++  - `turn_timeout = 2.0`
++  - `turn_eagerness = normal`
++  - `speculative_turn = false`
++- Это означало, что turn-taking всё ещё был консервативным даже после прошлых handoff-документов.
++- Сохранён backup текущего live-агента:
++  - `backups/2026-06-12_human_answer_latency_eager/current_ai_call_agent_1.before.json`
++- В live применён новый точечный latency-patch:
++  - payload:
++    - `backups/2026-06-12_human_answer_latency_eager/main_human_answer_latency_eager_payload.json`
++  - новые turn-параметры:
++    - `turn_timeout: 2.0 -> 1.2`
++    - `turn_eagerness: normal -> eager`
++    - `speculative_turn: false -> true`
++- После PATCH live-агент получил новую version:
++  - `agtvrsn_0401ktxhpa5rfw39gs2evg7cqja3`
++- Затем на этой новой версии выполнены два одиночных живых теста с поднятием только 3 минимальных workflow и последующим возвратом их в паузу:
++  1. `row_3`
++     - `request_id = manual.2026-06-12.ROW3.latency.eager`
++     - `conversation_id = conv_6501ktxhr0vre8580xw18xfg0eg8`
++  2. `row_4`
++     - `request_id = manual.2026-06-12.ROW4.latency.eager`
++     - `conversation_id = conv_4601ktxhxdjzf90shjjb1faw4dg9`
++- По обоим кейсам сняты уже не только transcript time stamps, но и внутренние latency-метрики turn-level.
++
++### На чем остановились
++- По `row_3`:
++  - human reply `Алло?`
++  - opener пошёл на той же новой версии.
++  - видимый timestamp в transcript:
++    - user `2s`
++    - agent `5s`
++  - но внутренние реальные метрики именно на opener уже короткие:
++    - `convai_asr_trailing_service_latency = 0.048s`
++    - `convai_llm_service_ttfb = 0.555s`
++    - `convai_tts_service_ttfb = 0.111s`
++- По `row_4`:
++  - live human answer:
++    - `А-а-а, добрый день, клиника Сиженкута, администратор Наталья.`
++  - opener:
++    - transcript показывает `32s -> 37s`
++  - но реальные метрики на opener снова короткие:
++    - `convai_asr_trailing_service_latency = 0.128s`
++    - `convai_llm_service_ttfb = 0.375s`
++    - `convai_tts_service_ttfb = 0.117s`
++- Значит после патча техническая задержка после финализации человеческой реплики уже ушла в субсекундный диапазон для LLM/TTS и в ~0.05-0.13s для trailing ASR.
++- Оставшийся “визуальный” разрыв в карточке Eleven теперь в основном объясняется:
++  - грубым округлением `time_in_call_secs`,
++  - длиной самой клиентской реплики,
++  - а не медленным стартом модели/озвучки.
++
++### Что делать дальше
++- Следующий фокус уже не на raw human-answer latency, а на бизнес-логике после соединения:
++  1. не заговаривать полезного живого intermediary как робота;
++  2. не продолжать длинный диалог после явных screening/message-service паттернов;
++  3. отдельно добить `call_log` на human/intermediary ветке.
++
++## 1.0) Обновление 2026-06-12: `row_2` на `RELAY_TIMEOUT=20` прошёл accepted-path без relay timeout
++
++### Сделано
++- После подъёма relay до `20s` выполнен один новый одиночный тест уже не на повторном `row_17`, а на чистом живом лиде из текущей таблицы:
++  - `row_2`
++  - `+79299679869`
++  - `Акимова Ксения Игоревна`
++  - `request_id = manual.2026-06-12.ROW2.relay20.check`
++- Для цикла поднимались только:
++  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` `sHTbALayEZdy8Mzs`
++  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)` `tdiAEZM9FZDEP7k4`
++  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` `kZSdJrsAHWWIC2l6`
++- Manual webhook `POST https://www.n-8-n.site/webhook/eleven/outbound-call` ответил:
++  - `HTTP 200`
++  - `time_total = 7.441145s`
++  - `action = call_requested`
++  - `conversation_id = conv_4401ktxeqcgpe849zebbr4w7hw82`
++  - `sip_call_id = SCL_NBjVPo55YEmj`
++- Relay journal подтвердил чистый accepted-path:
++  - outgoing identity:
++    - `to_number = +79299679869`
++    - `user_id = row_2`
++    - `lead_id = row_2`
++    - `source_record_key = row_2`
++    - `request_id = manual.2026-06-12.ROW2.relay20.check`
++  - upstream ответ:
++    - `Upstream 200 (6138ms, 139 bytes)`
++    - `success = true`
++    - `message = Outbound call initiated`
++    - `conversation_id = conv_4401ktxeqcgpe849zebbr4w7hw82`
++- Detail по `conv_4401ktxeqcgpe849zebbr4w7hw82` совпал end-to-end:
++  - `user_id = row_2`
++  - `external_number = +79299679869`
++  - `request_id = manual.2026-06-12.ROW2.relay20.check`
++  - `status = done`
++  - `error = null`
++- Transcript показал живой ответ, не автоответчик:
++  - `user @1s = "..."`
++  - `agent @3s = "Алло, меня слышно? Вы тут?"`
++  - `user @6s = "Клиника «Визави», меня зовут Марина. Добрый день."`
++  - `agent @10s = fixed opener block`
++- После проверки три минимальных workflow снова возвращены в паузу:
++  - `active = false`
++  - `activeVersionId = null`
++  - `n8n-server-n8n-1` снова `healthy`
++
++### На чем остановились
++- Главный инфраструктурный вывод:
++  - после перехода на `RELAY_TIMEOUT=20` relay впервые дал не timeout-path, а нормальный accepted-path по чистому тестовому лиду.
++- Значит текущий релайный потолок уже не режет обычный outbound accepted-case.
++- Но этим циклом не закрыт второй вопрос:
++  - звонок оборвался рано;
++  - `tool_names = null`;
++  - до `call_log` этот конкретный разговор не дошёл.
++- То есть:
++  - outbound acceptance теперь выглядит лучше;
++  - а ветку `call_log` и завершение после реального разговора ещё надо проверять отдельным следующим циклом.
++
++### Что делать дальше
++- Следующий логичный шаг:
++  1. снова поднять только три минимальных workflow;
++  2. сделать ещё один одиночный тест по следующему живому лиду из той же таблицы;
++  3. проверить уже не только accepted-path relay, но и:
++     - дошёл ли разговор до `call_log`;
++     - какой `eleven_conv_id` ушёл;
++     - нет ли раннего обрыва до логирования.
++
++## 1.0) Обновление 2026-06-12: live relay timeout поднят `16 -> 20`
++
++### Сделано
++- После подтверждённого `sip request timed out` на `row_17` и фактического relay-cutoff на `16064ms` live relay поднят ещё на один маленький шаг:
++  - backup env: `/root/.eleven_outbound_relay.env.bak-2026-06-12_09-55-25`
++  - `RELAY_TIMEOUT: 16 -> 20`
++  - `RELAY_RETRY_COUNT=0`
++  - `RELAY_RETRY_DELAY_MS=500`
++- `eleven-outbound-relay.service` успешно перезапущен.
++- `/health` после рестарта отвечает штатно.
++- Дополнительно перепроверено, что минимальный звонковый контур по-прежнему выключен:
++  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` = `active=false`
++  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)` = `active=false`
++  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` = `active=false`
++  - `VOICE_INBOUND_AGENT (draft)` = `active=false`
++- Локальный source-of-truth синхронизирован:
++  - `scripts/eleven_outbound_relay_server.py`
++  - default `RELAY_TIMEOUT` теперь `20`
++
++### На чем остановились
++- В боевом relay больше нет потолка `16s`; теперь upstream может отвечать до `20s`.
++- Это пока только инфраструктурный шаг без нового звонка:
++  - не проверено, превратится ли прошлый `row_17` timeout в нормальный upstream JSON;
++  - не проверено, уйдёт ли `502` в пользу materialized failed/accepted conversation.
++
++### Что делать дальше
++- Следующий шаг:
++  1. поднять только три минимальных workflow;
++  2. сделать один одиночный тест на новом пригодном номере, а не на повторно заезженном `row_17`;
++  3. снять relay journal и conversation detail;
++  4. сравнить, остался ли timeout-path уже на `20s`.
++
++## 1.0) Обновление 2026-06-12: `row_17` на `RELAY_TIMEOUT=16` уже материализуется как failed conversation
++
++### Сделано
++- После перехода relay на `16s` выполнен один новый одиночный тест снова по `row_17`.
++- Для цикла поднимались только:
++  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` `sHTbALayEZdy8Mzs`
++  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)` `tdiAEZM9FZDEP7k4`
++  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` `kZSdJrsAHWWIC2l6`
++- Manual webhook был отправлен как:
++  - `row_17`
++  - `+79012091111`
++  - `request_id = manual.2026-06-12.ROW17.relay16.check`
++- Relay log подтвердил точный outgoing identity:
++  - `to_number = +79012091111`
++  - `user_id = row_17`
++  - `lead_id = row_17`
++  - `source_record_key = row_17`
++  - `request_id = manual.2026-06-12.ROW17.relay16.check`
++- Внешний webhook снова ответил:
++  - `HTTP 200`
++  - body пустой
++- Relay всё ещё завершился timeout-path:
++  - `Upstream failed (16064ms): The read operation timed out`
++  - `POST /eleven/outbound-call HTTP/1.1 502`
++- Но теперь, в отличие от цикла на `14s`, новый failed conversation уже материализовался в Eleven:
++  - `conversation_id = conv_6001ktx8q4n6e5hsww1ssxdhvj7y`
++  - `status = failed`
++  - `error.code = 1011`
++  - `error.reason = sip request timed out`
++  - `user_id = row_17`
++  - `external_number = +79012091111`
++- После проверки минимальные workflow снова возвращены в паузу:
++  - `active = false`
++  - `activeVersionId = null`
++  - `n8n-server-n8n-1` снова `healthy`
++
++### На чем остановились
++- Подъём `RELAY_TIMEOUT` до `16s` дал полезный эффект:
++  - на `14s` `row_17` не материализовался в Conversations API вообще;
++  - на `16s` новый failed conversation уже появился.
++- То есть длинный upstream-case стал диагностируемым гораздо лучше.
++- Но остаётся тонкое расхождение:
++  - detail по новому `conv_6001ktx8q4n6e5hsww1ssxdhvj7y` вернул старый:
++    - `request_id = manual.2026-06-12.ROW17.relay14.recheck`
++  хотя relay в текущем цикле реально отправлял:
++    - `request_id = manual.2026-06-12.ROW17.relay16.check`
++- Это уже выглядит не как локальная relay-ошибка, а как provider-side reuse / correlation anomaly по тому же `row_17`.
++
++### Что делать дальше
++- Следующий шаг лучше делать уже не на `row_17`, а на новом пригодном номере из следующей базы.
++- Relay timeout пока оставить `16s`:
++  - он уже помогает материализовать длинные failed-case.
++- Отдельно держать в уме:
++  - `request_id` на provider-side может не всегда отражать последний webhook 1:1 для повторных тестов по одному и тому же lead.
++
++## 1.0) Обновление 2026-06-12: live relay timeout поднят `14 -> 16`
++
++### Сделано
++- По отдельной команде пользователя live relay поднят ещё на один маленький шаг:
++  - backup env: `/root/.eleven_outbound_relay.env.bak-2026-06-12_09-47-52`
++  - `RELAY_TIMEOUT: 14 -> 16`
++  - `RELAY_RETRY_COUNT=0`
++  - `RELAY_RETRY_DELAY_MS=500`
++- `eleven-outbound-relay.service` успешно перезапущен.
++- Проверка `/health` с prod-сервера прошла штатно.
++- Локальный source-of-truth синхронизирован:
++  - `scripts/eleven_outbound_relay_server.py`
++  - default `RELAY_TIMEOUT` теперь `16`
++
++### На чем остановились
++- Новый звонок после перехода на `16s` ещё не запускался.
++- Значит мы пока только расширили техническое окно ожидания, но ещё не подтвердили, что этого достаточно для долгих upstream-case вроде `row_17`.
++
++### Что делать дальше
++- Следующий шаг:
++  1. поднять только три минимальных workflow;
++  2. сделать один новый одиночный тест;
++  3. сравнить, превращается ли прошлый `row_17` timeout в materialized failed conversation или в нормальный upstream JSON.
++
++## 1.0) Обновление 2026-06-12: повторный `row_17` на `RELAY_TIMEOUT=14` снова дал timeout и не создал conversation
++
++### Сделано
++- На следующий день после фикса `RELAY_TIMEOUT=14` выполнен ещё один одиночный цикл по проблемному `row_17`.
++- Так как в первой таблице после `row_18` новых callable-контактов уже нет, `row_17` был выбран как лучший повторный технический кандидат.
++- Для цикла снова были подняты только:
++  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` `sHTbALayEZdy8Mzs`
++  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)` `tdiAEZM9FZDEP7k4`
++  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` `kZSdJrsAHWWIC2l6`
++- Manual webhook отправлен на:
++  - `row_17`
++  - `+79012091111`
++  - `request_id = manual.2026-06-12.ROW17.relay14.recheck`
++- Enriched relay log подтвердил точный outgoing payload:
++  - `to_number = +79012091111`
++  - `user_id = row_17`
++  - `lead_id = row_17`
++  - `source_record_key = row_17`
++  - `request_id = manual.2026-06-12.ROW17.relay14.recheck`
++- Внешний webhook снова ответил:
++  - `HTTP 200`
++  - body пустой
++- Relay-host всё ещё завершился timeout-path:
++  - `Upstream failed (14034ms): The read operation timed out`
++  - `POST /eleven/outbound-call HTTP/1.1 502`
++- Дополнительная проверка через Conversations API после цикла показала:
++  - нового conversation с `row_17`
++  - или `manual.2026-06-12.ROW17.relay14.recheck`
++  в свежем списке не появилось.
++- После проверки три минимальных workflow снова возвращены в паузу:
++  - `active = false`
++  - `activeVersionId = null`
++  - `n8n-server-n8n-1` снова `healthy`
++
++### На чем остановились
++- `RELAY_TIMEOUT=14` уже хватает не для всех кейсов:
++  - для `row_18` upstream успел ответить за `11.575s`;
++  - для `row_17` upstream всё ещё не успел даже за `14.034s`.
++- Значит текущая проблема уже не выглядит как один общий фикс "поднять timeout и всё заработает".
++- Сейчас видно два разных класса кейсов:
++  1. `row_18` — быстрый provider reject с валидным JSON и корректным identity;
++  2. `row_17` — долгий upstream case, где conversation вообще не материализуется в свежем списке до таймаута relay.
++
++### Что делать дальше
++- Следующий логичный ход:
++  1. не трогать prompt и автоответчики;
++  2. оставить `RELAY_TIMEOUT=14` как текущий рабочий baseline;
++  3. решить, нужен ли ещё один маленький шаг по relay (`14 -> 16`) именно для долгих upstream-case вроде `row_17`;
++  4. параллельно готовить следующую пригодную тестовую базу, потому что в первой таблице callable-контакты по сути закончились.
++
++## 1.0) Обновление 2026-06-11: relay `14s` подтвердился, identity trace для `row_18` уже совпадает end-to-end
++
++### Сделано
++- После перехода relay на `14s` и включения enriched logging выполнен ещё один одиночный цикл без dispatcher.
++- Для цикла снова поднимались только:
++  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` `sHTbALayEZdy8Mzs`
++  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)` `tdiAEZM9FZDEP7k4`
++  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` `kZSdJrsAHWWIC2l6`
++- Manual webhook ушёл на следующий номер по порядку:
++  - `row_18`
++  - `+71660761251`
++  - `request_id = manual.2026-06-11.ROW18.relay14.identitycheck`
++- Relay journal с новым identity summary подтвердил точный payload:
++  - `to_number = +71660761251`
++  - `user_id = row_18`
++  - `lead_id = row_18`
++  - `source_record_key = row_18`
++  - `request_id = manual.2026-06-11.ROW18.relay14.identitycheck`
++- На этот раз relay не упёрся в timeout:
++  - upstream вернул `HTTP 200`
++  - за `11575 ms`
++  - body:
++    - `success = false`
++    - `message = unexpected status from INVITE response: sip status: 403: Forbidden (SIP 403)`
++    - `conversation_id = conv_4001ktvcbehvedcvt5jfsq6b4d0b`
++- Detail по `conv_4001ktvcbehvedcvt5jfsq6b4d0b` в Eleven совпал с relay identity полностью:
++  - `user_id = row_18`
++  - `external_number = +71660761251`
++  - `request_id = manual.2026-06-11.ROW18.relay14.identitycheck`
++  - `error.code = 403`
++  - `error.reason = unexpected status from INVITE response: sip status: 403: Forbidden (SIP 403)`
++- После проверки три минимальных workflow снова выключены:
++  - `active = false`
++  - `activeVersionId = null`
++  - `n8n-server-n8n-1` снова `healthy`
++
++### На чем остановились
++- Главный инфраструктурный вывод:
++  - `RELAY_TIMEOUT=14` уже достаточен, чтобы дожидаться upstream JSON-ответа в кейсе длиной `11.575s`.
++- Значит чистый relay-timeout blocker больше не доминирует так, как раньше на `10s` и `12s`.
++- Identity trace на новом цикле для `row_18` совпал end-to-end.
++- Следовательно прошлый кейс `row_17 -> row_14` пока выглядит как отдельная аномалия, а не как стабильная системная подмена каждого нового payload.
++- Новый фактический исход цикла:
++  - не relay timeout,
++  - а provider/SIP reject `403 Forbidden` по самому номеру `row_18`.
++
++### Что делать дальше
++- Следующий логичный ход:
++  1. не трогать relay timeout дальше;
++  2. считать `14s` текущим рабочим значением;
++  3. сделать следующий одиночный тест уже по следующему нормальному callable номеру, чтобы проверить не только failed-SIP reject, но и обычный accepted path;
++  4. если новый цикл снова даст нормальный identity trace, считать проблему `row_17 -> row_14` единичной аномалией и перейти к следующему слою: автоответчики / speech / call_log.
++
++## 1.0) Обновление 2026-06-11: relay поднят `12 -> 14`, identity mismatch локализован после relay
++
++### Сделано
++- После одиночного `row_17` цикла сделан ещё один технический шаг без нового звонка.
++- Live relay-host `151.241.228.232` поднят ещё на один маленький шаг:
++  - backup env: `/root/.eleven_outbound_relay.env.bak-2026-06-11_14-58-10`
++  - `RELAY_TIMEOUT: 12 -> 14`
++  - `RELAY_RETRY_COUNT=0`
++  - `RELAY_RETRY_DELAY_MS=500`
++- `eleven-outbound-relay.service` успешно перезапущен.
++- Локальный source-of-truth синхронизирован:
++  - `scripts/eleven_outbound_relay_server.py`
++  - default `RELAY_TIMEOUT` теперь `14`
++- В relay-код добавлено точечное log enrichment без изменения боевой логики:
++  - перед отправкой теперь логируются:
++    - `to_number`
++    - `user_id`
++    - `lead_id`
++    - `source_record_key`
++    - `request_id`
++- Обновлён runtime-файл relay на сервере:
++  - `/opt/eleven_outbound_relay.py`
++  - сервис перезапущен уже с новым enriched logging.
++- Дополнительно проверено расхождение `row_17 -> row_14`:
++  - размер реального outbound payload для `row_14` = `546 bytes`
++  - размер реального outbound payload для `row_17` = `574 bytes`
++  - relay journal последнего цикла показал именно `574 bytes`
++- Это означает, что relay действительно отправлял новый `row_17` payload, а не старый `row_14`.
++- Следовательно, текущий identity mismatch появляется уже после relay:
++  - либо на стороне Eleven SIP/outbound acceptance path;
++  - либо на стороне detail API / provider-side correlation.
++
++### На чем остановились
++- Relay уже не сидит на узком окне `12s`; теперь live стоит `14s`.
++- На следующем вызове enriched relay-log уже сможет сразу показать, какой identity-пакет реально ушёл в upstream.
++- Сам mismatch `row_17 webhook -> row_14 detail` пока ещё не объяснён полностью, но его источник сузился:
++  - это уже не локальная генерация outbound payload внутри relay.
++
++### Что делать дальше
++- Следующий шаг:
++  1. поднять только три минимальных workflow;
++  2. сделать один новый одиночный тест;
++  3. снять relay log уже с enriched identity summary;
++  4. сравнить:
++     - что ушло из relay;
++     - какой `conversation_id` появился;
++     - какой `user_id / request_id` вернул Eleven detail.
++
++## 1.0) Обновление 2026-06-11: одиночный `row_17` цикл после `RELAY_TIMEOUT=12` всё ещё умирает на timeout, но conversation уже создаётся
++
++### Сделано
++- После точечного live-fix `RELAY_TIMEOUT: 10 -> 12` был выполнен один новый одиночный цикл, без запуска dispatcher.
++- Перед тестом были подняты только три минимальных workflow:
++  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` `sHTbALayEZdy8Mzs`
++  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)` `tdiAEZM9FZDEP7k4`
++  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` `kZSdJrsAHWWIC2l6`
++- Для всех трёх в `n8n_prod` вручную подтверждено:
++  - `active = true`
++  - `activeVersionId = versionId`
++- После рестарта `n8n-server-n8n-1` логи подтвердили реальную активацию всех трёх workflow.
++- Отправлен один manual webhook:
++  - `POST https://www.n-8-n.site/webhook/eleven/outbound-call`
++  - тестовый `request_id = manual.2026-06-11.ROW17.relay12check`
++  - целевой lead: `row_17`
++  - номер: `+79012091111`
++- Внешний webhook снова ответил:
++  - `HTTP 200`
++  - body пустой
++- Relay-host `151.241.228.232` дал уже новый технический след:
++  - `Relaying ... (574 bytes)`
++  - `Upstream failed (12052ms): The read operation timed out`
++  - `POST /eleven/outbound-call HTTP/1.1 502`
++- Но одновременно через Eleven Conversations API видно, что разговор всё-таки был создан:
++  - `conversation_id = conv_1901kteg8mpwe7har7hxep69cf56`
++  - `status = failed`
++  - `error.code = 1011`
++  - `error.reason = sip request timed out`
++  - `accepted_time_unix_secs = null`
++  - `call_duration_secs = 0`
++- После проверки три минимальных workflow снова возвращены в паузу:
++  - `active = false`
++  - `activeVersionId = null`
++  - `n8n-server-n8n-1` снова `healthy`
++
++### На чем остановились
++- Поднятие relay timeout до `12` секунд не устранило failure.
++- Но теперь картина точнее, чем раньше:
++  - это уже не случай "conversation не создаётся совсем";
++  - Eleven успевает создать failed conversation;
++  - relay всё ещё не успевает дождаться upstream ответа до своего потолка.
++- Отдельно всплыло тревожное расхождение identity-пакета:
++  - detail по `conv_1901kteg8mpwe7har7hxep69cf56` вернулся с `user_id = row_14`
++  - и `request_id = manual.2026-06-06.ROW14.after_abonent_rule`
++  хотя сам manual webhook этого цикла был отправлен как `row_17 / manual.2026-06-11.ROW17.relay12check`
++- Значит кроме timeout-path у нас ещё не закрыт вопрос точной трассировки входного payload до Eleven.
++
++### Что делать дальше
++- Следующий ход уже не новый звонок подряд.
++- Сначала нужно:
++  1. поднять relay timeout ещё на один маленький шаг (`12 -> 14`), потому что текущий timeout снова умер почти ровно по границе;
++  2. отдельно разобрать, почему в Eleven detail всплыл identity-пакет от `row_14`, хотя тестовый webhook был на `row_17`;
++  3. только после этого делать следующий одиночный вызов.
++
++## 1.0) Обновление 2026-06-11: live relay timeout поднят `10 -> 12`, повторяемый `502` локализован как timeout-path
++
++### Сделано
++- Проверен live relay-host `151.241.228.232`:
++  - сервис `eleven-outbound-relay.service` был активен;
++  - live runtime использовал:
++    - `RELAY_TIMEOUT=10`
++    - `RELAY_RETRY_COUNT=0`
++    - `RELAY_RETRY_DELAY_MS=500`
++- Снят live journal relay и подтверждено, что июньские `502` были не случайными:
++  - `2026-06-06 row_13` -> `Upstream failed (10031ms): The read operation timed out`
++  - `2026-06-06 row_14` -> `Upstream failed (10025ms): The read operation timed out`
++- Это подтвердило точную причину:
++  - outbound-path падал на жёсткой границе live relay timeout, ещё до создания conversation.
++- На relay-host сделан минимальный safe fix:
++  - backup: `/root/.eleven_outbound_relay.env.bak-2026-06-11_14-38-48`
++  - live env:
++    - `RELAY_TIMEOUT=12`
++    - `RELAY_RETRY_COUNT=0`
++    - `RELAY_RETRY_DELAY_MS=500`
++  - `eleven-outbound-relay.service` перезапущен успешно;
++  - `/health` с prod-сервера снова отвечает штатно.
++- Локальный source-of-truth тоже синхронизирован:
++  - `scripts/eleven_outbound_relay_server.py`
++  - default `RELAY_TIMEOUT` обновлён до `12`
++
++### На чем остановились
++- Технический timeout-path теперь сужен и зафиксирован.
++- Но нового одиночного вызова после `10 -> 12` ещё не было.
++- Значит мы ещё не подтвердили фактическим звонком, что этого запаса уже хватает для следующего accepted upstream ответа.
++
++### Что делать дальше
++- Следующий шаг:
++  1. поднять только минимальные outbound workflow;
++  2. сделать один одиночный test call по следующему номеру по порядку;
++  3. снять relay journal, webhook response и факт создания conversation;
++  4. отдельно проверить, уходит ли уже полный identity-пакет в `call_log`, если разговор дойдёт до этой стадии.
++
+ ## 1.0) Обновление 2026-06-06: `row_14` тоже закончился relay `502`, разговора не было
+ 
+ ### Сделано
+diff --git a/scripts/eleven_outbound_relay_server.py b/scripts/eleven_outbound_relay_server.py
+index a4335fe..673a1a4 100755
+--- a/scripts/eleven_outbound_relay_server.py
++++ b/scripts/eleven_outbound_relay_server.py
+@@ -19,7 +19,7 @@ logger = logging.getLogger("eleven_relay")
+ RELAY_BIND = os.getenv("RELAY_BIND", "127.0.0.1")
+ RELAY_PORT = int(os.getenv("RELAY_PORT", "8787"))
+ RELAY_SHARED_TOKEN = os.getenv("RELAY_SHARED_TOKEN", "")
+-RELAY_TIMEOUT = int(os.getenv("RELAY_TIMEOUT", "8"))
++RELAY_TIMEOUT = int(os.getenv("RELAY_TIMEOUT", "20"))
+ RELAY_RETRY_COUNT = int(os.getenv("RELAY_RETRY_COUNT", "0"))
+ RELAY_RETRY_DELAY_MS = int(os.getenv("RELAY_RETRY_DELAY_MS", "500"))
+ ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY", "")
+@@ -82,6 +82,23 @@ def summarize_upstream_body(body: bytes) -> str:
+     return json.dumps(summary, ensure_ascii=False)[:300]
+ 
+ 
++def summarize_request_payload(payload: dict) -> str:
++    if not isinstance(payload, dict):
++        return "{}"
++
++    client_data = payload.get("conversation_initiation_client_data") or {}
++    dynamic = client_data.get("dynamic_variables") or {}
++
++    summary = {
++        "to_number": payload.get("to_number"),
++        "user_id": client_data.get("user_id"),
++        "lead_id": dynamic.get("lead_id"),
++        "source_record_key": dynamic.get("source_record_key"),
++        "request_id": dynamic.get("request_id"),
++    }
++    return json.dumps(summary, ensure_ascii=False)[:400]
++
++
+ def should_retry_http_response(status: int, body: bytes, attempt: int) -> bool:
+     if attempt >= RELAY_RETRY_COUNT:
+         return False
+@@ -148,7 +165,12 @@ class RelayHandler(BaseHTTPRequestHandler):
+             fail(self, 400, {"ok": False, "error": "invalid_json"})
+             return
+ 
+-        logger.info("Relaying to %s (%d bytes)", ELEVEN_OUTBOUND_URL, len(raw))
++        logger.info(
++            "Relaying to %s (%d bytes): %s",
++            ELEVEN_OUTBOUND_URL,
++            len(raw),
++            summarize_request_payload(payload),
++        )
+ 
+         for attempt in range(RELAY_RETRY_COUNT + 1):
+             req = build_request(payload)
+diff --git "a/\320\264\320\276\320\272\321\203\320\274\320\265\320\275\321\202\320\260\321\206\320\270\321\217_\320\264\320\273\321\217_\320\260\320\263\320\265\320\275\321\202\320\260/02_\320\242\320\225\320\232\320\243\320\251\320\225\320\225_LIVE_\320\241\320\236\320\241\320\242\320\236\320\257\320\235\320\230\320\225.md" "b/\320\264\320\276\320\272\321\203\320\274\320\265\320\275\321\202\320\260\321\206\320\270\321\217_\320\264\320\273\321\217_\320\260\320\263\320\265\320\275\321\202\320\260/02_\320\242\320\225\320\232\320\243\320\251\320\225\320\225_LIVE_\320\241\320\236\320\241\320\242\320\236\320\257\320\235\320\230\320\225.md"
+index 7fdee76..d008d08 100644
+--- "a/\320\264\320\276\320\272\321\203\320\274\320\265\320\275\321\202\320\260\321\206\320\270\321\217_\320\264\320\273\321\217_\320\260\320\263\320\265\320\275\321\202\320\260/02_\320\242\320\225\320\232\320\243\320\251\320\225\320\225_LIVE_\320\241\320\236\320\241\320\242\320\236\320\257\320\235\320\230\320\225.md"
++++ "b/\320\264\320\276\320\272\321\203\320\274\320\265\320\275\321\202\320\260\321\206\320\270\321\217_\320\264\320\273\321\217_\320\260\320\263\320\265\320\275\321\202\320\260/02_\320\242\320\225\320\232\320\243\320\251\320\225\320\225_LIVE_\320\241\320\236\320\241\320\242\320\236\320\257\320\235\320\230\320\225.md"
+@@ -1,5 +1,415 @@
+ # Текущее live-состояние
+ 
++Обновление `2026-06-12` по дожиму после `нет / не надо / не нужно / неинтересно`:
++- предыдущая слишком жёсткая refusal-логика отменена;
++- текущая live version:
++  - `agtvrsn_0901ktxsrethemqr4prhkw701wr2`
++- новое live-правило:
++  - короткий отказ сразу после opener больше не считаем финальным автоматически;
++  - сначала агент должен понять:
++    - это `not_target`
++    - или просто низкий текущий интерес;
++  - затем один короткий уточняющий вопрос;
++  - если контакт релевантный, один rescue-move:
++    - SMS,
++    - callback менеджера,
++    - или одна короткая value-line;
++  - если это не их направление вообще — `not_target`;
++  - если после уточнения и одного rescue-move отказ сохраняется — `refusal_soft`, короткое завершение, без третьего дожима.
++- новый звонок после этой правки ещё не запускался;
++- тестовый outbound-контур по-прежнему на паузе.
++- артефакты:
++  - `backups/2026-06-12_negative_recovery_dozhim/`
++
++Обновление `2026-06-12` по `row_9` и refusal-fix:
++- сделан одиночный live-тест:
++  - `row_9`
++  - `Татьяна`
++  - `+79255138351`
++  - `request_id = manual.2026-06-12.ROW9.openersecondturn`
++  - `conversation_id = conv_8601ktxqpc9ten2br2wktr460qbb`
++- подтверждено:
++  - opener в live реально звучит в новой wording-форме:
++    - `Здравствуйте. Мы официальный представитель липолитика ЛипоЛонг, звоним по поводу сотрудничества для косметологов. Вам это в принципе интересно?`
++  - раннего rescue до opener не было;
++  - `call_log` уже записал правильный `eleven_conv_id` через bridge-нормализацию.
++- вскрытый дефект:
++  - на короткое `Нет` агент всё ещё задал лишний уточняющий вопрос;
++  - после второго `Нет` агент попытался сказать spoken-closing line.
++- после разбора этого звонка live-agent ещё раз пропатчен:
++  - текущая live version:
++    - `agtvrsn_5001ktxqwz6jer28593yds2asped`
++  - новое правило:
++    - flat immediate negative (`нет`, `не надо`, `не нужно`) сразу после opener не rescue'им;
++    - делаем `call_log(refusal_soft)` и silent end без spoken farewell.
++- тестовый outbound-контур снова снят с публикации;
++- новый звонок после refusal-fix ещё не запускался.
++- артефакты:
++  - `.runtime/single_call_2026-06-12_row_9_opener_second_turn_check/`
++  - `backups/2026-06-12_row9_negative_refusal_trim/`
++
++Обновление `2026-06-12` по wording opener и compact second-turn:
++- текущая live version:
++  - `agtvrsn_6301ktxp7b4cezb8mc8pba7fxyq9`
++- fixed opener теперь такой:
++  - `Здравствуйте. Мы официальный представитель липолитика ЛипоЛонг, звоним по поводу сотрудничества для косметологов. Вам это в принципе интересно?`
++- второй ход после opener дополнительно ужат:
++  - максимум `2` коротких предложения;
++  - максимум `1` простой вопрос;
++  - для нейтрального ответа, вопроса `о чём звонок`, занятости и живого посредника в prompt теперь даны короткие шаблоны, а не расплывчатое правило.
++- патч подтверждён обратным чтением live-конфига через relay-host;
++- новый тестовый звонок после этой конкретной правки ещё не запускался;
++- тестовый outbound-контур остаётся на паузе.
++- артефакты:
++  - `backups/2026-06-12_opener_lipolitik_and_second_turn_trim/`
++
++Обновление `2026-06-12` по human-case после pre-opener guard:
++- сделан одиночный live-тест:
++  - `row_8`
++  - `Марина`
++  - `+79217897373`
++  - `request_id = manual.2026-06-12.ROW8.humanguard`
++  - `conversation_id = conv_7701ktxn8n09edytw4rg9s6qcq8y`
++- кейс оказался живым человеческим ответом:
++  - user:
++    - `Добрый день, клиника «Леса мечты». Меня зовут Екатерина.`
++  - agent:
++    - сразу короткий opener
++- что подтверждено этим циклом:
++  - ранний `Алло, меня слышно? Вы тут?` до opener больше не вылез;
++  - short opener реально стартует сразу после живой реплики человека;
++  - bundle `short opener + pre-opener guard` на human-case работает.
++- при этом relay снаружи всё ещё может возвращать timeout, даже когда разговор в Eleven реально идёт и завершается;
++- значит speech-логика на входе стала лучше, а следующий проблемный слой уже инфраструктурный и/или follow-up logic.
++- артефакты:
++  - `.runtime/single_call_2026-06-12_row_8_human_guard_check/`
++- после цикла минимальный outbound-контур снова снят с публикации;
++- тестовый контур снова на паузе.
++
++Обновление `2026-06-12` по pre-opener guard:
++- live-agent переведён на version:
++  - `agtvrsn_8901ktxmrb3afycrp3qt18caaz4y`
++- в prompt добавлен прямой запрет:
++  - `Алло, меня слышно? Вы тут?` нельзя говорить до того, как уже прозвучал fixed opener.
++- затем сделан одиночный тест:
++  - `row_7`
++  - `Евгения Волкова`
++  - `+79627956556`
++  - `request_id = manual.2026-06-12.ROW7.preopenerguard`
++  - `conversation_id = conv_3701ktxmtdh8f10ae63mzf63mj7f`
++- кейс оказался voicemail:
++  - agent не сказал ни opener, ни rescue, ни voicemail-message;
++  - agent молча вызвал `call_log`, затем `end_call`
++- это хороший знак:
++  - новый guard voicemail-ветку не ломает;
++  - ранний rescue в этом тесте не вылез.
++- но human-case этим циклом ещё не подтверждён, потому что номер ушёл в голосовую почту.
++- артефакты:
++  - `backups/2026-06-12_preopener_rescue_block/`
++  - `.runtime/single_call_2026-06-12_row_7_preopener_guard_check/`
++- после цикла минимальный outbound-контур снова снят с публикации;
++- тестовый контур снова на паузе.
++
++Обновление `2026-06-12` по короткому opener:
++- live-agent переведён на новый короткий opener:
++  - `Здравствуйте. Мы официальный представитель ЛипоЛонг, звоним по поводу сотрудничества для косметологов. Вам это в принципе интересно?`
++- новая live version:
++  - `agtvrsn_4501ktxm8jppehds9her8yamry5n`
++- затем сделан одиночный live-тест:
++  - `row_6`
++  - `Анна`
++  - `+79182007944`
++  - `request_id = manual.2026-06-12.ROW6.shortopener`
++  - `conversation_id = conv_8901ktxmazxpeyavvygxvzdkhgg3`
++- короткий opener реально прозвучал в transcript.
++- что важно:
++  - мгновенного перебивания как на `row_5` уже не было;
++  - но до opener снова прозвучал rescue-вопрос `Алло, меня слышно? Вы тут?`, потому что первая реплика распозналась как `...`
++- значит:
++  - сам новый opener оставляем;
++  - следующий дефект уже не он, а слишком ранний rescue до opener.
++- артефакты:
++  - `backups/2026-06-12_short_opener_try/`
++  - `.runtime/single_call_2026-06-12_row_6_short_opener_check/`
++- после цикла минимальный outbound-контур снова снят с публикации;
++- тестовый звонковый контур снова на паузе.
++
++Обновление `2026-06-12` по одиночному `row_5` на `turn_timeout = 1.0`:
++- сделан один новый одиночный тест:
++  - `row_5`
++  - `Анаит`
++  - `+79879860736`
++  - `request_id = manual.2026-06-12.ROW5.turn1_0`
++- relay отработал штатно:
++  - `Upstream 200 (15701ms, 139 bytes)`
++  - `conversation_id = conv_0401ktxjmstcfzvs23vga1ah97h5`
++- новый разговор действительно прошёл уже на текущей минимальной live version:
++  - `agtvrsn_5001ktxj73befn6bgdqbd9sckd9s`
++- по сырым turn-метрикам старт ответа после человеческой реплики быстрый:
++  - `asr trailing = 0.071s`
++  - `llm ttfb = 0.489s`
++  - `tts ttfb = 0.124s`
++  - `llm first sentence = 0.678s`
++- transcript короткий:
++  - user: `Алло!`
++  - agent: fixed opener
++  - user later перебивает: `Я тебе говорю,`
++- вывод на сейчас:
++  - raw latency уже не главный тормоз;
++  - следующий дефект — слишком тяжёлый opener, который провоцирует перебивание и непонимание в начале разговора;
++- артефакты:
++  - `.runtime/single_call_2026-06-12_row_5_turn1_0_check/`
++- после цикла минимальный контур снова снят с публикации; в последнем старте `n8n` строки `Start Active Workflows` уже нет;
++- весь тестовый outbound-контур снова считается поставленным на паузу.
++
++Обновление `2026-06-12` по минимальному `turn_timeout`:
++- после предыдущего latency-патча live ещё работал на:
++  - `turn_timeout = 1.2`
++  - `turn_eagerness = eager`
++  - `speculative_turn = true`
++- дальше проверен нижний предел этого же регулятора;
++- Eleven API вернул прямое ограничение:
++  - `turn timeout` не может быть меньше `1.0` секунды
++- затем live-agent успешно пропатчен на минимально допустимое значение:
++  - `turn_timeout = 1.0`
++  - `turn_eagerness = eager`
++  - `speculative_turn = true`
++- новая live version:
++  - `agtvrsn_5001ktxj73befn6bgdqbd9sckd9s`
++- сохранены артефакты:
++  - `backups/2026-06-12_human_answer_latency_trim_07/main_turn_timeout_1_0_payload.json`
++  - `backups/2026-06-12_human_answer_latency_trim_07/current_ai_call_agent_1.after_turn_1_0.json`
++- это текущая боевая версия по latency на сейчас;
++- новый проверочный звонок после этого патча ещё не запускался;
++- весь звонковый контур всё ещё на паузе.
++
++Обновление `2026-06-12` по human-answer latency:
++- через Eleven API подтверждено, что до новой правки live реально работал на:
++  - `turn_timeout = 2.0`
++  - `turn_eagerness = normal`
++  - `speculative_turn = false`
++- затем live-agent пропатчен точечно:
++  - `turn_timeout = 1.2`
++  - `turn_eagerness = eager`
++  - `speculative_turn = true`
++- новая live version:
++  - `agtvrsn_0401ktxhpa5rfw39gs2evg7cqja3`
++- после этого сделаны два одиночных живых теста:
++  - `conv_6501ktxhr0vre8580xw18xfg0eg8` (`row_3`)
++  - `conv_4601ktxhxdjzf90shjjb1faw4dg9` (`row_4`)
++- по техническим метрикам opener now starts much faster after finalized human speech:
++  - `row_3 opener`:
++    - `asr trailing = 0.048s`
++    - `llm ttfb = 0.555s`
++    - `tts ttfb = 0.111s`
++  - `row_4 opener`:
++    - `asr trailing = 0.128s`
++    - `llm ttfb = 0.375s`
++    - `tts ttfb = 0.117s`
++- значит raw техническая задержка после human answer уже поджата;
++- визуальный разрыв по `time_in_call_secs` в карточке всё ещё может казаться длиннее из-за округления секунд и длины самой реплики;
++- после тестов минимальные workflow снова выключены;
++- весь звонковый контур снова на паузе.
++
++Обновление `2026-06-12` по `row_2` после `RELAY_TIMEOUT=20`:
++- сделан один новый одиночный цикл по:
++  - `row_2`
++  - `+79299679869`
++  - `Акимова Ксения Игоревна`
++  - `request_id = manual.2026-06-12.ROW2.relay20.check`
++- manual webhook вернул:
++  - `HTTP 200`
++  - `call_requested`
++  - `conversation_id = conv_4401ktxeqcgpe849zebbr4w7hw82`
++- relay journal впервые для этого слоя дал не timeout, а чистый accepted-path:
++  - `Upstream 200 (6138ms, 139 bytes)`
++  - `success = true`
++  - `Outbound call initiated`
++- detail по `conv_4401ktxeqcgpe849zebbr4w7hw82` совпал с outgoing identity полностью:
++  - `user_id = row_2`
++  - `external_number = +79299679869`
++  - `request_id = manual.2026-06-12.ROW2.relay20.check`
++  - `status = done`
++  - `error = null`
++- это был живой ответ, не machine-line:
++  - user: `Клиника «Визави», меня зовут Марина. Добрый день.`
++  - agent затем дал fixed opener
++- но разговор завершился рано и до `call_log` этим циклом не дошёл:
++  - `tool_names = null`
++  - `transcript_count = 4`
++- после проверки минимальные workflow снова выключены;
++- весь звонковый контур снова на паузе.
++
++Обновление `2026-06-12` по relay `20s`:
++- live relay-host `151.241.228.232` поднят с:
++  - `RELAY_TIMEOUT=16`
++  на:
++  - `RELAY_TIMEOUT=20`
++- backup:
++  - `/root/.eleven_outbound_relay.env.bak-2026-06-12_09-55-25`
++- `eleven-outbound-relay.service` успешно перезапущен;
++- `/health` отвечает штатно;
++- локальный source-of-truth обновлён:
++  - `scripts/eleven_outbound_relay_server.py`
++  - default timeout теперь `20`
++- отдельно перепроверено:
++  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` = `active=false`
++  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)` = `active=false`
++  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)` = `active=false`
++  - `VOICE_INBOUND_AGENT (draft)` = `active=false`
++- новый звонок после этого шага ещё не запускался;
++- весь звонковый контур всё ещё на паузе.
++
++Обновление `2026-06-12` по `row_17` после `RELAY_TIMEOUT=16`:
++- сделан ещё один одиночный техтест по:
++  - `row_17`
++  - `+79012091111`
++  - `request_id = manual.2026-06-12.ROW17.relay16.check`
++- relay journal подтвердил точный outgoing identity именно этого цикла;
++- relay снова умер по timeout:
++  - `Upstream failed (16064ms): The read operation timed out`
++- но в отличие от цикла на `14s`, новый failed conversation уже появился в Eleven:
++  - `conv_6001ktx8q4n6e5hsww1ssxdhvj7y`
++  - `status = failed`
++  - `error.reason = sip request timed out`
++  - `user_id = row_17`
++  - `external_number = +79012091111`
++- значит `16s` уже лучше диагностически, чем `14s`: длинный upstream-case теперь хотя бы materialize-ится;
++- отдельно зафиксировано тонкое provider-side расхождение:
++  - detail по новому `conv_6001...` вернул старый `request_id` от предыдущего цикла по `row_17`,
++  - хотя relay отправлял новый `request_id`;
++- после проверки минимальные workflow снова выключены;
++- весь звонковый контур снова на паузе.
++
++Обновление `2026-06-12` по relay `16s`:
++- live relay-host `151.241.228.232` поднят с:
++  - `RELAY_TIMEOUT=14`
++  на:
++  - `RELAY_TIMEOUT=16`
++- backup:
++  - `/root/.eleven_outbound_relay.env.bak-2026-06-12_09-47-52`
++- `eleven-outbound-relay.service` успешно перезапущен;
++- `/health` отвечает штатно;
++- локальный source-of-truth обновлён:
++  - `scripts/eleven_outbound_relay_server.py`
++  - default timeout теперь `16`
++- новый звонок после этого шага ещё не запускался;
++- весь звонковый контур всё ещё на паузе.
++
++Обновление `2026-06-12` по повторному `row_17`:
++- в первой таблице после `row_18` новых callable-строк уже нет, поэтому следующим техническим повторным кандидатом взят `row_17`;
++- снова был поднят только минимальный outbound-контур;
++- manual webhook отправлен на:
++  - `row_17`
++  - `+79012091111`
++  - `request_id = manual.2026-06-12.ROW17.relay14.recheck`
++- relay journal с enriched logging подтвердил точный identity payload:
++  - `to_number = +79012091111`
++  - `user_id = row_17`
++  - `lead_id = row_17`
++  - `source_record_key = row_17`
++  - `request_id = manual.2026-06-12.ROW17.relay14.recheck`
++- но upstream снова не успел ответить даже при `RELAY_TIMEOUT=14`:
++  - `Upstream failed (14034ms): The read operation timed out`
++- свежий список Conversations API не показал нового materialized conversation по этому циклу;
++- значит `14s` уже помогает не для всех outbound-case;
++- после проверки минимальные workflow снова выключены;
++- весь звонковый контур снова на паузе.
++
++Обновление `2026-06-11` по циклу `row_18` после `RELAY_TIMEOUT=14`:
++- снова был поднят только минимальный outbound-контур;
++- manual webhook ушёл на:
++  - `row_18`
++  - `+71660761251`
++  - `request_id = manual.2026-06-11.ROW18.relay14.identitycheck`
++- relay journal с новым identity summary подтвердил точный payload:
++  - `to_number = +71660761251`
++  - `user_id = row_18`
++  - `lead_id = row_18`
++  - `source_record_key = row_18`
++  - `request_id = manual.2026-06-11.ROW18.relay14.identitycheck`
++- на этот раз relay уже дождался upstream body:
++  - `Upstream 200 (11575ms, 177 bytes)`
++  - ответ содержал:
++    - `success = false`
++    - `SIP 403 Forbidden`
++    - `conversation_id = conv_4001ktvcbehvedcvt5jfsq6b4d0b`
++- detail по `conv_4001ktvcbehvedcvt5jfsq6b4d0b` совпал с relay identity полностью:
++  - `user_id = row_18`
++  - `external_number = +71660761251`
++  - `request_id = manual.2026-06-11.ROW18.relay14.identitycheck`
++- значит:
++  - `RELAY_TIMEOUT=14` уже достаточно, чтобы дожидаться upstream JSON;
++  - identity-trace на новом цикле совпадает end-to-end;
++  - прошлый кейс `row_17 -> row_14` пока выглядит как единичная аномалия;
++- после проверки минимальные workflow снова выключены;
++- весь звонковый контур снова на паузе.
++
++Обновление `2026-06-11` по relay `14s` и enriched logging:
++- после цикла `row_17` live relay поднят ещё на один маленький шаг:
++  - backup: `/root/.eleven_outbound_relay.env.bak-2026-06-11_14-58-10`
++  - `RELAY_TIMEOUT=14`
++  - `RELAY_RETRY_COUNT=0`
++  - `RELAY_RETRY_DELAY_MS=500`
++- runtime relay на сервере синхронизирован с локальным source-of-truth:
++  - `/opt/eleven_outbound_relay.py`
++- в relay-лог теперь перед каждым upstream-call пишется identity summary:
++  - `to_number`
++  - `user_id`
++  - `lead_id`
++  - `source_record_key`
++  - `request_id`
++- это нужно, чтобы на следующем одиночном вызове сразу увидеть, где ломается связка `row/request_id`;
++- дополнительно проверено:
++  - размер row14-payload = `546 bytes`
++  - размер row17-payload = `574 bytes`
++  - в последнем relay log было именно `574 bytes`
++- значит relay реально отправлял `row_17`, а расхождение `row_17 -> row_14` рождается уже после relay;
++- новый звонок после перехода на `14s` ещё не запускался;
++- весь звонковый контур всё ещё на паузе.
++
++Обновление `2026-06-11` по одиночному `row_17` циклу после `RELAY_TIMEOUT=12`:
++- был поднят только минимальный outbound-контур:
++  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)`
++  - `ELEVEN_TOOL_CONTEXT_BRIDGE (draft)`
++  - `ELEVEN_TOOL_CALL_LOG_BRIDGE (draft)`
++- после рестарта `n8n` эти три workflow реально активировались;
++- отправлен один manual webhook на следующий номер по порядку:
++  - тестовый lead: `row_17`
++  - номер: `+79012091111`
++  - `request_id = manual.2026-06-11.ROW17.relay12check`
++- внешний webhook снова вернул:
++  - `HTTP 200`
++  - body пустой
++- relay-host всё ещё упёрся в timeout:
++  - `Upstream failed (12052ms): The read operation timed out`
++- но теперь подтверждено, что Eleven всё же создаёт failed conversation:
++  - `conv_1901kteg8mpwe7har7hxep69cf56`
++  - `status = failed`
++  - `error.reason = sip request timed out`
++- значит `12` секунд всё ещё недостаточно для устойчивого accepted/rejected ответа upstream;
++- отдельно всплыло расхождение identity-пакета:
++  - detail этого failed conversation вернулся с `user_id = row_14`
++  - и `request_id = manual.2026-06-06.ROW14.after_abonent_rule`
++  хотя сам webhook цикла был отправлен как `row_17 / manual.2026-06-11.ROW17.relay12check`
++- после проверки минимальные workflow снова выключены;
++- весь звонковый контур снова на паузе.
++
++Обновление `2026-06-11` по relay timeout:
++- live relay-host `151.241.228.232` отдельно перепроверен;
++- снят journal `eleven-outbound-relay.service` и подтверждено, что июньские `row_13` и `row_14` падали не из-за prompt, а из-за timeout-path:
++  - `Upstream failed (~10025-10031 ms): The read operation timed out`
++- это был повторяемый технический blocker до создания conversation;
++- сделан минимальный live fix:
++  - backup: `/root/.eleven_outbound_relay.env.bak-2026-06-11_14-38-48`
++  - `RELAY_TIMEOUT=12`
++  - `RELAY_RETRY_COUNT=0`
++  - `RELAY_RETRY_DELAY_MS=500`
++- `eleven-outbound-relay.service` успешно перезапущен;
++- `/health` с prod-сервера отвечает штатно;
++- новый звонок после этого таймаут-шага ещё не запускался;
++- весь звонковый контур всё ещё на паузе до следующего одиночного теста.
++
+ Обновление `2026-06-06` по следующему одиночному циклу `row_14`:
+ - тест пошёл по:
+   - `row_14`
+@@ -711,7 +1121,14 @@
+ - Контрольный probe после этой правки: `POST /webhook/eleven/outbound-call` вернулся примерно за `10180 ms`, то есть длинный хвост на этапе outbound-call уже подрезан на стороне live `n8n`.
+ - `2026-05-25 11:45 MSK`: такой же hardening применён и на реальном relay-хосте `151.241.228.232`:
+   - runtime `/opt/eleven_outbound_relay.py` обновлён;
+-  - `RELAY_TIMEOUT=10`, `RELAY_RETRY_COUNT=0`, `RELAY_RETRY_DELAY_MS=500` сейчас стоят в `/root/.eleven_outbound_relay.env`;
++  - сначала live relay работал с:
++    - `RELAY_TIMEOUT=10`
++    - `RELAY_RETRY_COUNT=0`
++    - `RELAY_RETRY_DELAY_MS=500`
++  - после повторяемых июньских timeout-case live relay поднят ещё на один маленький шаг:
++    - `RELAY_TIMEOUT=12`
++    - `RELAY_RETRY_COUNT=0`
++    - `RELAY_RETRY_DELAY_MS=500`
+   - `eleven-outbound-relay.service` перезапущен успешно.
+ - Контрольный probe после live relay-патча: `provider_rejected` path теперь возвращается примерно за `8367 ms`, а не за `~41.7s`.
+ - окно ожидания после последней машинной фразы/музыки/гудка ужато до `10` секунд;
+diff --git "a/\320\264\320\276\320\272\321\203\320\274\320\265\320\275\321\202\320\260\321\206\320\270\321\217_\320\264\320\273\321\217_\320\260\320\263\320\265\320\275\321\202\320\260/04_ELEVENLABS_\320\220\320\223\320\225\320\235\320\242.md" "b/\320\264\320\276\320\272\321\203\320\274\320\265\320\275\321\202\320\260\321\206\320\270\321\217_\320\264\320\273\321\217_\320\260\320\263\320\265\320\275\321\202\320\260/04_ELEVENLABS_\320\220\320\223\320\225\320\235\320\242.md"
+index b7c5538..30e3b00 100644
+--- "a/\320\264\320\276\320\272\321\203\320\274\320\265\320\275\321\202\320\260\321\206\320\270\321\217_\320\264\320\273\321\217_\320\260\320\263\320\265\320\275\321\202\320\260/04_ELEVENLABS_\320\220\320\223\320\225\320\235\320\242.md"
++++ "b/\320\264\320\276\320\272\321\203\320\274\320\265\320\275\321\202\320\260\321\206\320\270\321\217_\320\264\320\273\321\217_\320\260\320\263\320\265\320\275\321\202\320\260/04_ELEVENLABS_\320\220\320\223\320\225\320\235\320\242.md"
+@@ -1,5 +1,146 @@
+ # ElevenLabs агент
+ 
++## Обновление 2026-06-12 по дожиму после короткого отказа
++
++- live-логика после фраз
++  - `нет`
++  - `не надо`
++  - `не нужно`
++  - `неинтересно`
++  развёрнута обратно в режим дожима, а не мгновенного завершения.
++- текущая live version:
++  - `agtvrsn_0901ktxsrethemqr4prhkw701wr2`
++- теперь правило такое:
++  - такой ответ не финальный по умолчанию;
++  - сначала один короткий уточняющий вопрос;
++  - если контакт релевантный — один rescue-move:
++    - SMS,
++    - callback менеджера,
++    - или одна короткая value-line;
++  - если это вообще не их направление — `not_target`;
++  - если после уточнения и одного rescue-move всё равно отказ — `refusal_soft`, короткое закрытие, без третьего круга.
++- это изменение внесено по прямой обратной связи от live-продажи.
++- новый test-call на этой версии ещё не запускался.
++
++## Обновление 2026-06-12 по `row_9` и refusal-fix
++
++- одиночный live-call по `row_9` подтвердил, что opener уже звучит именно так:
++  - `Здравствуйте. Мы официальный представитель липолитика ЛипоЛонг, звоним по поводу сотрудничества для косметологов. Вам это в принципе интересно?`
++- conversation:
++  - `conv_8601ktxqpc9ten2br2wktr460qbb`
++- что показал звонок:
++  - раннего rescue до opener нет;
++  - opener стартует быстро и в нужной wording-форме;
++  - но на короткое `Нет` агент ещё сделал лишний follow-up:
++    - `Поняла, уточню — вы не работаете с инъекционной косметологией или просто сейчас не актуально?`
++  - после второго `Нет` agent ещё попытался сказать spoken-closing line.
++- после этого поверх live внесён новый refusal-fix:
++  - текущая live version:
++    - `agtvrsn_5001ktxqwz6jer28593yds2asped`
++  - flat immediate negative сразу после opener теперь нужно трактовать как финальный отказ на этот звонок;
++  - в таком кейсе агент не должен rescue'ить ответ и не должен говорить closing phrase;
++  - должен быть только `call_log(refusal_soft)` и silent end.
++- новый test-call после этого refusal-fix ещё не запускался.
++
++## Обновление 2026-06-12 по wording opener и compact second-turn
++
++- текущая live version:
++  - `agtvrsn_6301ktxp7b4cezb8mc8pba7fxyq9`
++- fixed opener теперь закреплён в точной формулировке:
++  - `Здравствуйте. Мы официальный представитель липолитика ЛипоЛонг, звоним по поводу сотрудничества для косметологов. Вам это в принципе интересно?`
++- после opener в prompt добавлен отдельный compact-guard:
++  - второй ход максимум `2` коротких предложения;
++  - максимум `1` простой вопрос;
++  - вместо абстрактного правила теперь даны короткие живые шаблоны для:
++    - нейтрального/мягко-позитивного ответа;
++    - вопроса `о чём звонок`;
++    - занятости;
++    - живого посредника.
++- то есть следующий слой теперь должен звучать не как длинное объяснение, а как короткий перевод к следующему шагу.
++- патч подтверждён обратным `GET` live-агента через relay-host.
++- новый одиночный test-call после этой конкретной правки ещё не запускался.
++
++## Обновление 2026-06-12 по `row_8`
++
++- одиночный human-case на `row_8` подтвердил текущую live version:
++  - `agtvrsn_8901ktxmrb3afycrp3qt18caaz4y`
++- transcript:
++  - user:
++    - `Добрый день, клиника «Леса мечты». Меня зовут Екатерина.`
++  - agent:
++    - `Здравствуйте. Мы официальный представитель ЛипоЛонг, звоним по поводу сотрудничества для косметологов. Вам это в принципе интересно?`
++- это значит:
++  - ранний rescue до opener больше не вылез;
++  - короткий opener стартует как нужно после живого ответа.
++- то есть текущий вход в human-dialogue на этом слое подтверждён.
++
++## Обновление 2026-06-12 по pre-opener rescue guard
++
++- текущая live version:
++  - `agtvrsn_8901ktxmrb3afycrp3qt18caaz4y`
++- в prompt закреплено правило:
++  - `Алло, меня слышно? Вы тут?` нельзя использовать до fixed opener вообще;
++  - даже если до этого слышны `...`, шум, короткая пауза или слабый ASR-фрагмент.
++- одиночный test-call по `row_7` показал:
++  - voicemail отработан молча;
++  - `call_log` + `end_call` прошли без spoken-message;
++  - ранний rescue не появился.
++- что ещё не подтверждено:
++  - human-case на этой новой version;
++  - его нужно добрать следующим одиночным звонком по следующему номеру по порядку.
++
++## Обновление 2026-06-12 по короткому opener
++
++- текущая live version:
++  - `agtvrsn_4501ktxm8jppehds9her8yamry5n`
++- fixed opener укорочен до:
++  - `Здравствуйте. Мы официальный представитель ЛипоЛонг, звоним по поводу сотрудничества для косметологов. Вам это в принципе интересно?`
++- одиночный test-call по `row_6` подтвердил:
++  - новый opener реально звучит в live transcript;
++  - мгновенного перебивания, как на `row_5`, уже не произошло.
++- но проявился смежный дефект:
++  - если первая реплика клиента распознаётся как `...`,
++  - агент до opener всё ещё может выдать `Алло, меня слышно? Вы тут?`,
++  - а уже потом перейти к opener.
++- значит короткий opener оставляем, а следующий фокус — отсечь ранний rescue до opener.
++
++## Обновление 2026-06-12 по одиночному `row_5`
++
++- на version `agtvrsn_5001ktxj73befn6bgdqbd9sckd9s` сделан один новый одиночный live-call:
++  - `conversation_id = conv_0401ktxjmstcfzvs23vga1ah97h5`
++  - `user_id = row_5`
++  - `request_id = manual.2026-06-12.ROW5.turn1_0`
++- технические метрики на первом ответе хорошие:
++  - `convai_asr_trailing_service_latency = 0.071s`
++  - `convai_llm_service_ttfb = 0.489s`
++  - `convai_tts_service_ttfb = 0.124s`
++  - `convai_llm_service_ttf_sentence = 0.678s`
++- это подтверждает, что сам turn-taking после ответа человека уже ускорен достаточно сильно.
++- но сам opener остаётся тяжёлым:
++  - агент заходит сразу длинным двухфразным продажным блоком;
++  - собеседник перебивает его ещё до нормального развития разговора.
++- практический вывод:
++  - следующий шаг уже не ещё сильнее душить `turn_timeout`,
++  - а укорачивать и упрощать первый spoken block.
++
++## Обновление 2026-06-12 по human-answer latency
++
++- текущая live version:
++  - `agtvrsn_5001ktxj73befn6bgdqbd9sckd9s`
++- сначала live был поджат с консервативного turn-taking до:
++  - `turn_timeout = 1.2`
++  - `turn_eagerness = eager`
++  - `speculative_turn = true`
++- затем отдельно проверен нижний предел `turn_timeout`:
++  - попытка поставить `< 1.0` отвергается самим Eleven API;
++  - зафиксирован системный лимит:
++    - `turn timeout must be -1 or between 1 and 300 seconds`
++- поэтому текущая нижняя живая граница теперь такая:
++  - `turn_timeout = 1.0`
++  - `turn_eagerness = eager`
++  - `speculative_turn = true`
++- это нужно считать текущим live baseline по скорости ответа после человеческой реплики.
++
+ ## Обновление 2026-06-06 после `row_11`
+ 
+ - текущая live version:

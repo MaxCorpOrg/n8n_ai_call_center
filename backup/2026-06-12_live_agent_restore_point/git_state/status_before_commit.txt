@@ -1,0 +1,105 @@
+ M docs/agent_kb_lipolong/08_ELEVENLABS_SYSTEM_PROMPT_EN.md
+ M docs/agent_kb_lipolong/08_ELEVENLABS_SYSTEM_PROMPT_RU.md
+ M docs/knowledge_base/09_PROJECT_CHANGELOG_AND_STATE.md
+ M scripts/eleven_outbound_relay_server.py
+ M "\320\264\320\276\320\272\321\203\320\274\320\265\320\275\321\202\320\260\321\206\320\270\321\217_\320\264\320\273\321\217_\320\260\320\263\320\265\320\275\321\202\320\260/02_\320\242\320\225\320\232\320\243\320\251\320\225\320\225_LIVE_\320\241\320\236\320\241\320\242\320\236\320\257\320\235\320\230\320\225.md"
+ M "\320\264\320\276\320\272\321\203\320\274\320\265\320\275\321\202\320\260\321\206\320\270\321\217_\320\264\320\273\321\217_\320\260\320\263\320\265\320\275\321\202\320\260/04_ELEVENLABS_\320\220\320\223\320\225\320\235\320\242.md"
+?? " \320\242\320\260\320\261\320\273\320\270\321\206\321\213_\320\272\320\276\320\275\321\202\320\260\320\272\321\202\320\276\320\262 /\320\237\320\265\321\200\320\262\320\260\321\217 \321\202\320\260\320\261\320\273\320\270\321\206\320\260 \321\207\320\260\321\201\321\202\320\275\321\213\321\205 \320\272\320\276\321\201\320\274\320\265\321\202\320\276\320\273\320\276\320\263\320\276\320\262.xlsx"
+?? " \320\242\320\260\320\261\320\273\320\270\321\206\321\213_\320\272\320\276\320\275\321\202\320\260\320\272\321\202\320\276\320\262 /\320\272\320\276\320\275\321\202\320\260\320\272\321\202\321\213_\320\272\320\276\321\201\320\274\320\265\321\202\320\276\320\273\320\276\320\263\320\276\320\262_\320\274\320\276\321\201\320\272\320\262\320\260_1.xlsx"
+?? " \320\242\320\260\320\261\320\273\320\270\321\206\321\213_\320\272\320\276\320\275\321\202\320\260\320\272\321\202\320\276\320\262 /\320\272\320\276\320\275\321\202\320\260\320\272\321\202\321\213_\320\272\320\276\321\201\320\274\320\265\321\202\320\276\320\273\320\276\320\263\320\276\320\262_\320\274\320\276\321\201\320\272\320\262\320\260_2.xlsx"
+?? " \320\242\320\260\320\261\320\273\320\270\321\206\321\213_\320\272\320\276\320\275\321\202\320\260\320\272\321\202\320\276\320\262 /\320\272\320\276\320\275\321\202\320\260\320\272\321\202\321\213_\320\272\320\276\321\201\320\274\320\265\321\202\320\276\320\273\320\276\320\263\320\276\320\262_\320\274\320\276\321\201\320\272\320\262\320\260_49.xlsx"
+?? " \320\242\320\260\320\261\320\273\320\270\321\206\321\213_\320\272\320\276\320\275\321\202\320\260\320\272\321\202\320\276\320\262 /\320\272\320\276\320\275\321\202\320\260\320\272\321\202\321\213_\320\272\320\276\321\201\320\274\320\265\321\202\320\276\320\273\320\276\320\263\320\276\320\262_\320\274\320\276\321\201\320\272\320\262\320\260_50.xlsx"
+?? .runtime/
+?? backup/
+?? backups/2026-03-22_14-40-42_lipolong_live_sms_snapshot/
+?? backups/2026-04-04_09-48-29_live_sales_prompt_refresh/
+?? backups/2026-04-04_10-30-27_voice_tuning/
+?? backups/2026-04-04_10-44-52_voice_revert/
+?? backups/2026-04-04_11-49-17_pronunciation_dict_attach/
+?? backups/2026-04-04_english_prompt_switch/
+?? backups/2026-04-04_short_prompt_refresh/
+?? backups/2026-04-04_value_reveal_prompt_refresh/
+?? backups/2026-04-04_voice_id_revert_again/
+?? backups/2026-04-06_live_autodial_gid_sync/
+?? backups/2026-04-06_outbound_provider_fix/
+?? backups/2026-04-07_14-52-38_live_human_gate_refresh/
+?? backups/2026-04-07_human_gate_autodial_refresh/
+?? backups/2026-04-07_ivr_human_gate_live_refresh/
+?? backups/2026-04-07_opener_fix_restore_dict/
+?? backups/2026-04-11_elevenlogs_apr8_apr9/
+?? backups/2026-04-11_machine_handling_refresh/
+?? backups/2026-04-13_opening_cleanup_refresh/
+?? backups/2026-04-13_opening_single_utterance_refresh/
+?? backups/2026-04-14_music_silence_fix/
+?? backups/2026-04-21_waiting_exit_hardening/
+?? backups/2026-04-23_autodial_waste_counter_fix/
+?? backups/2026-04-23_call_log_traceability/
+?? backups/2026-04-23_structural_call_log_fix/
+?? backups/2026-04-23_token_waste_guard/
+?? backups/2026-04-24_live_outbound_recovery/
+?? backups/2026-04-25_09-45-05_autodial_weekend_gate/
+?? backups/2026-04-25_10-26-08_eleven_ip_hardening/
+?? backups/2026-04-25_11-02-23_eleven_agent_rollback/
+?? backups/2026-04-25_11-09-25_eleven_tool_binding_fix/
+?? backups/2026-04-25_11-10-00_eleven_srtp_fix/
+?? backups/2026-04-25_11-20-30_manual_calllog_compat_fix/
+?? backups/2026-04-25_11-27-43_eleven_main_restore_and_staging/
+?? backups/2026-04-27_11-51-41_live_sheet_switch/
+?? backups/2026-04-28_12-31-36_human_gate_early_start_fix/
+?? backups/2026-04-29_10-46-50_email_flow_pause_fix/
+?? backups/2026-04-29_10-47-51_email_flow_pause_fix_retry/
+?? backups/2026-04-30_10-29-33_autodial_busy_reject_fix/
+?? backups/2026-04-30_13-33-50_autodial_busy_reject_fix/
+?? backups/2026-04-30_13-36-26_sheet_busy_reclassify/
+?? backups/2026-04-30_14-14-08_autodial_busy_reject_fix/
+?? backups/2026-04-30_14-14-43_ringback_wait_fix/
+?? backups/2026-04-30_14-18-06_autodial_busy_reject_fix/
+?? backups/2026-05-25_10-39-58_switch_autodial_to_contacts_50/
+?? backups/2026-05-25_10-48-19_voicemail_fast_hangup_prompt_patch/
+?? backups/2026-05-25_autodial_timeout_trim/
+?? backups/2026-05-25_machine_fast_hangup_refresh/
+?? backups/2026-05-25_n8n_runner_tuning/
+?? backups/2026-05-25_outbound_timeout_trim/
+?? backups/2026-05-25_relay_log_enrich/
+?? backups/2026-05-27_10-35-49_fix_finish_exhausted/
+?? backups/2026-05-27_11-45-00_dispatcher_v3_clean/
+?? backups/2026-05-27_12-00-00_v2_reimport_publish/
+?? backups/2026-06-06_abonent_hard_stop_refresh/
+?? backups/2026-06-06_human_answer_latency_trim/
+?? backups/2026-06-06_human_silence_2s_rule/
+?? backups/2026-06-06_human_silence_rescue_prompt/
+?? backups/2026-06-06_human_silence_single_rescue_then_hangup/
+?? backups/2026-06-06_row11_gate_and_conv_fix/
+?? backups/2026-06-12_human_answer_latency_eager/
+?? backups/2026-06-12_human_answer_latency_trim_07/
+?? backups/2026-06-12_negative_recovery_dozhim/
+?? backups/2026-06-12_opener_lipolitik_and_second_turn_trim/
+?? backups/2026-06-12_preopener_rescue_block/
+?? backups/2026-06-12_row9_negative_refusal_trim/
+?? backups/2026-06-12_short_opener_try/
+?? backups/live_2026-03-22_objection_sms_refresh/
+?? backups/live_2026-03-22_sms_fix/
+?? deploy/systemd/site-control-kit-browser.timer.example
+?? deploy/systemd/telegram-sandbox-activity-runner.service.example
+?? deploy/systemd/telegram-sandbox-activity-runner.timer.example
+?? docs/checkpoints/2026-05-25_nanobanana_telegram_bots.md
+?? "docs/checkpoints/2026-05-27_\320\232\320\236\320\235\320\242\320\240\320\236\320\233\320\254\320\235\320\220\320\257_\320\242\320\236\320\247\320\232\320\220_\320\237\320\236\320\241\320\233\320\225_\320\240\320\243\320\247\320\235\320\236\320\223\320\236_\320\246\320\230\320\232\320\233\320\220.md"
+?? docs/checkpoints/2026-06-11_RELAY14_AND_IDENTITY_TRACE.md
+?? docs/checkpoints/2026-06-11_RELAY_TIMEOUT_12.md
+?? docs/checkpoints/2026-06-11_ROW17_RELAY12_SINGLE_CYCLE.md
+?? docs/checkpoints/2026-06-11_ROW18_RELAY14_IDENTITY_OK.md
+?? docs/checkpoints/2026-06-12_HUMAN_ANSWER_LATENCY_EAGER.md
+?? docs/checkpoints/2026-06-12_HUMAN_ANSWER_LATENCY_MIN_TURN_1_0.md
+?? docs/checkpoints/2026-06-12_NEGATIVE_RECOVERY_DOZHIM.md
+?? docs/checkpoints/2026-06-12_OPENER_LIPOLITIK_AND_SECOND_TURN_TRIM.md
+?? docs/checkpoints/2026-06-12_PREOPENER_GUARD_ROW7_VOICEMAIL.md
+?? docs/checkpoints/2026-06-12_RELAY_TIMEOUT_16.md
+?? docs/checkpoints/2026-06-12_RELAY_TIMEOUT_20.md
+?? docs/checkpoints/2026-06-12_ROW17_RELAY14_TIMEOUT_AGAIN.md
+?? docs/checkpoints/2026-06-12_ROW17_RELAY16_MATERIALIZED_FAILED.md
+?? docs/checkpoints/2026-06-12_ROW2_RELAY20_ACCEPTED.md
+?? docs/checkpoints/2026-06-12_ROW5_TURN1_0_SINGLE_CALL.md
+?? docs/checkpoints/2026-06-12_ROW8_HUMAN_GUARD_CONFIRMED.md
+?? docs/checkpoints/2026-06-12_ROW9_OPENER_CONFIRMED_AND_REFUSAL_FIX.md
+?? docs/checkpoints/2026-06-12_SHORT_OPENER_ROW6_SINGLE_CALL.md
+?? test.c

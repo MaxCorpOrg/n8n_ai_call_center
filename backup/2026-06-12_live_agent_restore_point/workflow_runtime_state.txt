@@ -1,0 +1,7 @@
+        id        | active | activeVersionId 
+------------------+--------+-----------------
+ tdiAEZM9FZDEP7k4 | f      | 
+ sHTbALayEZdy8Mzs | f      | 
+ kZSdJrsAHWWIC2l6 | f      | 
+(3 rows)
+
