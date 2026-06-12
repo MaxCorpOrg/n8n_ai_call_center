@@ -1,0 +1,1 @@
+{"detail":{"type":"unprocessable_entity","code":"unprocessable_entity","message":"Cannot specify both tools and tool IDs - please provide only one of these options.","status":"both_tools_and_tool_ids_provided","request_id":"cc7709ecd1907ca54c9c3538f855af09"}}
