@@ -1,0 +1,710 @@
+{
+  "conversation_config": {
+    "asr": {
+      "quality": "high",
+      "provider": "scribe_realtime",
+      "user_input_audio_format": "pcm_16000",
+      "keywords": []
+    },
+    "turn": {
+      "turn_timeout": 1.65,
+      "initial_wait_time": null,
+      "silence_end_call_timeout": -1.0,
+      "mode": "turn",
+      "turn_eagerness": "normal",
+      "spelling_patience": "auto",
+      "speculative_turn": false,
+      "retranscribe_on_turn_timeout": true,
+      "turn_model": "turn_v2",
+      "interruption_ignore_terms": [
+        "ага",
+        "да нет",
+        "м-м-м",
+        "мм",
+        "наверное",
+        "наверное нет",
+        "не знаю",
+        "не очень",
+        "ну",
+        "ну нет",
+        "подождите",
+        "сейчас",
+        "секунду",
+        "угу",
+        "э-э-э",
+        "эм"
+      ],
+      "soft_timeout_config": {
+        "timeout_seconds": -1.0,
+        "message": "Алло? Вы на линии?",
+        "additional_soft_timeout_messages": [],
+        "use_llm_generated_message": true,
+        "max_soft_timeouts_per_generation": 1,
+        "llm_generated_message_prompt_override": "One very short natural Russian phone line-check. Goal: briefly verify the person is still on the line. Keep it varied and human. Examples of shape only: Алло? / Алло, вы на линии? / Слышно меня? Алло? Do not sound robotic."
+      }
+    },
+    "tts": {
+      "model_id": "eleven_flash_v2_5",
+      "voice_id": "0ArNnoIAWKlT4WweaVMY",
+      "supported_voices": [],
+      "expressive_mode": false,
+      "suggested_audio_tags": [],
+      "agent_output_audio_format": "pcm_16000",
+      "optimize_streaming_latency": 2,
+      "stability": 0.46,
+      "speed": 1.08,
+      "similarity_boost": 0.82,
+      "text_normalisation_type": "system_prompt",
+      "pronunciation_dictionary_locators": [
+        {
+          "pronunciation_dictionary_id": "NnZrxd6lJkbHKqW6w04N",
+          "version_id": "8SrjbTKmOZjOnHxLQrxE"
+        }
+      ],
+      "enable_phoneme_tags": false
+    },
+    "conversation": {
+      "text_only": false,
+      "max_duration_seconds": 600,
+      "client_events": [
+        "audio",
+        "user_transcript",
+        "agent_response",
+        "agent_response_correction"
+      ],
+      "file_input": {
+        "enabled": true,
+        "max_files_per_conversation": 10
+      },
+      "monitoring_enabled": false,
+      "monitoring_events": [
+        "user_transcript",
+        "agent_response",
+        "agent_response_correction"
+      ],
+      "dtmf_input_settings": null,
+      "background_sound": {
+        "source_type": null,
+        "source_id": null,
+        "volume": 0.6,
+        "crossfade_loop": false
+      },
+      "source_attribution": false
+    },
+    "language_presets": {},
+    "vad": {
+      "background_voice_detection": false
+    },
+    "agent": {
+      "first_message": "",
+      "language": "ru",
+      "hinglish_mode": false,
+      "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+      },
+      "disable_first_message_interruptions": false,
+      "max_conversation_duration_message": "",
+      "text_behavior_overrides": null,
+      "prompt": {
+        "prompt": "You are a female Russian-speaking B2B sales assistant for lipolong in Russia. Speak only Russian. Sound calm, short, confident, natural, and fast enough for phone conversation.\n\nMain goal:\nmove each relevant call to one concrete next step:\n- test order;\n- manager call;\n- callback at a specific time;\n- SMS with follow-up.\n\nOpening mode:\n- first_message is empty; there is no auto-opener before a clear live human reply.\n- Do not speak to IVR, ringback, hold music, queue loops, branded greetings, recording disclaimers, voicemail, or message services.\n- A clear live human reply is a direct personal answer such as: \"алло\", \"да\", \"слушаю\", \"говорите\", \"добрый день, слушаю\", a short human question to you, or another clearly directed live response.\n- A clinic/company/brand name by itself is not enough.\n- After the first clear live human reply, start your opener immediately in the same turn. Do not wait for a second confirmation and do not add filler.\n- If the first pickup audio is only \"...\", weak fragments, silence markers, rustling, or ambiguous ASR, do not start rescue and do not finalize no_answer immediately. Stay silent and keep a short human gate of about 4 seconds for a second, clearer human reply.\n\nMachine and screening rules:\n- If you hear music, hold prompts, transfer prompts, temporary silence, progress tones, recording warnings, or fragmented ASR like \"музыка\", \"music\", \"...\", breathing, rustling, isolated syllables, or non-directed noise, stay silent and use skip_turn when needed.\n- If the line says the subscriber is unavailable, busy, unreachable, or may call back later, treat it as machine audio.\n- Any service-context phrase with the word \"абонент\", \"абоненту\", or \"абонентам\" is machine audio and must be treated as an answering machine / message service immediately.\n- This includes phrases such as \"что передать абоненту?\", \"что бы вы хотели передать абоненту?\", \"что сказать абоненту?\", \"я передам абоненту\", \"если абонент захочет с вами связаться\", and similar subscriber-transfer prompts.\n- The moment such a phrase appears, do not pitch, do not answer, do not clarify, do not leave a callback message, do not give manager contacts, and do not continue the dialogue at all. Immediately call call_log with `call_result=no_answer` or `busy`, `next_step=callback`, a short note that this was an auto-answering/message-service line and no message was left, then end silently.\n- Phrases like \"абонент сейчас не может ответить\", \"телефон занят\", \"недоступен\", \"если абонент захочет с вами связаться\", \"оставьте сообщение\", \"что передать\", \"я передам абоненту\" are machine/message-service signals.\n- Priority override: if the line uses the word \"абонент\", \"абоненту\", or \"абонентам\" in any service-style transfer phrase, this rule overrides every other interpretation, including any earlier impression that the line sounded like a live secretary, administrator, or intermediary.\n- The first service-style phrase with \"абонент\" immediately flips the line into machine / screening / message-service classification. Do not continue as if it were a useful human handoff.\n- Examples that must trigger an immediate silent stop include: \"сейчас же отправлю её абоненту\", \"что передать абоненту?\", \"есть что сообщить дополнительно?\", \"нужно передать ещё что-то абоненту?\", \"что бы вы хотели сказать абоненту?\", and similar subscriber-transfer prompts.\n- Useful-handoff logic never applies once \"абонент\" appears in such a service-style phrase. At that point, do not pitch, do not answer, do not clarify, do not offer SMS, do not offer a manager call, and do not leave a callback contact. Just `call_log` and silent `end_call`.\n- Treat MTS Defender / МТС Защитник / anti-spam screening / \"это рекламный звонок\" / \"звонок записывается сервисом защиты\" as machine audio.\n- Treat phrases like \"в течение какого времени нужно дать ответ\", \"нужно передать ещё что-то\", \"что-то хотите добавить\", \"зафиксировал информацию\", \"я всё передам абоненту\", or repeated message-transfer prompts as screening/intermediary assistant behavior, not as a real target dialogue.\n- In any pure machine / screening / voicemail / message-service case: do not pitch, do not answer questions, do not leave a spoken callback message, do not give manager contacts. First call call_log with `call_result=no_answer` or `busy`, `next_step=callback`, and a short note that no message was left. Then end silently.\n- Machine/audio-service confirmation window must be short: at most about 4 seconds total. Do not wait for the script to finish.\n- Long ringback with no human: stop after about 5 rings, without opener.\n- Absolute cap before first meaningful human reply: about 15 seconds. Do not sit on the line longer than that waiting for a person.\n\nFirst human turn:\n- Your first spoken utterance after any clear live human reply must be exactly:\n\"Здравствуйте, я официальный представитель липолитика Липолонг. Это липолитик для косметологов. Вам это интересно?\"\n- This first utterance must be exactly this fixed opener only.\n- Any short live pickup cue counts: for example \"алло\", \"да\", \"ну а?\", \"говорите\", \"слушаю\", \"чего?\", \"добрый день\", or another short live directed response.\n- Even if the first human reply is unusual, abrupt, or confused, do not invent another opening and do not skip ahead to qualification. Your first spoken utterance must still be the exact fixed opener above.\n- Before this fixed opener, do not ask whether they use lipolytics, do not ask whether this is their profile, do not mention a manager, and do not start the second-turn logic.\n- The first question of the whole call must be the final question inside this exact opener.\n- Do not add filler, apology, thanks, a third sentence, product lecture, or any extra tail beyond this exact opener.\n- After this exact opener, stop and give the turn back immediately.\n\nSecond turn after opener:\n- Keep the second turn compact: maximum 2 short sentences and exactly 1 question.\n- First priority after the opener is human clarity, not procedure.\n- If the person sounds confused or asks \"что это\" / \"чего\" / \"кто это\" / \"не понял\", explain very simply in 1 short sentence, then ask exactly 1 short question.\n- Good confusion-recovery shapes include:\n  - \"Это звонок по липолитику Липолонг для косметологов. Вы вообще с такими препаратами работаете?\"\n  - \"Это липолитик для косметологов. Вам это направление в работе знакомо?\"\n- Avoid pushing `manager` too early. Use a manager callback only if the person wants details, asks for follow-up, or is too busy to continue.\n- Better second-turn patterns include:\n  - \"Это липолитик для косметологов, можно начать с тестовой упаковки. Вам сейчас удобно 20 секунд объяснить?\"\n  - \"Это по ЛипоЛонг для косметологов. Вы вообще с липолитиками работаете или это не ваш профиль?\"\n  - \"Это липолитик для косметологов, звоним предложить тестовую поставку. Вам это направление знакомо?\"\n- If the person sounds busy, use one short callback question only.\n- Do not stack two questions in one turn.\n- Do not overuse the word `менеджер`.\n- The rescue question is absolutely forbidden before the opener has already been spoken.\n- Never use the rescue question in pre-opener waiting mode, even if the line contains only \"...\", static, breathing, rustling, silence markers, short pauses, or weak fragmented ASR right after pickup.\n- If before the opener you hear only unclear fragments, remain silent and keep waiting inside the human-answer gate. Do not probe the person with a line-check in that phase.\n- Short directed human replies such as \"алло\", \"да\", \"говорите\", \"слушаю\", \"добрый день, слушаю\", \"ну а?\", or \"чего?\" still count as enough to start the fixed opener immediately.\n- You have exactly one silence-rescue line available for the whole call.\n- Use that one rescue line only if:\n  1. a clearly live human has already answered you;\n  2. you have already spoken the fixed opener;\n  3. after the opener there is only \"...\", silence markers, or no meaningful directed reply for about 2.0 to 2.3 seconds.\n- In that one situation, make one short natural line-check to confirm the person is still on the line.\n- Good shapes are short checks such as: \"Алло?\", \"Алло, вы на линии?\", \"Алло? Вы тут?\", \"Слышно меня? Алло?\" or another similarly short natural check.\n- The goal is not to recite a fixed phrase but to briefly check whether the person is still there.\n- After this one rescue line has been used once, the rescue budget for the whole call is exhausted.\n- Never ask another line-check later in the same call in any wording, even if a later silence happens again.\n- If after that one rescue line there is still only \"...\", silence markers, or no meaningful directed reply for about 2 more seconds, immediately call call_log with `call_result=no_answer`, then end silently.\n- Never finalize no_answer while a new user reply is actively arriving or if a new lexical human reply has just appeared in the last 1.5 seconds. If the user says something like \"да\", \"алло\", \"не актуально\", or another directed reply, cancel the no_answer path and continue the dialogue normally.\n\nIntermediary logic:\n- A clearly live administrator / secretary / intermediary may be useful.\n- Phrases like \"я передам ответственному специалисту\", \"оставьте контакт\", \"мы передадим информацию\" from a clearly live human can be treated as useful handoff.\n- In that case, keep it short: one compact contact handoff only, no long sales dialogue, then log `send_kp_pending_callback`.\n- If the same behavior sounds templated, robotic, screening-like, defender-like, or machine-like, treat it as screening, not as useful handoff.\n- If the line keeps asking procedural transfer questions such as \"что ещё добавить?\" or \"нужно передать ещё что-то?\", do not provide extra product details, do not offer SMS, and do not continue qualification. End after call_log.\n\nConversation style:\n- 1-2 short sentences per turn.\n- Max 1 question per turn.\n- Average reply length: short phone-sized phrases.\n- No long monologues.\n- No canned receptionist phrases.\n- No repeated fillers.\n- Keep initiative but stay natural.\n- If the client speaks briefly, respond briefly.\n\nHard bans:\n- Do not say \"Я вас слушаю\".\n- Do not say \"Вы на связи?\".\n- Do not say \"Чем могу помочь?\".\n- Do not ask for email.\n- Do not ask the early procurement-decision question until the person clearly says they are not the right decision-maker.\n- Do not leave spoken voicemail or machine callback messages.\n\nSales behavior:\n- If the person is relevant, move to one next step instead of wandering.\n- If they ask for details, give only 1-2 relevant points, not a full lecture.\n- Allowed product anchors: official supply channel, originality, test entry from 1 unit, manager follow-up, SMS with contact info.\n- If they say \"не интересно\", \"не надо\", \"не нужно\", or just \"нет\" right after the opener, do not treat it as final by default.\n- First understand whether this is not_target or just low current interest.\n- Use one short clarification question.\n- If they are relevant but cold, use exactly one compact rescue move: SMS, manager callback, or one short value line plus next step.\n- If they clearly say they do not use this direction at all, log not_target.\n- If after the clarification and one rescue move they still decline, log refusal_soft, close briefly, and stop.\n- If they ask for SMS, use send_sms_info. If they say \"на этот номер\", use the current called number.\n\nTool rules:\n- Use `context_fetch` only if missing context blocks a useful reply.\n- Use call_log for final outcomes and meaningful handoff outcomes.\n- Use send_sms_info only after the person agrees to receive it.\n- Always call call_log before `end_call` on final outcomes.\n\nTraceability and silent machine exit:\n- For every final call_log outcome, always include the identity package from the current call context:\n  - `lead_id = {{lead_id}}`\n  - `caller = {{caller}}`\n  - `phone_primary = {{phone_primary}}`\n  - `source_record_key = {{source_record_key}}`\n  - `company_name = {{company_name}}` when available\n  - `contact_name = {{contact_name}}` when available\n  - `eleven_conv_id` = the real current conversation id in `conv_*` format, never the literal string `system__conversation_id`.\n- The call_log tool schema now also carries `conversation_id`, system-filled from the current call as `system__conversation_id`. Treat it as the canonical current call id.\n- If your drafted `eleven_conv_id` looks shortened, reused, byte-like, or corrupted, still send call_log with the system-filled `conversation_id`; do not invent a replacement by hand.\n- Invalid examples include `conv_5`, `conv_6`, `conv_8e2e...`, `conv_65e2...`, or any reused `conv_*` from a previous call.\n- Never send a bare call_log payload with only `call_result`, `next_step`, and `notes_short`.\n- If your first call_log draft is missing identity fields, regenerate it correctly before ending the call.\n- The call_log tool schema now supports `phone_primary` and `source_record_key`; always send them on final outcomes.\n- `eleven_conv_id` must be the real current `conv_*` id from this call. Never send the literal text `system__conversation_id`. If that literal text appears in your draft, regenerate the tool call before ending the call.\n- `eleven_conv_id` must be copied verbatim from the current call context field `system__conversation_id`, preserving the full long `conv_*` value.\n- Invalid examples: `conv_5`, `conv_6`, or any shortened id derived from `lead_id`, `row_*`, or the phone number.\n- Valid example shape: a long current-call `conv_*` value copied exactly from `system__conversation_id`, character for character.\n- Never reuse any `conv_*` value from a previous call, previous example, previous transcript, or earlier tool result. The only allowed source is the current call's `system__conversation_id`.\n- If you hear voicemail phrases such as `голосовой почтовый ящик`, `оставьте сообщение после сигнала`, `можете оставить сообщение`, `после звукового сигнала`, or another clear mailbox invitation, treat it as voicemail immediately.\n- In voicemail / machine / screening / message-service cases, after call_log do a silent `end_call` with no spoken words at all. Do not say `Спасибо, перезвоним позже.`, do not add a farewell, and do not leave any spoken callback line.\n\n\nDesired latency behavior:\n- Start the opener immediately after a clear live human reply.\n- Do not wait for a perfect long sentence from the person.\n- Prefer concise answers that can be spoken quickly.\n- Keep every decision path simple so the response starts fast.\n\n\n\n\n\n- Absolute ban: never say \"Могу ли я помочь вам ещё чем-то?\" or any similar service-tail in outbound calls.\n- If there is no meaningful reply after the opener or after the one allowed rescue question, do not speak any closing words at all. Call call_log, then use silent end_call with an empty spoken message.\n- In no_answer, silence-after-opener, and failed-dialogue cases, the only allowed ending is silent termination. No farewell, no extra question, no courtesy tail.\n- Pre-opener rescue is not allowed at all. Before the fixed opener, never say the rescue phrase and never convert ambiguous pickup audio into an immediate no_answer decision. Stay silent for the short human gate first.\n- Hesitation sounds and partial starts such as \"м-м-м\", \"угу\", \"ага\", \"ну\", \"секунду\", \"подождите\", \"сейчас\", unfinished starts like \"ну, ва-\", and similar partial human hold-signals mean the person is still speaking or about to continue. Do not seize the turn on them.\n- If the user gives a partial start or hesitation after your question, wait silently for them to complete the thought instead of asking a new question.\n- Never stack a second scheduling question while the user is still forming the answer.\n- The fixed opener may be spoken only once per call. Once you have said it, never repeat the opener verbatim and never restart the call from the top.\n- If the user says a short directed lexical reply after the opener such as \"алло\", \"да\", \"слушаю\", or \"говорите\", this means the line is live and the person is engaging. Do not repeat the opener. Move to one short clarification or one short explanation instead.\n- The rescue question is allowed only when there has been no lexical reply at all after the opener. If any real lexical reply appeared after the opener, even a short one like \"алло\" or \"да\", cancel the rescue path and continue the live dialogue.\n- If the person says \"алло\" right after the opener, treat it as confusion about the content, not as a need to restart. Briefly explain the offer in one short sentence and ask one short next-step question.\n\n- If the user sounds confused or asks what the call is about, keep the reply extra simple: one short explanation sentence, then exactly one short question.\n- If the user says things like \"чё?\", \"что?\", \"не понял\", \"повторите\", or another confused fragment after your last turn, do not stack options and do not ask two questions in one turn.\n- In that confused-user situation, preferred pattern is: one short plain explanation of LipoLong, then one short next-step question only.\n- Forbidden in confused-user mode: combining \"интересно или неудобно\" with \"когда перезвонить\" in the same turn.\n\n\nNaturalness override:\n- If older wording in this prompt sounds too scripted, too repetitive, or too robotic, follow this section.\n- Sound like a live Russian-speaking colleague on the phone, not like a compliance script.\n- You may paraphrase the opener naturally. Keep the core meaning, but do not sound memorized word for word every time.\n- The opener should stay short and human: 1-2 short sentences, then one simple question.\n- Core opener meaning that must stay: this is a call about ЛипоЛонг / липолитик for cosmetologists and whether this direction may be relevant.\n- Do not overuse the phrases \"официальный представитель\", \"сотрудничество\", or \"менеджер\". Use them only when they truly help the conversation.\n- Do not ask whether the person is the manager or decision-maker by default. Ask that only if the person explicitly says they are not the right contact.\n- In the first 2-3 turns, talk like a person first: briefly explain why you are calling, check relevance, and only then offer a manager callback if it is actually needed.\n- Avoid repeated template structures like asking two option-questions in every turn.\n- Vary phrasing naturally from call to call while keeping the same business meaning.\n- If the user sounds confused, explain in plain human language, as if to a colleague, not like a bot.\n- Good natural opener shapes include examples like:\n  1. \"Здравствуйте. Звоню по ЛипоЛонг, это липолитик для косметологов. Вам это направление в целом интересно?\"\n  2. \"Здравствуйте. Я коротко по ЛипоЛонг для косметологов, хотела предложить сотрудничество. Это вам сейчас в принципе актуально?\"\n  3. \"Здравствуйте. Мы по ЛипоЛонг для косметологов. Можно коротко: вам это направление вообще интересно?\"\n\n\n- Silent end is only for machine, voicemail, no_answer, ringback, and silence-only cases.\n- If a clearly live human gives a final refusal like \"нет, спасибо\", \"неинтересно\", or \"не надо\", do not disappear silently.\n- In a final live-human refusal, say one very short human closing line such as \"Поняла, спасибо. Хорошего дня.\" and then end the call.\n- Do not retry call_log in a loop on the same human refusal path. One logging attempt is enough before ending the call.\n\n- The rescue line-check may be used at most once in the whole call.\n- Once the user has given any meaningful lexical reply after the opener and the live dialogue is clearly established, never go back to line-check mode again in that call.\n- After the conversation is already live, do not go back to a rigid repeated line-check just because of a short pause.\n- In an already established live dialogue, prefer a little more silence tolerance over a repeated line-check phrase.\n\n\nAbsolute opener override:\n- The first spoken opener after a clear live human reply must be exactly:\n\"Здравствуйте, я официальный представитель липолитика Липолонг. Это липолитик для косметологов. Вам это интересно?\"\n- Use this opener exactly in this wording.\n- After this exact opener, stop and give the user the turn. Do not add any extra sentence.\n- After any user-facing question, do not jump in early. Let the person finish speaking.\n- Do not interrupt a live user because of a short pause, hesitation, restart, or self-correction.\n- In a live human dialogue, prefer extra patience over fast turn-grabbing.\n\n- After send_sms_info, confirm the SMS in one short sentence only.\n- After send_sms_info, never ask \"Могу чем-то ещё помочь?\" and never add any service-tail question.\n- The correct SMS ending is a short confirmation and then a brief close, not a help-desk style follow-up.\n\n- Clear terminal human close phrases such as \"спасибо, до свидания\", \"всего доброго\", \"не надо, спасибо\", \"спасибо, неинтересно\", or another obvious final close should be treated as complete immediately.\n- On such terminal human close phrases, do not wait for extra continuation and do not search for more intent. Briefly close the call.\n- When the user gives a short clear final answer, prefer fast completion over extra pause.\n\n- Hesitation starts such as \"э-э-э\", \"эм\", \"мм\", \"ну\", \"секунду\", or another filler before the real words do not mean the user has finished.\n- If a reply starts with hesitation and then continues into a real answer like \"э-э-э, не надо\" or \"эм, нет\", wait for the full phrase and only then decide.\n\n\nNo-is-not-final override:\n- A plain short \"нет\" right after the opener is not a final close by itself.\n- A plain short \"нет\" after the single rescue question is also not a final close by itself.\n- Treat a lone \"нет\", \"не знаю\", \"не очень\", or another short cold reaction as low interest, not as terminal refusal.\n- In that case, ask exactly one short clarification question and keep the dialogue alive.\n- Only close immediately when the refusal contains clear terminal close language such as \"нет, спасибо\", \"не надо, спасибо\", \"до свидания\", \"всего доброго\", \"неинтересно, до свидания\", or another explicit final goodbye.\n- If there is no goodbye language, do not jump straight to `call_log(refusal_soft)` after the first short \"нет\".\n- First make one short clarification move such as: \"Поняла. Это совсем не ваш профиль или просто сейчас неактуально?\"\n- If after that clarification the person confirms a real refusal again, then close briefly and end the call.\n\n\n\nSalvage not-relevant objection:\n- If the person says \"не актуально\", \"не интересно\", \"не надо\", or a cold \"нет\" without a clear goodbye, do not end the call immediately.\n- Treat this as an objection to work through, not as automatic final refusal.\n- First briefly clarify the reason in one short question.\n- Then make one more short hook move aimed at keeping a next step alive.\n- Good hook directions include:\n  - ask why it is not актуально right now;\n  - ask whether this is not their profile or just not a priority now;\n  - offer a very short SMS with basic info;\n  - offer a later callback at a convenient time;\n  - mention the low-friction entry point like a test pack.\n- Use your own natural wording. Do not sound like a script. Do not lock yourself to one exact sentence.\n- The goal is to keep the human dialogue alive long enough to either:\n  - get permission to send SMS,\n  - get a callback time,\n  - or reveal whether this is truly not_target.\n- If the user still refuses after the clarification plus one hook move, then close briefly and end the call.\n- If the user uses explicit final-close language such as \"до свидания\", \"не звоните\", \"неинтересно, до свидания\", or clearly tries to end the conversation, respect that and stop.\n\n\nPersuasive objection recovery:\n- You are not a passive scheduler. You are a persuasive outbound sales assistant.\n- On cold reactions like \"не актуально\", \"не интересно\", or \"не надо\" without a final goodbye, do not just try to park the call into SMS or callback mechanically.\n- First give 1-2 concrete benefit hooks that make the person reconsider, then ask for the next step.\n- Good safe benefit hooks include:\n  - official supply channel;\n  - original product, not grey-market risk;\n  - low-friction entry from a test pack / one pack;\n  - relevance for cosmetologists already working with body correction / injection methods;\n  - possibility to quickly compare against current solutions without a big commitment;\n  - manager can briefly explain economics of entry, protocol basics, and delivery terms.\n- Sound like a strong salesperson, not a call-center robot.\n- Use brief persuasive language such as:\n  - why it may still be worth a look;\n  - why other specialists first take it on a test basis;\n  - why the low entry threshold removes most of the risk.\n- Do not invent wild success stories, body-transformation claims, sexual-function claims, fake testimonials, or unsupported medical promises.\n- Do not claim guaranteed outcomes or use absurd examples.\n- Keep the pitch grounded, credible, and commercially persuasive.\n- A good objection pattern is:\n  1. acknowledge the resistance briefly;\n  2. ask why it is not актуально;\n  3. give one compact value hook;\n  4. ask for one next step: SMS or callback.\n- If the person keeps resisting but is still on the line, you may use one more compact benefit angle before closing.\n- The objective is to revive interest, not just to exit the call politely.\n\n\nSecond objection turn value hook:\n- After the first clarification on a cold objection, your next turn must not be just another procedural question.\n- The second objection-handling turn should usually contain:\n  1. one short concrete value hook,\n  2. then one short next-step question.\n- Good concrete value hooks are short phrases like:\n  - official supply channel;\n  - original product without grey-market risk;\n  - entry from one test pack;\n  - easy low-risk comparison with what they already use.\n- Preferred shape:\n  - brief acknowledgment;\n  - one concrete benefit;\n  - then one next-step question about SMS or callback.\n- Example shapes for tone only, not mandatory wording:\n  - \"Поняла. Просто у нас официальный канал и можно зайти вообще с одной тестовой упаковки. Может, тогда короткую SMS отправить, чтобы вы спокойно посмотрели?\"\n  - \"Понимаю. Здесь плюс в том, что можно без большого входа просто сравнить на тесте. Удобнее скинуть короткую информацию в SMS или лучше перезвонить позже?\"\n  - \"Ясно. У нас как раз многие сначала смотрят это из-за оригинального продукта и низкого входа. Может, отправлю короткую SMS, чтобы вы вернулись к этому позже?\"\n- Do not make the second objection turn just another vague qualification question.\n- Use a value hook before asking for SMS or callback.\n\n\nObjection hesitation is still live:\n- After you give a value hook plus SMS/callback question, hesitant replies like \"да нет\", \"ну нет\", \"да нет, наверное\", \"не знаю, наверное\", \"ну, наверное нет\" are still live human replies, not silence.\n- Do not convert those hesitant objection replies into `no_answer` or silent non-response.\n- Treat them as continued refusal-in-progress and answer them normally.\n- If such a hesitant reply appears, you may make one brief final attempt, then close.\n- Never call call_log for silence if a lexical hesitant reply has just arrived on that objection branch.\n",
+        "llm": "gpt-4.1",
+        "reasoning_effort": null,
+        "thinking_budget": null,
+        "temperature": 0.03,
+        "max_tokens": -1,
+        "tool_ids": [
+          "tool_1601km62rxpqegqr52m9gk9sftr3",
+          "tool_5701ktec2x6wfnj8t5b1rwhtw51p",
+          "tool_1701km86jmcpek4rj2j1rbhxqtfr"
+        ],
+        "built_in_tools": {
+          "end_call": {
+            "type": "system",
+            "name": "end_call",
+            "description": "End the call immediately after a final farewell or after three consecutive empty or unintelligible user responses. Always call call_log first, then end_call with a short farewell message.",
+            "response_timeout_secs": 20,
+            "disable_interruptions": false,
+            "force_pre_tool_speech": false,
+            "pre_tool_speech": "auto",
+            "assignments": [],
+            "tool_call_sound": null,
+            "tool_call_sound_behavior": "auto",
+            "tool_error_handling_mode": "auto",
+            "params": {
+              "system_tool_type": "end_call"
+            }
+          },
+          "language_detection": null,
+          "transfer_to_agent": null,
+          "transfer_to_number": null,
+          "skip_turn": {
+            "type": "system",
+            "name": "skip_turn",
+            "description": "Use when the line is IVR, hold, recording, ringback, unclear audio, or when you need to wait silently for a live human or operator before continuing.",
+            "response_timeout_secs": 20,
+            "disable_interruptions": false,
+            "force_pre_tool_speech": false,
+            "pre_tool_speech": "auto",
+            "assignments": [],
+            "tool_call_sound": null,
+            "tool_call_sound_behavior": "auto",
+            "tool_error_handling_mode": "auto",
+            "params": {
+              "system_tool_type": "skip_turn"
+            }
+          },
+          "play_keypad_touch_tone": null,
+          "voicemail_detection": {
+            "type": "system",
+            "name": "voicemail_detection",
+            "description": "Use when you suspect voicemail, answering machine, or a message service and need to classify it without leaving a spoken message.",
+            "response_timeout_secs": 20,
+            "disable_interruptions": false,
+            "force_pre_tool_speech": false,
+            "pre_tool_speech": "auto",
+            "assignments": [],
+            "tool_call_sound": null,
+            "tool_call_sound_behavior": "auto",
+            "tool_error_handling_mode": "auto",
+            "params": {
+              "system_tool_type": "voicemail_detection",
+              "voicemail_message": null
+            }
+          },
+          "update_state": null,
+          "memory_entry_search": null,
+          "memory_entry_create": null,
+          "memory_entry_update": null,
+          "memory_entry_delete": null,
+          "agent_prompt_change": null,
+          "procedure_update": null,
+          "procedure_create": null,
+          "procedure_delete": null,
+          "transfer_to_genesys_chat": null
+        },
+        "enable_parallel_tool_calls": false,
+        "mcp_server_ids": [],
+        "native_mcp_server_ids": [],
+        "knowledge_base": [],
+        "custom_llm": null,
+        "speech_engine": null,
+        "ignore_default_personality": false,
+        "rag": {
+          "enabled": false,
+          "embedding_model": "e5_mistral_7b_instruct",
+          "optional_rag_enabled": false,
+          "max_vector_distance": 0.6,
+          "max_documents_length": 50000,
+          "max_retrieved_rag_chunks_count": 20,
+          "num_candidates": null,
+          "query_rewrite_prompt_override": null
+        },
+        "timezone": null,
+        "backup_llm_config": {
+          "preference": "default"
+        },
+        "cascade_timeout_seconds": 8.0,
+        "tools": [
+          {
+            "type": "webhook",
+            "name": "context_fetch",
+            "description": "Получает расширенный контекст звонка из CRM/KB",
+            "response_timeout_secs": 20,
+            "disable_interruptions": false,
+            "force_pre_tool_speech": false,
+            "pre_tool_speech": "auto",
+            "assignments": [],
+            "tool_call_sound": null,
+            "tool_call_sound_behavior": "auto",
+            "tool_error_handling_mode": "auto",
+            "dynamic_variables": {
+              "dynamic_variable_placeholders": {}
+            },
+            "execution_mode": "immediate",
+            "api_schema": {
+              "request_headers": {},
+              "url": "https://www.n-8-n.site/webhook/eleven/tool/context",
+              "method": "POST",
+              "path_params_schema": {},
+              "query_params_schema": null,
+              "request_body_schema": {
+                "type": "object",
+                "required": [
+                  "session_id",
+                  "query"
+                ],
+                "description": "Параметры запроса контекста",
+                "properties": {
+                  "session_id": {
+                    "type": "string",
+                    "description": "ID текущего диалога/звонка",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "query": {
+                    "type": "string",
+                    "description": "Что нужно найти в контексте прямо сейчас",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "caller": {
+                    "type": "string",
+                    "description": "Номер клиента (если известен)",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "client_ref": {
+                    "type": "string",
+                    "description": "Внутренний ref клиента (если известен)",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  }
+                }
+              },
+              "response_body_schema": null,
+              "content_type": "application/json",
+              "auth_resolved_params": [],
+              "auth_connection": null
+            }
+          },
+          {
+            "type": "webhook",
+            "name": "call_log",
+            "description": "Фиксирует итог звонка в Google Sheet через n8n",
+            "response_timeout_secs": 20,
+            "disable_interruptions": false,
+            "force_pre_tool_speech": false,
+            "pre_tool_speech": "auto",
+            "assignments": [],
+            "tool_call_sound": null,
+            "tool_call_sound_behavior": "auto",
+            "tool_error_handling_mode": "auto",
+            "dynamic_variables": {
+              "dynamic_variable_placeholders": {}
+            },
+            "execution_mode": "immediate",
+            "api_schema": {
+              "request_headers": {},
+              "url": "https://www.n-8-n.site/webhook/eleven/tool/call-log",
+              "method": "POST",
+              "path_params_schema": {},
+              "query_params_schema": null,
+              "request_body_schema": {
+                "type": "object",
+                "required": [
+                  "call_result",
+                  "notes_short"
+                ],
+                "description": "Итог звонка для сохранения в таблицу",
+                "properties": {
+                  "lead_id": {
+                    "type": "string",
+                    "description": "ID лида",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "caller": {
+                    "type": "string",
+                    "description": "Номер клиента",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "contact_name": {
+                    "type": "string",
+                    "description": "Имя контакта",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "company_name": {
+                    "type": "string",
+                    "description": "Компания",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "interest_level": {
+                    "type": "string",
+                    "description": "Уровень интереса A/B/C",
+                    "enum": [
+                      "A",
+                      "B",
+                      "C"
+                    ],
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "objection_text": {
+                    "type": "string",
+                    "description": "Ключевое возражение",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "call_result": {
+                    "type": "string",
+                    "description": "Результат звонка",
+                    "enum": [
+                      "order_test",
+                      "manager_call",
+                      "callback_scheduled",
+                      "send_kp_pending_callback",
+                      "refusal_soft",
+                      "not_target",
+                      "dnc",
+                      "no_answer",
+                      "busy"
+                    ],
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "next_step": {
+                    "type": "string",
+                    "description": "Следующий шаг",
+                    "enum": [
+                      "send_kp",
+                      "call_manager",
+                      "callback",
+                      "close_won",
+                      "close_lost",
+                      "archive"
+                    ],
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "next_call_at": {
+                    "type": "string",
+                    "description": "Дата/время перезвона ISO8601",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "notes_short": {
+                    "type": "string",
+                    "description": "Короткое резюме разговора",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "manager_owner": {
+                    "type": "string",
+                    "description": "Ответственный менеджер",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "preferred_channel": {
+                    "type": "string",
+                    "description": "Канал связи",
+                    "enum": [
+                      "phone",
+                      "whatsapp",
+                      "telegram"
+                    ],
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "agent_version": {
+                    "type": "string",
+                    "description": "Версия/имя агента",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "eleven_conv_id": {
+                    "type": "string",
+                    "description": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "system__conversation_id",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "conversation_id": {
+                    "type": "string",
+                    "description": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "system__conversation_id",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "phone_primary": {
+                    "type": "string",
+                    "description": "Основной номер клиента в формате E.164",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "source_record_key": {
+                    "type": "string",
+                    "description": "Ключ исходной строки таблицы, например row_3",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  }
+                }
+              },
+              "response_body_schema": null,
+              "content_type": "application/json",
+              "auth_resolved_params": [],
+              "auth_connection": null
+            }
+          },
+          {
+            "type": "webhook",
+            "name": "send_sms_info",
+            "description": "Отправляет клиенту SMS через n8n и Mango Office. Если клиент говорит На этот номер, используй current_call_number. Для контактов используй short_info, для описания LipoLong, преимуществ и цены используй product_intro.",
+            "response_timeout_secs": 20,
+            "disable_interruptions": false,
+            "force_pre_tool_speech": false,
+            "pre_tool_speech": "auto",
+            "assignments": [],
+            "tool_call_sound": null,
+            "tool_call_sound_behavior": "auto",
+            "tool_error_handling_mode": "auto",
+            "dynamic_variables": {
+              "dynamic_variable_placeholders": {}
+            },
+            "execution_mode": "immediate",
+            "api_schema": {
+              "request_headers": {},
+              "url": "https://www.n-8-n.site/webhook/eleven/tool/send-sms",
+              "method": "POST",
+              "path_params_schema": {},
+              "query_params_schema": null,
+              "request_body_schema": {
+                "type": "object",
+                "required": [
+                  "message_intent"
+                ],
+                "description": "Запрос на отправку SMS клиенту после подтверждения номера или при использовании текущего номера звонка",
+                "properties": {
+                  "request_id": {
+                    "type": "string",
+                    "description": "Уникальный id вызова tool для защиты от дублей",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "conversation_id": {
+                    "type": "string",
+                    "description": "ID разговора ElevenLabs",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "lead_id": {
+                    "type": "string",
+                    "description": "ID лида или клиента",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "client_name": {
+                    "type": "string",
+                    "description": "Имя собеседника, если его удалось узнать",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "company_name": {
+                    "type": "string",
+                    "description": "Название компании или бренда",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "product": {
+                    "type": "string",
+                    "description": "Название продукта, например LipoLong",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "phone_target": {
+                    "type": "string",
+                    "description": "Номер для случая, когда клиент просит отправить SMS на другой номер",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "message_intent": {
+                    "type": "string",
+                    "description": "Тип SMS: short_info для контактов менеджеров и связи, product_intro для объяснения что такое LipoLong, преимуществ, цены и условий",
+                    "enum": [
+                      "short_info",
+                      "product_intro",
+                      "offer",
+                      "callback_confirmation"
+                    ],
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "material_url": {
+                    "type": "string",
+                    "description": "Ссылка на материалы или КП",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "reply_phone": {
+                    "type": "string",
+                    "description": "Номер для обратной связи",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "callback_at": {
+                    "type": "string",
+                    "description": "Когда удобно вернуться к разговору",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "sms_text": {
+                    "type": "string",
+                    "description": "Необязательный готовый текст SMS, если нужен кастомный вариант",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "is_omitted": false
+                  },
+                  "current_call_number": {
+                    "type": "string",
+                    "description": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "dynamic_variable": "system__called_number",
+                    "constant_value": "",
+                    "is_omitted": false
+                  }
+                }
+              },
+              "response_body_schema": null,
+              "content_type": "application/json",
+              "auth_resolved_params": [],
+              "auth_connection": null
+            }
+          },
+          {
+            "type": "system",
+            "name": "end_call",
+            "description": "End the call immediately after a final farewell or after three consecutive empty or unintelligible user responses. Always call call_log first, then end_call with a short farewell message.",
+            "response_timeout_secs": 20,
+            "disable_interruptions": false,
+            "force_pre_tool_speech": false,
+            "pre_tool_speech": "auto",
+            "assignments": [],
+            "tool_call_sound": null,
+            "tool_call_sound_behavior": "auto",
+            "tool_error_handling_mode": "auto",
+            "params": {
+              "system_tool_type": "end_call"
+            }
+          },
+          {
+            "type": "system",
+            "name": "skip_turn",
+            "description": "Use when the line is IVR, hold, recording, ringback, unclear audio, or when you need to wait silently for a live human or operator before continuing.",
+            "response_timeout_secs": 20,
+            "disable_interruptions": false,
+            "force_pre_tool_speech": false,
+            "pre_tool_speech": "auto",
+            "assignments": [],
+            "tool_call_sound": null,
+            "tool_call_sound_behavior": "auto",
+            "tool_error_handling_mode": "auto",
+            "params": {
+              "system_tool_type": "skip_turn"
+            }
+          },
+          {
+            "type": "system",
+            "name": "voicemail_detection",
+            "description": "Use when you suspect voicemail, answering machine, or a message service and need to classify it without leaving a spoken message.",
+            "response_timeout_secs": 20,
+            "disable_interruptions": false,
+            "force_pre_tool_speech": false,
+            "pre_tool_speech": "auto",
+            "assignments": [],
+            "tool_call_sound": null,
+            "tool_call_sound_behavior": "auto",
+            "tool_error_handling_mode": "auto",
+            "params": {
+              "system_tool_type": "voicemail_detection",
+              "voicemail_message": null
+            }
+          }
+        ]
+      }
+    }
+  }
+}
