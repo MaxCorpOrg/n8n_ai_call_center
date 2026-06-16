@@ -1,5 +1,96 @@
 # 09. Состояние проекта и последние изменения
 
+## 1.0) Обновление 2026-06-16: выполнен первый lab-cycle по naturalness в отдельной ElevenLabs-ветке
+
+### Сделано
+- В отдельной ветке `lab_naturalness_2026_06` выполнен первый реальный цикл:
+  1. baseline manual self-test;
+  2. turn-taking patch;
+  3. naturalness prompt patch;
+  4. повторные manual self-tests.
+- Базовый baseline-call на lab-ветке:
+  - `conversation_id = conv_1201kv7wpw78e53s5mgkc8rcwpa6`
+  - `branch_id = agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+  - `version_id = agtvrsn_0401kv7waz0sfae92b77pgjhmcqf`
+- Baseline показал две отдельные проблемы:
+  - после коротких живых ответов человек -> агент местами реагировал слишком медленно;
+  - второй/третий ход agent всё ещё звучал слишком скриптово и перегруженно.
+- По baseline подтверждено текущее стартовое turn-состояние lab:
+  - `turn_timeout = 1.75`
+  - `turn_eagerness = normal`
+  - `speculative_turn = false`
+  - `retranscribe_on_turn_timeout = true`
+- После этого в lab внесён первый isolated patch только по turn-taking:
+  - новая lab version:
+    - `agtvrsn_6801kv7ww8dnf1qsx2ah0qxab6rs`
+  - изменения:
+    - `turn_timeout: 1.75 -> 1.25`
+    - `turn_eagerness: normal -> eager`
+    - `speculative_turn: false -> true`
+    - `retranscribe_on_turn_timeout: true -> false`
+- Проверочный звонок после turn-патча:
+  - `conversation_id = conv_7701kv7wwz1yesgvhynmn6b5tpb2`
+- Что он показал:
+  - opener по wall-clock остался примерно в том же окне;
+  - но последующие agent-response gaps заметно сократились:
+    - вместо примерно `4s` после короткого user-response agent ответил примерно через `2s`;
+    - вместо примерно `7s` на следующем ходу agent тоже ответил примерно через `2s`;
+  - при этом проявился новый остаток:
+    - сам wording второго/третьего хода оставался слишком скриптовым;
+    - agent всё ещё тянул длинную value-line, которую человек перебивал.
+- После этого в lab внесён второй isolated patch уже только по prompt naturalness:
+  - новая lab version:
+    - `agtvrsn_7001kv7x1ztdfpnth8rw6rjmjbnh`
+  - добавлен высокий приоритет для:
+    - более человеческого компактного phrasing;
+    - запрета на `Спасибо / Спасибо, уточнила` как автоматический старт обычного хода;
+    - запрета на stacked option-questions;
+    - правила `one move per turn`.
+- Проверочный звонок после naturalness-патча:
+  - `conversation_id = conv_7701kv7x2m70f5fata09r7rcx6et`
+- Что подтвердилось по нему:
+  - opener остался точным;
+  - после холодного отказа agent уже не ушёл в длинный salesy-block;
+  - второй ход стал компактнее и человечнее:
+    - `Поняла, а вы вообще с липолитиками работаете или это совсем не ваш профиль?`
+  - при явном `не целевой` agent корректно записал:
+    - `call_result = not_target`
+    - `next_step = archive`
+  - call_log доехал с нормальным identity package и фактическим `conv_*` в реальном webhook body.
+- Все артефакты цикла сохранены в:
+  - `.runtime/eleven_lab_baseline_2026-06-16/`
+  - `.runtime/eleven_lab_turn_patch_2026-06-16/`
+- Создан отдельный checkpoint цикла:
+  - `docs/checkpoints/2026-06-16_ELEVEN_NATURALNESS_LAB_CYCLE1.md`
+
+### На чем остановились
+- Первый lab-cycle уже дал измеримую пользу:
+  - turn-taking стал живее на средних ходах;
+  - second-turn wording стал менее скриптовым;
+  - not-target path проходит чище.
+- Но идеального naturalness пока нет:
+  - fixed opener всё ещё звучит жёстко, потому что его формулировка intentionally locked;
+  - opener-gap на отдельных тестах не стал явно лучше по wall-clock;
+  - голос всё ещё остаётся на:
+    - `eleven_flash_v2_5`
+  - `expressive_mode` всё ещё выключен.
+
+### Что делать дальше
+1. Следующий isolated cycle делать уже не по turn-taking и не по broad prompt, а по voice/TTS:
+   - сравнить текущий `eleven_flash_v2_5`
+   - против `eleven_v3_conversational`
+   - только в `lab_naturalness_2026_06`.
+2. Перед voice-cycle сохранить новый baseline branch snapshot.
+3. Следующий manual self-test строить уже на сценариях:
+   - confused human reply;
+   - soft refusal;
+   - short positive acknowledgement;
+   - silence after opener.
+4. Live `Main` не трогать, пока lab не даст одновременно:
+   - нормальную naturalness;
+   - без деградации machine hard-stop;
+   - без возврата premature hangup.
+
 ## 1.0) Обновление 2026-06-16: выделен отдельный lab-контур для naturalness-настройки ElevenLabs
 
 ### Сделано

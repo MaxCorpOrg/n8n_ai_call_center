@@ -21,6 +21,21 @@
     - `абонент` hard-stop;
     - single rescue;
     - premature hangup.
+- Уже выполнен первый реальный lab-cycle:
+  - baseline:
+    - `conv_1201kv7wpw78e53s5mgkc8rcwpa6`
+  - после turn patch:
+    - `conv_7701kv7wwz1yesgvhynmn6b5tpb2`
+  - после prompt naturalness patch:
+    - `conv_7701kv7x2m70f5fata09r7rcx6et`
+- Текущая lab version после этого цикла:
+  - `agtvrsn_7001kv7x1ztdfpnth8rw6rjmjbnh`
+- Что уже улучшилось в lab:
+  - средние ответные паузы стали короче;
+  - второй ход agent стал менее скриптовым;
+  - `not_target` ветка проходит чище.
+- Следующий lab-фокус:
+  - voice/TTS naturalness, а не новый большой prompt-перепис.
 
 ## Обновление 2026-06-12 по дожиму после короткого отказа
 
