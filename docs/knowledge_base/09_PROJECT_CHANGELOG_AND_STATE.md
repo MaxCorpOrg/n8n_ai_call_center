@@ -1,5 +1,130 @@
 # 09. Состояние проекта и последние изменения
 
+## 1.0) Обновление 2026-06-16: выделен отдельный lab-контур для naturalness-настройки ElevenLabs
+
+### Сделано
+- Для безопасной настройки “живости” разговора выделен отдельный контур сразу в двух местах:
+  - новая Git-ветка:
+    - `codex/eleven-naturalness-lab`
+  - новая ветка в ElevenLabs:
+    - `lab_naturalness_2026_06`
+    - `branch_id = agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+    - `version_id = agtvrsn_0401kv7waz0sfae92b77pgjhmcqf`
+- Новая ElevenLabs-ветка создана от текущей подтверждённой live-версии:
+  - `agent_id = agent_8801kgybyekned2a8yae6rp8hk3q`
+  - source live branch:
+    - `Main = agtbrch_7801kgybyg9nesrbv64y078pazq0`
+  - source live version:
+    - `agtvrsn_9001kv0k051efpr84vwwttz6kthj`
+- Подтверждено, что live-контур не переключался:
+  - `Main` остаётся на `100% live traffic`
+  - `lab_naturalness_2026_06` остаётся на `0% live traffic`
+- Снят baseline текущих voice/turn-настроек, от которых стартует lab:
+  - `tts.model_id = eleven_flash_v2_5`
+  - `voice_id = 0ArNnoIAWKlT4WweaVMY`
+  - `expressive_mode = false`
+  - `speed = 1.08`
+  - `stability = 0.46`
+  - `similarity_boost = 0.82`
+  - `optimize_streaming_latency = 2`
+  - `turn_timeout = 1.75`
+  - `turn_eagerness = normal`
+  - `turn_model = turn_v2`
+- Снимки текущего состояния сохранены локально в:
+  - `.runtime/eleven_lab_setup_2026-06-16/current_agent.json`
+  - `.runtime/eleven_lab_setup_2026-06-16/branches_before.json`
+  - `.runtime/eleven_lab_setup_2026-06-16/branch_create_response.json`
+  - `.runtime/eleven_lab_setup_2026-06-16/branches_after.json`
+  - `.runtime/eleven_lab_setup_2026-06-16/lab_agent_branch_snapshot.json`
+- Создан отдельный checkpoint для экспериментального контура:
+  - `docs/checkpoints/2026-06-16_ELEVEN_NATURALNESS_LAB_SETUP.md`
+
+### На чем остановились
+- Боевой контур сейчас не должен использоваться для продуктовых экспериментов по “человечности”.
+- Весь следующий naturalness-тюнинг нужно делать только в:
+  - Git:
+    - `codex/eleven-naturalness-lab`
+  - ElevenLabs:
+    - `lab_naturalness_2026_06`
+- Lab-контур пока только создан и зафиксирован:
+  - baseline снят;
+  - новых voice/prompt/turn-taking изменений в lab пока ещё не применялось;
+  - manual self-test на новой ветке ещё не выполнен.
+
+### Что делать дальше
+1. На lab-ветке снять baseline manual self-test без новых изменений:
+   - `Алло!`
+   - `Ну а? / Чего? / Что это?`
+   - `Неактуально / Нет / Не надо`
+   - тишина после opener
+   - `абонент / voicemail / screening-service`
+2. После baseline менять только один класс параметров за цикл:
+   - либо `voice/TTS`;
+   - либо `turn-taking`;
+   - либо `prompt naturalness`.
+3. Для первого naturalness-цикла подготовить сравнение:
+   - текущий `eleven_flash_v2_5`
+   - против `eleven_v3_conversational`
+   но делать это только внутри `lab_naturalness_2026_06`.
+4. До прохождения self-tests не переносить lab-изменения в live `Main`.
+
+## 1.0) Обновление 2026-06-15: очищены legacy SQLite-хвосты, site-control-kit runtime и build cache
+
+### Сделано
+- На live-сервере `147.45.213.87` выполнена точечная очистка диска без изменения текущего voice-call-center runtime:
+  - удалён legacy `database.sqlite` из live volume `n8n-server_n8n_data`;
+  - удалены связанные raw-копии SQLite из:
+    - `/home/aicore/backups/n8n/sqlite_to_postgres_2026-05-26/`
+    - `/home/aicore/backups/n8n/`
+    - `/home/aicore/backups/nanobana_cleanup_20260525_084438/`
+    - `/home/aicore/safe-backups/2026-05-22_13-56-42_secrets_autovoicemail_fix/`
+  - обнулён docker log контейнера `madcore-app`;
+  - очищены `site-control-kit`:
+    - `/home/aicore/.site-control-kit/state.json`
+    - `/home/aicore/.local/share/site-control-kit-browser`
+  - через `docker buildx prune -af --all` очищен build cache Docker.
+- Перед удалением ещё раз подтверждено:
+  - live `n8n` работает на `Postgres`, а не на SQLite:
+    - `DB_TYPE=postgresdb`
+    - `DB_POSTGRESDB_HOST=n8n-server-postgres-1`
+    - `DB_POSTGRESDB_DATABASE=n8n_prod`
+  - текущая живая база `n8n_prod` маленькая:
+    - `12 MB`
+  - значит удалённая SQLite уже не была рабочей live-БД.
+- Результат по месту:
+  - до очистки:
+    - `/dev/sda1` было около `38G used / 39G avail / 50%`
+  - после очистки:
+    - `/dev/sda1` стало около `22G used / 56G avail / 28%`
+- После очистки live volume `n8n-server_n8n_data` уменьшился примерно до:
+  - `38.77MB`
+- Дополнительно подтверждено:
+  - `site-control-kit` сейчас не является активной частью voice-call-center;
+  - это browser fallback для `cosmetologist_hunter`, и после очистки у него сейчас:
+    - `connected_clients = 0`
+  - сам `cosmetologist_hunter.service` остаётся поднятым.
+- Build cache Docker действительно был отдельным слоем, а не текущими live-данными call-center:
+  - он уменьшен до `0B`;
+  - по датам кэша видно, что там были как февральские слои `madcore`, так и мартовские слои других кастомных сборок, то есть это был не только `madcore`.
+
+### На чем остановились
+- Текущий live call-center после очистки остался рабочим на:
+  - `n8n + Postgres + postgres_memory + ElevenLabs`
+- Самый заметный оставшийся пожиратель места сейчас:
+  - `/var/log/asterisk` около `3.2G`
+- Основная причина его роста не устранена:
+  - поток `REGISTER failed to authenticate` в `messages.log`
+- Серверная документация в `/home/aicore/n8n-ai-clean` частично отстаёт от локальной рабочей документации `/home/max/n8n_ai_call_center`.
+
+### Что делать дальше
+1. Отдельно решить политику по `Asterisk`:
+   - либо просто чистить старые архивы;
+   - либо ещё и устранить шумный поток failed `REGISTER`, чтобы лог не раздувался снова.
+2. Отдельно решить судьбу `madcore`:
+   - нужен ли сам проект как архив/dev-заготовка;
+   - если нет, можно потом убрать stopped container, image `madcore-madcore` и связанные остатки.
+3. При следующем server-sync подтянуть docs из локального репозитория в `n8n-ai-clean`, чтобы handoff на сервере не отставал.
+
 ## 1.0) Обновление 2026-06-13: возвращён точный opener и срезан premature cut-off на мягком отказе
 
 ### Сделано

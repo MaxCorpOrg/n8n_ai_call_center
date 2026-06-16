@@ -1,5 +1,27 @@
 # ElevenLabs агент
 
+## Обновление 2026-06-16 по отдельной ветке naturalness-lab
+
+- Для настройки более “человечного” разговора теперь выделен отдельный контур, чтобы не ломать боевой `Main`.
+- Рабочая экспериментальная ветка в ElevenLabs:
+  - `lab_naturalness_2026_06`
+  - `branch_id = agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+  - стартовая version:
+    - `agtvrsn_0401kv7waz0sfae92b77pgjhmcqf`
+- Она создана от текущего live `Main`:
+  - `Main branch_id = agtbrch_7801kgybyg9nesrbv64y078pazq0`
+  - source live version:
+    - `agtvrsn_9001kv0k051efpr84vwwttz6kthj`
+- Текущее правило работы:
+  - naturalness / voice / turn-taking эксперименты делать только в `lab_naturalness_2026_06`;
+  - боевой `Main` считать read-only, кроме emergency-fix;
+  - сначала manual self-tests на себе;
+  - tiny canary только после self-tests без регрессий по:
+    - exact opener;
+    - `абонент` hard-stop;
+    - single rescue;
+    - premature hangup.
+
 ## Обновление 2026-06-12 по дожиму после короткого отказа
 
 - live-логика после фраз

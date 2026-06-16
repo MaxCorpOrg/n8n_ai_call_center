@@ -1,5 +1,74 @@
 # Текущее live-состояние
 
+Обновление `2026-06-16` по отдельному naturalness-lab контуру:
+- для экспериментов по “живости” общения создан отдельный безопасный контур;
+- новая рабочая Git-ветка:
+  - `codex/eleven-naturalness-lab`
+- новая ветка в ElevenLabs:
+  - `lab_naturalness_2026_06`
+  - `branch_id = agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+  - `version_id = agtvrsn_0401kv7waz0sfae92b77pgjhmcqf`
+- эта ветка создана от текущего подтверждённого live-состояния:
+  - live `Main branch_id = agtbrch_7801kgybyg9nesrbv64y078pazq0`
+  - live `version_id = agtvrsn_9001kv0k051efpr84vwwttz6kthj`
+- важно:
+  - live `Main` остаётся на `100%` трафика;
+  - `lab_naturalness_2026_06` остаётся на `0%`;
+  - боевой агент не переключался и не менялся ради naturalness-экспериментов.
+- стартовый baseline для lab сейчас такой:
+  - `tts.model_id = eleven_flash_v2_5`
+  - `voice_id = 0ArNnoIAWKlT4WweaVMY`
+  - `expressive_mode = false`
+  - `speed = 1.08`
+  - `stability = 0.46`
+  - `similarity_boost = 0.82`
+  - `optimize_streaming_latency = 2`
+  - `turn_timeout = 1.75`
+  - `turn_eagerness = normal`
+  - `turn_model = turn_v2`
+- baseline-снимки сохранены в:
+  - `.runtime/eleven_lab_setup_2026-06-16/`
+- следующий этап делать только в lab:
+  - baseline self-tests;
+  - затем маленькие isolated changes:
+    - voice/TTS;
+    - turn-taking;
+    - prompt naturalness.
+
+Обновление `2026-06-15` по очистке диска и legacy-хвостов:
+- на live-сервере `147.45.213.87` удалены raw SQLite-хвосты, оставшиеся после перехода `n8n` на `Postgres`;
+- подтверждено, что live `n8n` уже работает на:
+  - `DB_TYPE=postgresdb`
+  - `DB_POSTGRESDB_HOST=n8n-server-postgres-1`
+  - `DB_POSTGRESDB_DATABASE=n8n_prod`
+- после очистки volume `n8n-server_n8n_data` уменьшился примерно до:
+  - `38.77MB`
+  и больше не содержит старый `database.sqlite`;
+- очищены:
+  - historical raw SQLite copies в `/home/aicore/backups/...` и `/home/aicore/safe-backups/...`;
+  - docker log stopped-контейнера `madcore-app`;
+  - `site-control-kit` runtime cache и `state.json`;
+  - Docker build cache (`0B` после `buildx prune`);
+- место на корневом разделе изменилось примерно так:
+  - было:
+    - `38G used / 39G avail / 50%`
+  - стало:
+    - `22G used / 56G avail / 28%`
+- это не меняло текущий voice runtime:
+  - `n8n`
+  - `postgres`
+  - `postgres_memory`
+  - `postgrest`
+  - `ElevenLabs`
+  остались в рабочем состоянии;
+- `site-control-kit` по-прежнему относится не к voice-call-center, а к `cosmetologist_hunter`;
+  после очистки сейчас:
+  - `connected_clients = 0`
+  - browser client не поднят постоянно;
+- главный оставшийся крупный логовый хвост:
+  - `/var/log/asterisk` около `3.2G`
+  - он продолжает расти из-за потока failed `REGISTER`.
+
 Обновление `2026-06-13` по возврату точного opener и защите от недослушанного soft-refusal:
 - по жалобе `начала вообще ни с того / опять не слушает` снят новый live-лог:
   - `conv_2501kv0jdj3nem583shqd89432xf`
