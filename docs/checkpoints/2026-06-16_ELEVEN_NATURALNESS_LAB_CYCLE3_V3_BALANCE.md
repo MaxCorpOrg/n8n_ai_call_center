@@ -124,6 +124,23 @@
 - Что ещё осталось:
   - на самом раннем старте user успел перебить самый первый кусок opener (`Здравствуйте, я...`), после чего agent уже выдал полный fixed opener;
   - это уже не старый catastrophic opener-restart, но раннюю opener-fragment ветку ещё стоит сделать аккуратнее.
+- После этого сделан отдельный early-opener validation test:
+  - `conv_1201kv81g2tgfpfr2ge32khc5qg2`
+  - version:
+    - `agtvrsn_3601kv81fnbbf4rvz38gy18czswx`
+- Для этого слоя отдельно включено:
+  - `disable_first_message_interruptions = true`
+- Что подтвердилось:
+  - самый ранний opener-fragment на первом ходе ушёл;
+  - agent сразу дал полный fixed opener:
+    - `Здравствуйте, я официальный представитель липолитика Липолонг...`
+  - ранний double-`Алло?` сценарий уже не ломает старт разговора;
+  - дальше звонок дошёл до нормального `refusal_soft` закрытия.
+- Что ещё осталось после этого:
+  - в середине разговора при перебивании agent всё ещё может начинать короткие обрывки вроде:
+    - `Вам...`
+    - `Липолонг — это оригинальный...`
+  - это уже не критический сбой сценария, а следующий уровень polish для mid-turn interruption handling.
 
 ## Артефакты
 
@@ -132,16 +149,16 @@
 ## На чем остановились
 
 - Лучшее текущее lab-состояние теперь уже не старый V3-regression и не softened Flash baseline, а новый V3-balance state с ускоренным голосом и более мягким захватом хода.
-- Актуальная верхняя контрольная version после continuity-validation:
-  - `agtvrsn_8701kv8113z8ebps89308e2yfe8h`
+- Актуальная верхняя контрольная version после early-opener fix:
+  - `agtvrsn_3601kv81fnbbf4rvz38gy18czswx`
 - Live `Main` по-прежнему не тронут.
 
 ## Что делать дальше
 
 1. Сделать ещё один manual self-test именно на version:
-   - `agtvrsn_8701kv8113z8ebps89308e2yfe8h`
+   - `agtvrsn_3601kv81fnbbf4rvz38gy18czswx`
 2. Проверить три конкретные вещи:
-   - можно ли убрать ранний fragment `Здравствуйте, я...` при перебивании на старте;
-   - можно ли сделать первый opener-turn ещё более устойчивым при двойном `Алло!`;
-   - не появится ли regression на machine/screening после continuity-fix.
+   - можно ли уменьшить mid-turn fragments вроде `Вам...` и `Липолонг — это оригинальный...`;
+   - не появится ли regression на machine/screening после early-opener fix;
+   - можно ли ещё сократить сырой draft с literal `system__conversation_id` в tool-call.
 3. Если это подтверждается, считать текущую V3-balance связку лучшим lab-кандидатом на tiny canary.

@@ -101,20 +101,36 @@
 - Остаточный хвост после этого теста:
   - на самом раннем старте user успел перебить самый первый кусок opener (`Здравствуйте, я...`), после чего agent уже дал полный fixed opener;
   - это уже не catastrophic opener-restart из broken continuity-фазы, но ранний opener-fragment стоит ещё подчистить.
+- После этого сделан отдельный early-opener validation test:
+  - `conv_1201kv81g2tgfpfr2ge32khc5qg2`
+  - version:
+    - `agtvrsn_3601kv81fnbbf4rvz38gy18czswx`
+- Для этого слоя включено:
+  - `disable_first_message_interruptions = true`
+- Что подтвердилось:
+  - ранний fragment `Здравствуйте, я...` на первом ходе ушёл;
+  - agent сразу дал полный fixed opener;
+  - double-`Алло?` на старте уже не ломает вход в разговор;
+  - звонок дошёл до нормального `refusal_soft` финала.
+- Остаточный хвост после этого нового теста:
+  - в середине разговора при перебивании agent всё ещё может начинать короткие mid-turn fragments вроде:
+    - `Вам...`
+    - `Липолонг — это оригинальный...`
+  - это уже не поломка сценария, а следующий уровень polish для interruption handling.
 
 ### На чем остановились
 - В отдельном lab-контуре V3 теперь снова выглядит жизнеспособным кандидатом.
 - Лучший текущий lab-state сверху уже не regression-V3, а:
-  - `agtvrsn_8701kv8113z8ebps89308e2yfe8h`
+  - `agtvrsn_3601kv81fnbbf4rvz38gy18czswx`
 - Live `Main` при этом не менялся.
 
 ### Что делать дальше
 1. Сделать ещё один manual self-test на:
-   - `agtvrsn_8701kv8113z8ebps89308e2yfe8h`
+   - `agtvrsn_3601kv81fnbbf4rvz38gy18czswx`
 2. Проверить:
-   - можно ли убрать ранний fragment `Здравствуйте, я...` при перебивании на старте;
-   - можно ли сделать первый opener-turn ещё более устойчивым при двойном `Алло!`;
-   - не появится ли regression на machine/screening после continuity-fix.
+   - можно ли уменьшить mid-turn fragments вроде `Вам...` и `Липолонг — это оригинальный...`;
+   - не появится ли regression на machine/screening после early-opener fix;
+   - можно ли ещё сократить сырой draft с literal `system__conversation_id` в tool-call.
 3. Только после этого решать, достоин ли этот V3-balance state tiny canary.
 
 ## 1.0) Обновление 2026-06-16: voice-cycle в lab показал регресс на V3 и более безопасный путь через softened Flash
