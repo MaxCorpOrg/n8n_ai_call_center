@@ -1,5 +1,67 @@
 # ElevenLabs агент
 
+## Обновление 2026-06-16 по V3-balance cycle в lab
+
+- После первого V3-теста стало ясно, что проблема не в том, что `eleven_v3_conversational` вообще непригоден, а в том, что его нужно отдельно балансировать под наш телефонный сценарий.
+- На compact-prompt lab-state сначала был V3 self-test:
+  - `conv_2601kv7yka71f5qan6hczca1ttj1`
+  - version:
+    - `agtvrsn_5401kv7yk01zertthrww7x0jt5n3`
+- Он показал:
+  - opener уже правильный;
+  - но первый ответ после `Алло!` шёл слишком долго:
+    - `LLM TTFB ≈ 3.07s`
+- После этого в lab внесён balance-patch:
+  - version:
+    - `agtvrsn_1301kv7ywxgffw3sjg90zfd283av`
+  - настройки:
+    - `tts.model_id = eleven_v3_conversational`
+    - `speed = 1.08`
+    - `turn_timeout = 1.4`
+    - `turn_eagerness = normal`
+    - в `client_events` добавлен `interruption`
+- Контрольный manual self-test:
+  - `conv_7601kv7yxe4zfb5tbkbh5hwp53ky`
+- По нему подтверждено:
+  - первый agent-turn ускорился резко:
+    - `~3.07s -> ~0.53s`
+  - обычные средние ходы держались примерно в окне:
+    - `~0.54–0.60s`
+  - agent стало легче перебивать живым голосом;
+  - V3 стал звучать живее без мгновенного развала логики.
+- Одновременно найден новый остаток:
+  - agent всё ещё мог слишком растягивать explain-turn;
+  - после `send_sms_info` пытался сказать лишний хвост:
+    - `Могу чем-то ещё...`
+- Поэтому сверху внесён ещё один prompt-follow-up:
+  - текущая верхняя lab-version:
+    - `agtvrsn_8501kv7z35n9eggamnvq4qe8ygwe`
+  - в ней закреплено:
+    - после `send_sms_info` только короткое подтверждение и закрытие;
+    - без `Могу чем-то ещё...`;
+    - explain-turn максимум `2` коротких предложения и `1` короткий вопрос.
+- Практически это значит:
+  - лучший текущий lab-кандидат теперь уже не softened Flash, а новый V3-balance state;
+  - но tiny canary ещё нельзя включать без ещё одного self-test именно на version:
+    - `agtvrsn_8501kv7z35n9eggamnvq4qe8ygwe`
+
+## Обновление 2026-06-16 по continuity-validation
+
+- После stress-test и continuity-fix текущая верхняя lab-version теперь:
+  - `agtvrsn_8701kv8113z8ebps89308e2yfe8h`
+- Проверочный длинный self-test:
+  - `conv_8801kv813p1qetr8n3tbcw0cfz4e`
+- По нему подтверждено:
+  - stale `no_answer` больше не ломает длинный живой разговор;
+  - repeated-detail ветка уже не скатывается в тупой SMS-loop;
+  - разговор дошёл до нормального человеческого исхода:
+    - `manager_call`
+    - `call_manager`
+  - `call_log` уже пишет корректный текущий `conv_*`.
+- Что осталось:
+  - если user перебивает самый первый кусок opener в самом начале звонка, agent всё ещё может начать с короткого fragment `Здравствуйте, я...`, а потом уже дать полный fixed opener;
+  - это не критический развал, но следующий точечный фронт теперь именно этот early-opener interrupt case.
+
 ## Обновление 2026-06-16 по отдельной ветке naturalness-lab
 
 - Для настройки более “человечного” разговора теперь выделен отдельный контур, чтобы не ломать боевой `Main`.
