@@ -1,5 +1,90 @@
 # 09. Состояние проекта и последние изменения
 
+## 1.0) Обновление 2026-06-16: voice-cycle в lab показал регресс на V3 и более безопасный путь через softened Flash
+
+### Сделано
+- После завершения первого lab-cycle выполнен отдельный voice/TTS цикл в `lab_naturalness_2026_06`.
+- Перед voice-патчем снят baseline branch snapshot:
+  - version:
+    - `agtvrsn_7001kv7x1ztdfpnth8rw6rjmjbnh`
+  - TTS baseline:
+    - `model_id = eleven_flash_v2_5`
+    - `expressive_mode = false`
+    - `speed = 1.08`
+    - `stability = 0.46`
+    - `similarity_boost = 0.82`
+- Затем сделан отдельный V3 voice-patch:
+  - новая version:
+    - `agtvrsn_7501kv7xb334emqtt4rvz06wq4zm`
+  - настройки:
+    - `model_id = eleven_v3_conversational`
+    - `expressive_mode = true`
+    - `speed = 1.02`
+    - `stability = 0.42`
+    - `similarity_boost = 0.78`
+- Проверочный self-test на V3:
+  - `conversation_id = conv_0001kv7xbt11em1akwnvn60g1w52`
+- Что он показал:
+  - voice stack действительно переключился на:
+    - `primary_tts_model = eleven_v3_conversational`
+  - но вместе с этим проявился неприемлемый поведенческий регресс:
+    - line opened from ambiguous `...`;
+    - agent ушёл в pre-opener rescue:
+      - `[calm] Алло? Вы на линии?`
+    - затем слишком рано зафиксировал `no_answer`;
+    - после этого уже пришёл живой lexical user fragment:
+      - `Да, ну, вот так. Вся-- э-э`
+    - то есть V3-cycle в текущем контуре нарушил критическое правило:
+      - не уходить в premature no_answer на живой линии.
+- После этого V3 не был оставлен как лучший текущий lab-state.
+- Вместо него сделан recovery-патч на Flash с более мягкими voice-настройками:
+  - новая version:
+    - `agtvrsn_5001kv7xeea2ef7smebsma02kaek`
+  - настройки:
+    - `model_id = eleven_flash_v2_5`
+    - `expressive_mode = false`
+    - `speed = 1.00`
+    - `stability = 0.40`
+    - `similarity_boost = 0.76`
+- Проверочный self-test после recovery:
+  - `conversation_id = conv_6701kv7xf23aevv9ehmw2w5ns2b5`
+- Что подтвердилось на softened Flash:
+  - correct opener-path сохранился;
+  - pre-opener rescue regression не вернулся;
+  - confused follow-up отработал нормально:
+    - `Это звонок по липолитику Липолонг для косметологов. Вы вообще с такими препаратами работаете?`
+  - soft refusal path остался живым и компактным;
+  - следующий sales move звучал уже достаточно коротко:
+    - `Ясно, у нас можно начать с одной тестовой упаковки, чтобы спокойно сравнить. Могу отправить короткую SMS с информацией, чтобы вы вернулись к этому позже?`
+- Артефакты voice-cycle сохранены в:
+  - `.runtime/eleven_lab_voice_cycle_2026-06-16/`
+- Создан отдельный checkpoint:
+  - `docs/checkpoints/2026-06-16_ELEVEN_NATURALNESS_LAB_CYCLE2_VOICE.md`
+
+### На чем остановились
+- По итогам фактических self-tests лучший текущий lab-state сейчас не V3, а:
+  - `agtvrsn_5001kv7xeea2ef7smebsma02kaek`
+- Причина:
+  - softened Flash сохранил правильную разговорную логику;
+  - V3 дал опасный регресс на pre-opener rescue / premature no_answer.
+- Значит задача “лучший ассистент” сейчас движется не через слепой переход на V3, а через:
+  - сохранение правильного поведения;
+  - постепенное улучшение тона, phrasing и задержек без regressions.
+
+### Что делать дальше
+1. Следующий cycle делать уже не как смену всей TTS-модели, а как controlled voice-layer refinement поверх softened Flash:
+   - точечно сравнить `stability` и `similarity_boost`;
+   - не ломая proven behavior.
+2. Отдельно подумать, можно ли возвращаться к `eleven_v3_conversational` только после отдельного hardening:
+   - pre-opener human gate;
+   - no_answer guard;
+   - lexical-reply priority.
+3. Следующий manual self-test строить на сценариях:
+   - `Алло!`
+   - confused reply;
+   - soft refusal;
+   - краткая пауза после opener.
+
 ## 1.0) Обновление 2026-06-16: выполнен первый lab-cycle по naturalness в отдельной ElevenLabs-ветке
 
 ### Сделано

@@ -36,6 +36,18 @@
   - `not_target` ветка проходит чище.
 - Следующий lab-фокус:
   - voice/TTS naturalness, а не новый большой prompt-перепис.
+- Этот voice-cycle уже проведён:
+  - V3 test:
+    - `conv_0001kv7xbt11em1akwnvn60g1w52`
+    - version:
+      - `agtvrsn_7501kv7xb334emqtt4rvz06wq4zm`
+  - Flash recovery:
+    - `conv_6701kv7xf23aevv9ehmw2w5ns2b5`
+    - version:
+      - `agtvrsn_5001kv7xeea2ef7smebsma02kaek`
+- Практический вывод после фактических self-tests:
+  - `eleven_v3_conversational` в текущем контуре дал поведенческий регресс;
+  - лучший текущий lab-state после voice-cycle — softened `eleven_flash_v2_5`, а не V3.
 
 ## Обновление 2026-06-12 по дожиму после короткого отказа
 
