@@ -1,0 +1,22 @@
+{
+  "product": "LipoLong",
+  "price_anchor_rub": 19000,
+  "price_anchor_text_ru": "от 19 000 руб.",
+  "min_order_units": 1,
+  "min_order_text_ru": "от 1 шт.",
+  "test_pack_free": false,
+  "test_pack_text_ru": "не бесплатная",
+  "delivery_text_ru": "3-4 дня",
+  "payment_prompt_text_ru": "безнал, полная предоплата",
+  "payment_sms_text_ru": "безнал +6%, полная предоплата",
+  "payment_profile_text_ru": "полная предоплата, безнал",
+  "source_notes_ru": [
+    "Коммерческий anchor для ответа на прямой вопрос о цене.",
+    "Не использовать как обязательную часть opener или обычной презентации.",
+    "Формулировка оплаты может отличаться по каналу: prompt, SMS и профильный KB."
+  ],
+  "sources": [
+    "docs/agent_kb_lipolong/01_PRODUCT_PROFILE_RU.md",
+    "docs/call-translation-bridge/09_ELEVEN_TOOL_SEND_SMS_RU.md"
+  ]
+}
