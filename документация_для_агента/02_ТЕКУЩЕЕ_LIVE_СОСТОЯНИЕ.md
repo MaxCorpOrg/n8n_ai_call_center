@@ -1,6 +1,6 @@
 # Текущее live-состояние
 
-Обновление `2026-06-17` по silence-regression и pending strict-silence patch:
+Обновление `2026-06-18` по strict-silence patch:
 - опубликованная lab-версия:
   - `agtvrsn_1301kvagt880eg88y6kynrmyxzvx`
   показала regression именно на тишине;
@@ -11,7 +11,7 @@
   - inbound-style `Да? Чем могу помочь?`
   - предложения `SMS / callback` прямо внутри silence-state;
 - это признано неправильным поведением;
-- под это уже собран локальный patch:
+- под это собран отдельный patch:
   - `.runtime/eleven_lab_strict_silence_window_2026-06-17/payload.json`
 - его база:
   - `agtvrsn_2101kvag7mw1fpgv6y64jp58qk7j`
@@ -21,9 +21,17 @@
   - не предлагать SMS / callback / manager;
   - не говорить `Да? Чем могу помочь?`
   - разрешать только один rescue, затем silent end.
-- важно:
-  - на момент этой контрольной точки strict-silence patch ещё не опубликован;
-  - значит published lab-state по тишине ещё не считать финальным.
+- patch уже опубликован:
+  - `agtvrsn_6001kvcq8b3zf8p9cxdheh1gtbxz`
+- но runtime test по звонку пока не подтверждён из-за внешнего outbound-ограничения:
+  - `status = sanctioned_country`
+  - `This functionality is not available in your location.`
+- параллельно:
+  - direct relay timeout
+  - webhook указывает на inactive workflow `sHTbALayEZdy8Mzs`
+- значит published lab-prompt по тишине уже обновлён, но phone runtime ещё не верифицирован живым разговором.
+- отдельная контрольная точка:
+  - `docs/checkpoints/2026-06-18_STRICT_SILENCE_PUBLISHED_AND_RUNTIME_BLOCKED.md`
 
 Обновление `2026-06-17` по mid-dialogue reassurance trim в naturalness-lab:
 - live `Main` этим шагом не менялся;

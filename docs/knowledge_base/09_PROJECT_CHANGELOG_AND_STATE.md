@@ -1,6 +1,6 @@
 # 09. Состояние проекта и последние изменения
 
-## 1.0) Обновление 2026-06-17: версия `agtvrsn_1301...` признана regression по silence, strict-silence patch пока подготовлен только локально
+## 1.0) Обновление 2026-06-18: strict-silence patch уже опубликован, но runtime-проверка упёрлась во внешний `sanctioned_country`
 
 ### Сделано
 - После отдельной проверки версии:
@@ -15,7 +15,7 @@
   - предложения `SMS / callback` прямо в состоянии молчания
   - вместо одного правильного no-answer path.
 - Поэтому `1301...` нельзя считать новой рабочей вершиной lab.
-- Под это подготовлен отдельный локальный helper:
+- Под это подготовлен отдельный helper:
   - [scripts/prepare_eleven_strict_silence_window_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_strict_silence_window_variant.sh:1)
 - Он собирает узкий patch поверх более здоровой базы:
   - `agtvrsn_2101kvag7mw1fpgv6y64jp58qk7j`
@@ -30,22 +30,34 @@
   - после него при отсутствии осмысленного ответа должен идти silent `call_log(no_answer)` и silent end.
 - Локальные инварианты для payload уже зелёные:
   - `26/26 ok`
+- Затем patch уже реально опубликован в lab:
+  - `agtvrsn_6001kvcq8b3zf8p9cxdheh1gtbxz`
+- По опубликованной версии тоже подтверждено:
+  - `26/26 ok`
+  - strict silence block на месте
+  - запрет `Да? Чем могу помочь?` на месте
+  - запрет `SMS / callback / manager` в silence-state на месте
 
 ### На чем остановились
-- Strict-silence payload уже подготовлен локально:
-  - `.runtime/eleven_lab_strict_silence_window_2026-06-17/payload.json`
-- Но он ещё не применён в published lab-version, потому что ход был прерван до apply-step.
-- Значит текущая опубликованная верхняя точка всё ещё не закрывает silence-loop достаточно надёжно.
+- Сам patch уже опубликован.
+- Но живой test-call не дал transcript из-за внешнего outbound-блока:
+  - `status = sanctioned_country`
+  - `message = This functionality is not available in your location.`
+- Параллельно прямой relay снова timeout-ится, а webhook отвечает:
+  - `Active version not found for workflow with id "sHTbALayEZdy8Mzs"`
+- Значит текущее состояние такое:
+  - prompt/config часть опубликована и подтверждена;
+  - runtime-доказательство поведения на линии пока заблокировано внешним состоянием.
 
 ### Что делать дальше
-1. Опубликовать strict-silence payload в lab.
-2. Снять один короткий test-call по сценарию молчания после opener.
-3. Подтвердить, что исчезли:
+1. Как только outbound снова станет доступен, снять один короткий test-call по сценарию молчания после opener.
+2. Подтвердить, что исчезли:
   - `Да? Чем могу помочь?`
   - repeated `Алло?`
   - SMS/callback offers внутри silence-state.
+3. Отдельно проверить, не надо ли перевязать webhook с inactive workflow `sHTbALayEZdy8Mzs`.
 4. Использовать отдельную контрольную точку:
-  - [docs/checkpoints/2026-06-17_ELEVEN_STRICT_SILENCE_WINDOW_PENDING.md](/home/max/n8n_ai_call_center/docs/checkpoints/2026-06-17_ELEVEN_STRICT_SILENCE_WINDOW_PENDING.md:1)
+  - [docs/checkpoints/2026-06-18_STRICT_SILENCE_PUBLISHED_AND_RUNTIME_BLOCKED.md](/home/max/n8n_ai_call_center/docs/checkpoints/2026-06-18_STRICT_SILENCE_PUBLISHED_AND_RUNTIME_BLOCKED.md:1)
 
 ## 1.0) Обновление 2026-06-17: отдельный mid-dialogue trim убрал `Да, я тут` и `[calm]`, но late `Алло?` и duplicate close ещё остались
 

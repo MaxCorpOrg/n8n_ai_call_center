@@ -1,4 +1,4 @@
-# 2026-06-17 — Eleven naturalness lab: strict silence window pending
+# 2026-06-17 — Eleven naturalness lab: strict silence window published, runtime test blocked externally
 
 ## Сделано
 - Подтверждён регресс опубликованной lab-версии:
@@ -31,18 +31,33 @@
   - `26/26 ok`
   - артефакт:
     - `.runtime/eleven_lab_strict_silence_window_2026-06-17/payload.json`
+- После этого patch уже реально опубликован в ElevenLabs:
+  - `agtvrsn_6001kvcq8b3zf8p9cxdheh1gtbxz`
+- Опубликованная версия тоже подтверждена по конфигу:
+  - `26/26 ok`
+  - в prompt есть:
+    - strict silence block
+    - запрет `Да? Чем могу помочь?`
+    - запрет `SMS / callback / manager` в silence-state
+    - требование одного `no_answer` path
 
 ## На чем остановились
-- Strict-silence patch уже собран локально.
-- Но на момент этой контрольной точки он ещё не опубликован в ElevenLabs, потому что ход был прерван перед apply-step.
-- Значит текущая опубликованная вершина всё ещё проблемная для silence-сценария и не должна считаться финальной.
+- Strict-silence patch уже опубликован.
+- Но живой runtime test не удалось подтвердить из-за внешнего ограничения телефонии, а не из-за prompt:
+  - outbound ответ:
+    - `status = sanctioned_country`
+    - `message = This functionality is not available in your location.`
+- Дополнительно прямой relay снова дал timeout, а webhook указывает на inactive workflow:
+  - `Active version not found for workflow with id "sHTbALayEZdy8Mzs"`
+- Значит по текущей контрольной точке:
+  - prompt/config уже обновлён и опубликован;
+  - живое доказательство по phone runtime временно заблокировано внешним состоянием.
 
 ## Что делать дальше
-1. Опубликовать:
-  - `.runtime/eleven_lab_strict_silence_window_2026-06-17/payload.json`
-2. Снять один короткий test-call на молчание после opener.
-3. Проверить, что больше нет:
+1. Как только внешний outbound снова станет доступен, снять один короткий test-call на молчание после opener.
+2. Проверить, что больше нет:
   - `Да? Чем могу помочь?`
   - повторных `Алло?`
   - предложений `SMS / callback` в silence-state.
-4. Только после этого решать, оставлять ли новую версию как рабочую вершину lab.
+3. Отдельно проверить, не нужно ли перевязать live webhook вместо inactive workflow `sHTbALayEZdy8Mzs`.
+4. Только после runtime-подтверждения решать, оставлять ли `agtvrsn_6001kvcq8b3zf8p9cxdheh1gtbxz` как новую рабочую вершину lab.

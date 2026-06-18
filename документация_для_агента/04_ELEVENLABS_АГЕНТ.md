@@ -1,5 +1,721 @@
 # ElevenLabs агент
 
+## Обновление 2026-06-17: отдельный system-binding цикл дал частичную победу, но жёсткая `v2` отклонена
+
+- Для отдельного technical-шага добавлен helper:
+  - [scripts/prepare_eleven_system_binding_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_system_binding_variant.sh:1)
+- Его смысл:
+  - не менять live `Main`;
+  - не менять voice-stack;
+  - только аккуратно проверить, можно ли прибить:
+    - `context_fetch` до opener
+    - и фальшивые `conv_*` в drafted tool-call
+- Что проверено:
+  - `agtvrsn_1101kvabn43mfeztaavzxwcbtxyn`
+    - звонок:
+      - `conv_3001kvabnww3f878kczd95zcndkz`
+    - результат:
+      - `context_fetch_before_opener` ушёл;
+      - фактический webhook body по `call_log` уже продолжил получать правильный live `conv_*`;
+      - но draft `params_as_json` ещё содержал fake `conv_abcdef...`
+  - `agtvrsn_7501kvabt8d8ewcrmxmnrcrmtn42`
+    - звонок:
+      - `conv_6901kvabtxcrezm8y19zcyctde1f`
+    - результат:
+      - placeholder issue из audit исчез;
+      - но разговор деградировал:
+        - stage tags `[calm]`
+        - поздние `Алло?`
+        - повторные confused loops
+- Поэтому:
+  - `agtvrsn_7501kvabt8d8ewcrmxmnrcrmtn42` не считать текущей рабочей точкой;
+  - после этого lab-ветка возвращена на более безопасную линию;
+  - новый branch-head после отката:
+    - `agtvrsn_0101kvac144tfsb88f32crqgbmvq`
+- Важная интерпретация:
+  - этот binding-cycle показал, что issue `context_fetch_before_opener` решаем;
+  - но placeholder `conv_*` дальше нужно добивать отдельно от общей разговорной naturalness-логики.
+- Отдельный checkpoint по этому циклу:
+  - [docs/checkpoints/2026-06-17_ELEVEN_SYSTEM_BINDING_FIX.md](/home/max/n8n_ai_call_center/docs/checkpoints/2026-06-17_ELEVEN_SYSTEM_BINDING_FIX.md:1)
+
+## Обновление 2026-06-17: tool-layer patch по `call_log/end_call` уже проверен и отклонён
+
+- Для отдельной structural-пробы добавлен helper:
+  - [scripts/prepare_eleven_finalization_tool_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_finalization_tool_variant.sh:1)
+- Его идея была понятной:
+  - не переписывать весь prompt;
+  - а сделать жёстче сами описания tools:
+    - `call_log`
+    - `end_call`
+  - чтобы assistant закрывал звонок только как:
+    - silent `call_log`
+    - один spoken `end_call`
+- Выпущенный кандидат:
+  - `agtvrsn_9001kvac85yzfhgv8fx3tgqnvn7b`
+- Контрольный звонок:
+  - `conv_1101kvac8w32fjdtvay58v040esw`
+- Что важно:
+  - сначала могло показаться, что duplicate close ушёл;
+  - но после усиления analyzer стало видно, что он просто маскировался stage tag'ом:
+    - обычная реплика:
+      - `Я уже отправила SMS на этот номер. Хорошего дня. [calm]`
+    - затем тот же close шёл в `end_call.system__message_to_speak`
+- Плюс сам разговор регрессировал:
+  - `[calm]`
+  - поздние `Алло?`
+  - повторные SMS-loop ветки
+- Поэтому:
+  - `agtvrsn_9001kvac85yzfhgv8fx3tgqnvn7b` не считать рабочей точкой;
+  - после отката текущий branch-head:
+    - `agtvrsn_7301kvacfzesee19rmc9fs22m49e`
+- Отдельный практический вывод:
+  - structural tool-layer patch в одиночку пока не лечит финализацию без побочных регрессий;
+  - следующий цикл по duplicate close надо держать отдельно от line-check и bracket-tag проблемы.
+
+## Обновление 2026-06-17: price-answer anchor добавлен как отдельный micro-patch
+
+- Для реплики пользователя про цену добавлен отдельный helper:
+  - [scripts/prepare_eleven_price_anchor_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_price_anchor_variant.sh:1)
+- Чтобы не держать цену и условия в хардкоде по нескольким файлам, добавлен отдельный машинно-читаемый anchor:
+  - [docs/agent_kb_lipolong/10_COMMERCIAL_ANCHOR_RU.json](/home/max/n8n_ai_call_center/docs/agent_kb_lipolong/10_COMMERCIAL_ANCHOR_RU.json:1)
+- Он добавляет только один узкий разговорный anchor:
+  - если человек спрашивает цену / стоимость / бесплатна ли тестовая упаковка,
+    агент должен ответить прямо и коротко.
+- Если человек цену не спрашивал:
+  - агент не должен сам вставлять стоимость в opener, обычную презентацию или value-turn.
+- Зафиксированный текущий anchor:
+  - `от 19 000 руб.`
+  - старт от `1 шт.`
+  - тестовая упаковка не бесплатная
+- Короткие дополнительные факты, которые допустимо упомянуть:
+  - доставка `3-4 дня`
+  - оплата: безнал, полная предоплата
+- После price-answer agent не должен застревать в длинном споре о цене.
+- Он должен:
+  - коротко ответить
+  - и перевести в один next step:
+    - SMS
+    - или callback менеджера
+- Новый current branch-head после этого патча:
+  - `agtvrsn_9201kvaeewdnerjvyrcb2ykkhz5g`
+- Затем дополнительно очищен сам prompt:
+  - повторный второй `Price-answer anchor override` удалён;
+  - оставлен один канонический price-блок без дублирования.
+- Для этой текущей вершины добавлен локальный preflight-check:
+  - [scripts/check_eleven_prompt_invariants.py](/home/max/n8n_ai_call_center/scripts/check_eleven_prompt_invariants.py:1)
+- Что он сейчас проверяет автоматически:
+  - ровно один `Price-answer anchor override`;
+  - цена не озвучивается инициативно;
+  - цена даётся только по прямому вопросу;
+  - exact opener присутствует ровно один раз;
+  - `one rescue` правило на месте;
+  - hard-stop по `абонент` и `МТС Защитник` на месте;
+  - machine-path требует `call_log` и silent end.
+- Текущий прогон на:
+  - `agtvrsn_6701kvadx4z9f60a639v3h02dgmy`
+  дал:
+  - `13/13 ok`
+- Отдельно уже собран JSON-driven payload от:
+  - `10_COMMERCIAL_ANCHOR_RU.json`
+  и локально проверен на:
+  - `15/15 ok`
+- Этот JSON-driven payload уже реально опубликован в текущую lab-ветку:
+  - `agtvrsn_9201kvaeewdnerjvyrcb2ykkhz5g`
+- Проверка опубликованного ответа Eleven тоже уже зелёная:
+  - `15/15 ok`
+  - [prompt_invariants_applied.json](/home/max/n8n_ai_call_center/.runtime/eleven_lab_price_anchor_jsonized_2026-06-17/apply_result/prompt_invariants_applied.json)
+- Дополнительно добавлен cross-doc consistency-check:
+  - [scripts/check_commercial_anchor_consistency.py](/home/max/n8n_ai_call_center/scripts/check_commercial_anchor_consistency.py:1)
+- Он проверяет, что коммерческий anchor не разошёлся между:
+  - `10_COMMERCIAL_ANCHOR_RU.json`
+  - `01_PRODUCT_PROFILE_RU.md`
+  - `09_ELEVEN_TOOL_SEND_SMS_RU.md`
+- Текущий прогон уже зелёный:
+  - `11/11 ok`
+  - артефакт:
+    - [.runtime/eleven_lab_price_anchor_jsonized_2026-06-17/commercial_anchor_consistency.json](/home/max/n8n_ai_call_center/.runtime/eleven_lab_price_anchor_jsonized_2026-06-17/commercial_anchor_consistency.json)
+- Практический смысл:
+  - если цена, минимальный вход, доставка или оплата меняются,
+    дальше лучше менять их сначала в `10_COMMERCIAL_ANCHOR_RU.json`,
+    а не вручную по разным prompt-кускам.
+- Для следующего живого теста добавлен и специальный price-wrapper:
+  - [scripts/run_eleven_price_selftest_audit.sh](/home/max/n8n_ai_call_center/scripts/run_eleven_price_selftest_audit.sh:1)
+- Он поверх обычного self-test цикла отдельно проверяет:
+  - спросил ли пользователь цену;
+  - не назвал ли агент цену раньше времени;
+  - был ли после price-answer нормальный next step.
+- Уже есть и историческое доказательство пользы этого check:
+  - на старом звонке
+    - `conv_3001kvaddyrwe50tdpf91vwwpsv7`
+    он поймал:
+    - `price_mentioned_before_user_asked`
+    - `no_price_question_detected`
+
+## Обновление 2026-06-17: добавлен локальный audit для хвостов финализации
+
+- Для разговора с ElevenLabs теперь есть не только ручное прослушивание, но и локальный JSON-audit:
+  - [scripts/analyze_eleven_conversation.py](/home/max/n8n_ai_call_center/scripts/analyze_eleven_conversation.py:1)
+- Для удобного повседневного цикла сверху добавлен wrapper:
+  - [scripts/run_eleven_selftest_audit.sh](/home/max/n8n_ai_call_center/scripts/run_eleven_selftest_audit.sh:1)
+- Он нужен именно для тех хвостов, которые не удалось добить одними prompt-only правками:
+  - duplicate close;
+  - late line-check;
+  - filler в finalization;
+  - placeholder `conv_*` в tool-call;
+  - `context_fetch` до opener;
+  - bracket-style spoken tags.
+- Отдельный checkpoint по его результатам:
+  - [docs/checkpoints/2026-06-17_ELEVEN_FINALIZATION_AUDIT.md](/home/max/n8n_ai_call_center/docs/checkpoints/2026-06-17_ELEVEN_FINALIZATION_AUDIT.md:1)
+- Практическое правило на сейчас:
+  - после каждого self-test по naturalness сначала смотреть transcript и слухом;
+  - потом обязательно прогонять audit:
+    - либо через `scripts/run_eleven_selftest_audit.sh`
+    - либо через `scripts/analyze_eleven_conversation.py` по готовому `conversation_poll_final.json`;
+  - и только потом считать, стала ли версия реально лучше.
+
+## Обновление 2026-06-17: cleanup-серия поверх V3 softfill не стала новым winner и lab возвращён на softfill
+
+- После подтверждения сильной softfill-линии были проверены ещё три узких prompt-only cleanup-кандидата:
+  - `agtvrsn_5701kvaaanp8feqvj6s1hrcw2mp0`
+  - `agtvrsn_4701kvaafxaket0rtt3y5hnt9q14`
+  - `agtvrsn_9501kvaapngkexzr5964jhvbh4zw`
+- Их задача была локальной:
+  - прибить line-check после осмысленного post-opener ответа;
+  - убрать filler в финализации;
+  - убрать duplicate close между обычной репликой и `end_call`.
+- Контрольные звонки:
+  - `conv_7001kvaa3cv7emkbw8ztmn9tyg95`
+  - `conv_4601kvaabcqaf37tw4tbr87y8s28`
+  - `conv_1701kvaaqez7ehyv5d39m3egvwx4`
+  показали:
+  - prompt-only серия не дала устойчивой победы;
+  - duplicate close всё ещё встречается;
+  - line-check хвосты всё ещё встречаются;
+  - filler / лишняя речь в finalization тоже ещё прорывается.
+- Поэтому эта серия не признана новой верхней нормой.
+- Lab-ветка возвращена обратно на проверенную softfill-линию.
+- Новый branch-head после возврата:
+  - `agtvrsn_1201kvaavm18fe8b4sgw5vxt7tqy`
+- Практический вывод:
+  - V3 softfill остаётся лучшей текущей точкой;
+  - следующий прогресс по `duplicate close / finalization filler` уже лучше искать не через ещё один текстовый запрет, а через более структурный контроль финализации.
+
+## Обновление 2026-06-17 по `GPT-5 Mini + Eleven v3 Conversational`: включён lab-only `soft timeout`, а `tool_call_sound` через branch patch не закрепился
+
+- После разбора docs ElevenLabs и последних V3 self-test зафиксирован следующий практический план:
+  - `soft timeout` использовать именно для задержки LLM;
+  - `tool call sounds` использовать только для реальной задержки tools;
+  - не смешивать эти два механизма в одну "магическую" настройку.
+- Для выбранной пользователем связки
+  - `gpt-5-mini + eleven_v3_conversational`
+  собран отдельный lab-only payload:
+  - `.runtime/eleven_lab_gpt5mini_v3_softfill_2026-06-17/payload.json`
+- Для этого payload добавлен локальный helper:
+  - [scripts/prepare_eleven_softfill_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_softfill_variant.sh:1)
+- Что этот helper делает:
+  - берёт проверенный snapshot V3-линии;
+  - оставляет тот же `llm` и тот же `tts.model_id`;
+  - включает `soft_timeout_config` как мягкое заполнение тишины при долгом LLM-ответе;
+  - пробует повесить `typing` только на `send_sms_info`.
+- Выпущенная lab-версия:
+  - `agtvrsn_6101kva6gy9vfssvk495wkznmh4c`
+- Что реально подтвердилось после `apply_result`:
+  - `llm = gpt-5-mini`
+  - `tts.model_id = eleven_v3_conversational`
+  - `soft_timeout_config.timeout_seconds = 2.8`
+  - fallback message:
+    - `Так...`
+  - `use_llm_generated_message = true`
+  - filler prompt override теперь требует:
+    - очень короткий natural thinking filler;
+    - без вопроса к пользователю;
+    - без проверки линии;
+    - без обещания времени ожидания.
+- Что не закрепилось:
+  - `tool_call_sound` для `send_sms_info` через `Update agent` не сохранился;
+  - после ответа ElevenLabs tool по-прежнему вернулся к:
+    - `tool_call_sound = null`
+    - `tool_call_sound_behavior = auto`
+- Практический вывод:
+  - branch-level patch над agent-конфигом для `soft timeout` работает;
+  - branch-level patch для `tool_call_sound` на shared webhook tools в нашем контуре пока не доказан.
+- Важное ограничение:
+  - прямой `PATCH /tools/:tool_id` сейчас нельзя делать бездумно,
+    потому что `context_fetch`, `call_log`, `send_sms_info` у lab и live общие по `tool_id`;
+  - такой шаг уже может поменять поведение боевого контура, а не только lab.
+- Поэтому безопасная следующая линия:
+  1. протестировать новую lab-version
+     - `agtvrsn_6101kva6gy9vfssvk495wkznmh4c`
+     именно на слух:
+     - не вставляет ли filler слишком рано;
+     - не путается ли filler с line-check;
+     - не делает ли V3 разговор ещё более вязким;
+  2. если filler полезен, оставить `soft timeout`;
+  3. если всё ещё нужен audio-mask на SMS-path,
+     делать уже отдельный safe-cycle:
+     - либо через lab-only duplicate tool,
+     - либо через отдельный branch-safe способ переопределения tools,
+     а не через глобальный shared tool patch.
+
+### Self-test на новой softfill-версии
+
+- Проведён branch-targeted self-test:
+  - `conv_0501kva6snynemktpje537318ep5`
+  - `version_id = agtvrsn_6101kva6gy9vfssvk495wkznmh4c`
+  - `branch_id = agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+  - transport:
+    - `relay_via_server`
+- Подтверждено:
+  - звонок действительно прошёл на ожидаемой V3 softfill-версии;
+  - opener стартовал чисто:
+    - `Алло!` в `1s`
+    - exact opener уже в `3s`
+  - дальнейший диалог шёл живо и по смыслу:
+    - user подтвердил интерес;
+    - agent нормально объяснил продукт;
+    - на неуместные личные реплики agent не развалился и вернул разговор в business-flow;
+    - `send_sms_info` и `call_log` прошли успешно;
+  - финализация по SMS-path тоже завершилась корректно:
+    - `send_sms_info latency ≈ 1.05s`
+    - `call_log latency ≈ 1.75s`
+    - `end_call latency ≈ 0.50s`
+- Что реально стало ясно по `soft timeout`:
+  - filler действительно сработал;
+  - но сработал слишком поздно для этой конкретной ветки:
+    - после user-реплики с просьбой отправить SMS в `104s`
+    - filler `Так...` прозвучал только в `123s`
+  - то есть субъективно диалог получился хорошим,
+    но технически именно перед SMS всё ещё висит слишком длинная пауза.
+- Точный технический разбор хвоста:
+  - перед `send_sms_info` зафиксирован
+    - `convai_llm_service_ttfb ≈ 4.41s`
+  - затем уже сам tool отработал быстро
+    - `≈ 1.05s`
+  - значит главный остаточный хвост в этой ветке сейчас не в SMS webhook,
+    а в позднем решении LLM перед tool-call.
+- Практический вывод:
+  - эта версия уже сильная по naturalness и удержанию живого разговора;
+  - следующий узкий шаг теперь не про общий стиль,
+    а именно про сокращение паузы в ветке:
+    - `попросили SMS -> send_sms_info`
+  - `soft timeout` не надо сразу выкидывать,
+    но его одного недостаточно, чтобы скрыть такой длинный decision-gap.
+
+### Попытка `SMS fastlane` поверх удачной V3-версии
+
+- Для точечной подрезки SMS decision-gap собран отдельный prompt-only patch:
+  - [scripts/prepare_eleven_sms_fastlane_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_sms_fastlane_variant.sh:1)
+- Смысл patch:
+  - если в реплике уже есть явная просьба отправить SMS,
+    agent должен идти в `send_sms_info` сразу,
+    не пересказывать и не зависать.
+- Этот кандидат был опубликован как:
+  - `agtvrsn_3501kva75b4qf6htw6qkys1j1q6b`
+- Контрольный self-test:
+  - `conv_0901kva76300ebcvv2rvr2ybpb6z`
+- Что этим тестом подтверждено:
+  - версия подхватилась правильно;
+  - но звонок ушёл не в SMS-ветку, а в ветку:
+    - `интересно -> не работаем -> до свидания`
+  - поэтому честного сравнения SMS decision-gap этот звонок не дал.
+- Что при этом всплыло плохого:
+  - после уже фактически завершённого `not_target` agent снова полез с лишними line-check фразами:
+    - `Вы ещё на линии?`
+    - `Алло?`
+  - такой хвост для хорошей outbound-версии нам не нужен.
+- Поэтому этот `SMS fastlane` пока не принят как новая рабочая вершина.
+- Lab-ветка после этого возвращена обратно на softfill-линию:
+  - новая branch-head после отката:
+    - `agtvrsn_1101kva7s8drfz4r26j2ymbt9r9j`
+  - по сути это возврат к удачной конфигурации
+    - `GPT-5 Mini + Eleven v3 Conversational + soft timeout`
+    без неподтверждённого fastlane-патча.
+- Практический вывод:
+  - `SMS fastlane` остаётся как кандидат, но не как текущий winner;
+  - текущий source-of-truth в lab лучше считать именно softfill-линию,
+    потому что на ней уже был подтверждён реально удачный разговор.
+
+## Обновление 2026-06-17 по официальной документации ElevenLabs: что сильнее всего влияет на быстрый отклик
+
+- По docs ElevenLabs для низкой задержки надо смотреть не на один параметр, а сразу на 5 слоёв:
+  - LLM;
+  - TTS-модель;
+  - `turn_timeout`;
+  - `turn_eagerness`;
+  - внешние tool-вызовы.
+- Практический вывод для нашего проекта:
+  - `eleven_flash_v2_5` остаётся главным быстрым TTS-кандидатом;
+  - `eleven_v3_conversational` можно использовать ради более богатого звучания,
+    но он чаще делает разговор вязким.
+- По docs `Conversation flow`:
+  - `turn_timeout` отвечает за то, когда agent забирает ход после тишины;
+  - `soft timeout` нужен, чтобы замаскировать реальное ожидание LLM;
+  - `turn_eagerness = eager` даёт более быстрый старт ответа, но повышает риск перебивания;
+  - лишние interruption-механики могут как помочь opener, так и замедлить objection-flow.
+- По docs `Speed control`:
+  - допустимый диапазон `speed = 0.7–1.2`;
+  - экстремальные значения могут ухудшать качество речи;
+  - для нашего контура разумно держаться рядом с `1.0–1.1`, а не пытаться “ускорить всё” любой ценой.
+- По docs `Tools` и `Tool Call Sounds`:
+  - быстрые tool-вызовы лучше оставлять тихими или с очень лёгким маскированием;
+  - длинные tool-вызовы можно прикрывать коротким pre-speech или ambient sound;
+  - но если tool быстрый, звук и pre-speech могут сами сделать ответ более тормозным на слух.
+- По docs `Optimizing LLM costs`:
+  - краткий prompt и точные tool-вызовы уменьшают не только стоимость,
+    но и задержку;
+  - большие куски ненужного контекста в system prompt и истории разговора вредят и скорости, и управляемости.
+
+### Что это значит именно для нас
+
+- Если нужно ускорить реакцию live-агента:
+  1. сначала сокращать prompt и фиксировать длину ответов;
+  2. потом подбирать быстрый LLM;
+  3. потом поджимать `turn_timeout` и `turn_eagerness`;
+  4. только потом трогать маскировку ожиданий через `soft timeout` или tool-sounds.
+- Если agent звучит “слишком ботом”, это не значит, что надо сразу ставить самую тяжёлую voice-модель.
+- Для телефонного sales-контура лучший баланс обычно получается не у самой “красивой” модели,
+  а у той, которая:
+  - быстро начинает говорить;
+  - не жует слова;
+  - не висит с длинным молчанием после ответа человека.
+
+## Обновление 2026-06-17 по tuned `GPT-5 Mini + Eleven v3 Conversational`
+
+- На сырой связке
+  - `GPT-5 Mini + Eleven v3 Conversational`
+  был явный регресс по длине и вязкости.
+- После этого выпущен targeted tuning-patch:
+  - без раннего `call_log`;
+  - с короткими sales-turns;
+  - с жёстким post-SMS close;
+  - без продолжения разговора после SMS.
+- Тuned-версия:
+  - `agtvrsn_3201kva3xjj1fxr959jzkymjk038`
+  - звонок:
+    - `conv_4101kva3y9agf5yrp04g78m87wk0`
+- Что стало лучше:
+  - разговор стал заметно короче;
+  - early `call_log` исчез;
+  - после SMS agent уже не раскрывает новый длинный блок диалога;
+  - clean-close стал правильнее.
+- Что ещё осталось:
+  - местами перебивает и не даёт достаточно пространства пользователю;
+  - повторный rescue всё ещё бывает;
+  - в transcript `params_as_json` tool-call всё ещё содержит placeholder-like значения, хотя реальный webhook body уже нормальный.
+- Практически:
+  - эту связку уже стоит не выбрасывать, а дотачивать дальше;
+  - текущий lab-кандидат теперь именно она:
+    - `gpt-5-mini + eleven_v3_conversational`
+    - `agtvrsn_3201kva3xjj1fxr959jzkymjk038`
+
+## Обновление 2026-06-17 по `tuned2`, `tuned3` и `tuned1b`
+
+- После первой удачной tuned-версии были проверены ещё три узких варианта:
+  - `tuned2`
+  - `tuned3`
+  - `tuned1b`
+- Итог по ним общий:
+  - ни один не стал лучше исходной tuned1-линии.
+- `tuned2`:
+  - короче, но вернул сервисный хвост и плохие close-фразы.
+- `tuned3`:
+  - ещё короче, но снова вылезли
+    - `Вы на линии?`
+    - `Чем могу помочь ещё?`
+  - этот вариант признан регрессивным.
+- `tuned1b`:
+  - идея замаскировать SMS-латентность была нормальной;
+  - но реальный self-test не дал нового качественного улучшения относительно tuned1.
+- Поэтому текущая восстановленная лучшая версия на сегодня:
+  - `agtvrsn_0301kva4xj1vers8ry3evaf4q0jp`
+  - фактически это возврат к tuned1-линии:
+    - `gpt-5-mini + eleven_v3_conversational`
+
+## Обновление 2026-06-17 по `Gemini + V3` и `GPT-5 Mini + V3`
+
+- Отдельно проверена связка:
+  - `Gemini 2.5 Flash + Eleven v3 Conversational`
+  - `agtvrsn_5201kva3dwhyf0xrm8wjdz7xnykc`
+  - звонок:
+    - `conv_2801kva3emkdf0p9dd2jk0s38agv`
+  - итог:
+    - сценарий не развалился;
+    - not-target финализация чистая;
+    - но темп всё ещё тяжеловат.
+- Затем проверена связка:
+  - `GPT-5 Mini + Eleven v3 Conversational`
+  - `agtvrsn_9401kva3jyk3eyja2v0manq9r8mk`
+  - звонок:
+    - `conv_7301kva3kn56ep7b4esk2qqvcdd5`
+  - итог:
+    - слишком длинный и вязкий разговор;
+    - ранний `call_log` ещё до opener;
+    - после SMS agent продолжил разговор вместо короткого clean-close;
+    - для live-style телефонного контура это регресс.
+- После этих тестов lab снова возвращён на:
+  - `agtvrsn_0201kva3t7vyexzvv7prj3z7wbef`
+  - `gemini-2.5-flash + eleven_flash_v2_5`
+
+## Обновление 2026-06-17 по `GPT-5`, `GPT-5 Mini`, `GPT-5 Nano`
+
+- В отдельном lab-cycle были проверены три OpenAI-кандидата:
+  - `gpt-5-mini`
+  - `gpt-5-nano`
+  - `gpt-5`
+- `GPT-5 Mini`:
+  - `agtvrsn_0101kva2ts7ee57r5b86vqts64me`
+  - звонок:
+    - `conv_4901kva2vhn5fx4s3gtxjj5vcptr`
+  - итог:
+    - лучше, чем `GPT-4o Mini`;
+    - чисто доходит до `call_log` и `end_call`;
+    - но говорит длиннее нужного и всё ещё тяжело заходит после `нет`;
+    - в transcript есть странность в `params_as_json` tool-call, хотя реальный webhook body уже правильный.
+- `GPT-5 Nano`:
+  - `agtvrsn_2401kva2zfqdegt8wam2nhyqx3k1`
+  - звонок:
+    - `conv_8601kva308pbf8bvc7bd1pservfe`
+  - итог:
+    - слишком слабый для нашего sales-сценария;
+    - повторяет opener и держится хуже.
+- `GPT-5`:
+  - `agtvrsn_4901kva34bqhf8ybm1zcm04h6bbf`
+  - звонок:
+    - `conv_6201kva352w6fe4ajzyntq6p46x3`
+  - итог:
+    - держит сценарий уже прилично;
+    - clean finalization есть;
+    - но ответы длиннее, паузы после возражения всё ещё не идеальны, и цена выше всех.
+- Практический вывод:
+  - из OpenAI-проверок на сегодня самый живой кандидат — `GPT-5 Mini` или `GPT-5`, но ни один из них пока не выбил текущий Gemini-баланс;
+  - lab после сравнения возвращён обратно на:
+    - `gemini-2.5-flash + eleven_flash_v2_5`
+  - актуальная восстановленная версия:
+    - `agtvrsn_4401kva39np7e8hbze7anrs0565y`
+
+## Обновление 2026-06-17 по `GPT-4o Mini` в naturalness-lab
+
+- От текущей лучшей Gemini-версии был собран отдельный compare-payload только со сменой LLM:
+  - `gpt-4o-mini`
+  - без изменений TTS, prompt, `client_events` и `turn_eagerness`
+- Новый lab-кандидат был опубликован как:
+  - `agtvrsn_5201kva2hgb6ezxayw69t4qkzrpf`
+- Реальный self-test:
+  - `conv_1801kva2jcc7e9rtkcvj95jz1k63`
+- По нему подтверждено:
+  - opener сам по себе стартует нормально;
+  - но objection-turn тяжёлый:
+    - `нет` в `11s`
+    - следующий вопрос agent только в `15s`
+  - agent хуже держит сценарий и уходит в semantic drift:
+    - вместо короткого sales-flow начинает объяснять, кто такие косметологи;
+  - final close деградировал:
+    - `Поняла, спасибо. Хорошего дня.` прозвучало дважды;
+    - после этого agent снова вернулся в разговор, вместо чистого завершения.
+- Итог:
+  - `GPT-4o Mini` для нашего телефонного сценария сейчас регрессивен.
+- Поэтому lab-ветка сразу возвращена обратно на Gemini:
+  - `agtvrsn_3901kva2qtdhe0ebbrgv2ck1gv5g`
+  - `llm = gemini-2.5-flash`
+  - `tts.model_id = eleven_flash_v2_5`
+- Практический вывод:
+  - `GPT-4o Mini` сейчас не новый top candidate;
+  - текущая верхняя линия для lab остаётся:
+    - `Gemini 2.5 Flash + Eleven Flash v2.5`
+
+## Обновление 2026-06-16 по реальному LLM compare-cycle в lab
+
+- Фаза теоретической подготовки уже закончена: теперь есть реальные self-test звонки на альтернативных LLM, а не только payload и publish.
+- Отдельно исправлен сам test harness:
+  - `scripts/run_eleven_branch_selftest.sh`
+  - теперь он:
+    - сохраняет отдельные артефакты по `webhook`, `relay`, `relay_via_server`;
+    - не затирает полезный 404/response пустым файлом;
+    - умеет реально уходить в `relay_via_server`;
+    - корректно переносит payload на сервер через SSH.
+- Это важно, потому что live webhook всё ещё отвечает:
+  - `404 Active version not found for workflow with id "sHTbALayEZdy8Mzs"`
+  - а рабочий путь для lab self-test сейчас фактически:
+    - `relay_via_server`
+- Реально подтверждённый Claude self-test:
+  - `conv_8601kv8bgf72fdrtgq4ez8w30yd0`
+  - `version_id = agtvrsn_8301kv8adscff0sb23dwjcmvcxb1`
+  - вывод:
+    - opener чище;
+    - но objection-turn медленный:
+      - `А вы вообще с липолитиками работаете?`
+      - `LLM TTFB ≈ 2.84s`
+- Реально подтверждённый Gemini self-test:
+  - `conv_3901kv8bm93tfdas3dqtnykzcnh6`
+  - `version_id = agtvrsn_5501kv8bkjkffjna37fq79vd5c7j`
+  - вывод:
+    - objection-flow заметно быстрее:
+      - `Вы вообще с липолитиками работаете?`
+      - `LLM TTFB ≈ 1.06s`
+    - value-follow-up тоже быстрее, чем у Claude;
+    - но на первом ходе словлен opener-fragment:
+      - `Здравствуйте,...`
+- После этого был проверен отдельный prompt-patch именно под opener-fragment:
+  - `version_id = agtvrsn_7301kv8bs45tfryst3c38jcpy0za`
+  - контрольный звонок:
+    - `conv_0401kv8bsthdfyvt0d6bp0fjjfe9`
+  - итог:
+    - стало хуже;
+    - agent повторял opener несколько раз;
+    - этот patch признан регрессивным.
+- После этого отдельно проверена чисто platform-level гипотеза:
+  - убрать `interruption` из `client_events`
+  - не переписывая prompt
+- Контрольный звонок:
+  - `conv_7501kv8c555zetvbbxe74205zdwg`
+  - `version_id = agtvrsn_9401kv8c4ebrec8b9xqxceqygqtk`
+- По нему подтверждено:
+  - opener прошёл чисто, без `Здравствуйте,...`;
+  - но objection-turn стал тяжелее:
+    - `LLM TTFB ≈ 2.25s`
+  - final close тоже замедлился:
+    - `LLM TTFB ≈ 2.63s`
+- Затем проверена гипотеза через `interruption_ignore_terms`:
+  - `version_id = agtvrsn_2201kv8c97stfsdrakry2k06ej7p`
+  - звонок:
+    - `conv_3501kv8c9xkfffsb4kbm9ay4bf5m`
+  - итог:
+    - agent вообще не дошёл до opener;
+    - этот вариант признан неудачным.
+- Потом подготовлен кандидат:
+  - `no-interruption + turn_eagerness = eager`
+  - `version_id = agtvrsn_5801kv8cd9cgffpvbspsyqby8k6j`
+- После повторного цикла eager теперь уже есть answered self-test:
+  - `conv_1901kva1cvmcf19rkxvk4xfcvh4g`
+  - `version_id = agtvrsn_8901kva1a0pyexwan9hzkhmf832c`
+- По нему подтверждено:
+  - opener остался чистым, без `Здравствуйте,...`;
+  - objection-turn стал быстрее, чем на `no-interruption + normal`:
+    - `~2.25s -> ~1.98s`
+  - value-turn
+    - `интересно -> пока не используем -> SMS`
+    идёт заметно живее:
+    - `LLM TTFB ≈ 1.64s`
+  - после `send_sms_info` финальный close стартует быстро:
+    - `LLM TTFB ≈ 0.48s`
+- Остаток, который ещё виден:
+  - spoken-tail после SMS местами обрывается как:
+    - `Я уже отправила СМС на этот номер. Хорошего дня...`
+- Поэтому текущая подтверждённая верхняя lab-version сейчас уже:
+  - `agtvrsn_8901kva1a0pyexwan9hzkhmf832c`
+  - стек:
+    - `llm = gemini-2.5-flash`
+    - `tts.model_id = eleven_flash_v2_5`
+    - `client_events` без `interruption`
+    - `turn_eagerness = eager`
+- Сверху дополнительно проверен общий `tool-only final close` patch:
+  - `version_id = agtvrsn_0901kva21515f08v6xn9w3v05zg3`
+  - контрольный звонок:
+    - `conv_4301kva21wg8ets9xf29cbz0y0yf`
+  - итог:
+    - duplicate refusal close ушёл;
+    - теперь на refusal path agent не говорит:
+      - одну и ту же фразу до `call_log`
+      - и потом ещё раз перед `end_call`
+    - подтверждённая последовательность стала:
+      - silent `call_log`
+      - один spoken close
+      - `end_call`
+- Поэтому текущая верхняя lab-version теперь уже:
+  - `agtvrsn_0901kva21515f08v6xn9w3v05zg3`
+- Практический вывод на сейчас:
+  - если приоритет — скорость живого разговора, `Gemini 2.5 Flash` выглядит сильнее;
+  - если приоритет — более чистый старт без overlap-fragment, `Claude` пока аккуратнее;
+  - если нужен лучший подтверждённый баланс внутри Gemini на сегодня, это уже:
+    - `Gemini + no interruption + eager + tool-only final close`
+  - следующий шаг теперь ещё уже:
+    - не в refusal close;
+    - а в подтверждение post-SMS финального close без `Хорошего дня...` и без spoken-дубля.
+
+## Обновление 2026-06-16 по LLM shortlist для lab
+
+- Важно не путать два разных слоя:
+  - `LLM` — это мозг агента, который думает и выбирает, что сказать и какой tool вызвать;
+  - `TTS model` — это голосовой движок, который уже озвучивает готовый текст.
+- По свежим lab-артефактам подтверждено:
+  - текущий рабочий lab tip:
+    - `agtvrsn_4901kv88ns5pfgvbqbg3n42he4rp`
+  - использует:
+    - `llm = gpt-4.1`
+    - `tts.model_id = eleven_flash_v2_5`
+- Это важно, потому что последние циклы сравнивали в основном:
+  - `eleven_v3_conversational`
+  - против `eleven_flash_v2_5`
+  как голосовые модели, а не как разные LLM.
+- Следующий отдельный lab-cycle теперь нужно делать уже по мозгу агента, не меняя голосовой слой:
+  - baseline:
+    - `gpt-4.1`
+  - кандидат на скорость:
+    - `gemini-2.5-flash`
+  - кандидат на более мягкий conversational style:
+    - `claude-sonnet-4.5`
+- Правило для такого сравнения:
+  - голос, prompt и tool_ids должны быть одинаковыми;
+  - `tts.model_id` оставить:
+    - `eleven_flash_v2_5`
+  - менять только `llm`.
+- На следующем цикле сравнивать не “на слух вообще”, а по фиксированным критериям:
+  - время до первого осмысленного ответа;
+  - перебивает ли пользователя;
+  - не схлопывает ли ветку
+    - `интересно -> пока не используем`;
+  - как ведёт себя на просьбе объяснить подробнее;
+  - насколько чисто проходит `send_sms_info`, `call_log` и финальный close.
+- Для подготовки payload под новый LLM без ручного редактирования большого JSON теперь добавлен локальный helper:
+  - `scripts/prepare_eleven_llm_variant.sh`
+- Для быстрой подготовки полного compare-набора добавлен wrapper:
+  - `scripts/prepare_eleven_llm_compare_variants.sh`
+- Для безопасного применения payload в lab branch добавлен helper:
+  - `scripts/apply_eleven_agent_payload.sh`
+- Для применения payload через рабочий `ssh ai-core-prod-147` и чтение ключа из серверного `.env.callcenter` добавлен helper:
+  - `scripts/apply_eleven_agent_payload_via_server_env.sh`
+- Он берёт текущий `response.json`/snapshot branch-а и собирает минимальный Update Agent payload:
+  - сохраняет существующие:
+    - `conversation_config`
+    - `platform_settings`
+    - `workflow`
+  - меняет только:
+    - `conversation_config.agent.prompt.llm`
+    - `version_description` при необходимости.
+  - дополнительно автоматически удаляет:
+    - `conversation_config.agent.prompt.tools`
+    потому что ElevenLabs `Update agent` отвергает payload, где одновременно есть и:
+    - `tool_ids`
+    - `tools`
+- Пример:
+  - `scripts/prepare_eleven_llm_variant.sh .runtime/eleven_lab_flash_return_2026-06-16/response.json gemini-2.5-flash .runtime/eleven_lab_llm_compare_gemini_2026-06-16/payload.json "Lab LLM compare: GPT-4.1 -> Gemini 2.5 Flash"`
+- Дальше этот payload нужно отправлять в ElevenLabs через:
+  - `Update agent`
+  - с `branch_id = agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+  - не в live `Main`, а только в lab-ветку.
+- Отдельный runbook для этого цикла:
+  - `docs/checkpoints/2026-06-16_ELEVEN_NATURALNESS_LLM_COMPARE_RUNBOOK.md`
+- Важная защита:
+  - helper по умолчанию целится в `lab_naturalness_2026_06`;
+  - apply в live `Main` он блокирует, если явно не выставлен:
+    - `ALLOW_MAIN_BRANCH_APPLY=1`
+- Практический путь на сейчас:
+  - локально выпускать PATCH;
+  - ключ аккуратно читать с сервера из `.env.callcenter` через SSH alias, а не копировать руками в команды.
+- Дополнительная защита от тихих фейлов:
+  - если ElevenLabs отвечает ошибкой уровня:
+    - `unprocessable_entity`
+  helper `scripts/apply_eleven_agent_payload.sh` теперь завершает команду с ошибкой и печатает короткий `detail`, вместо ложного `success`.
+- Текущее состояние LLM compare-cycle:
+  - baseline:
+    - `gpt-4.1 + eleven_flash_v2_5`
+  - Gemini lab-version уже опубликована:
+    - `agtvrsn_3901kv89xcg3fnntrp2zwbjt0xcb`
+  - Claude lab-version тоже уже опубликована:
+    - `agtvrsn_8301kv8adscff0sb23dwjcmvcxb1`
+  - следующий шаг:
+    - одинаковый branch-targeted self-test на обеих версиях
+
 ## Обновление 2026-06-16 по V3-balance cycle в lab
 
 - После первого V3-теста стало ясно, что проблема не в том, что `eleven_v3_conversational` вообще непригоден, а в том, что его нужно отдельно балансировать под наш телефонный сценарий.
