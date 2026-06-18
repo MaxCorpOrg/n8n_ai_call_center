@@ -50,6 +50,17 @@ Naturalness lab: strict-silence patch уже опубликован, но жив
   - webhook отвечает:
     - `Active version not found for workflow with id "sHTbALayEZdy8Mzs"`
 - Значит сейчас нельзя честно утверждать, что silence-fix уже доказан в живом звонке.
+- Дополнительно на `2026-06-18` это перепроверено свежими probe:
+  - `POST https://www.n-8-n.site/webhook/eleven/outbound-call` сейчас реально возвращает:
+    - `404 Active version not found for workflow with id "sHTbALayEZdy8Mzs"`
+  - direct probe с локальной машины в:
+    - `http://151.241.228.232:8787/health`
+    уходит в timeout;
+  - но тот же health probe с live-сервера `ai-core-prod-147` возвращает:
+    - `{"ok": true, "service": "eleven_outbound_relay", ...}`
+- Значит для lab self-test сейчас канонический путь старта звонка:
+  - `relay_via_server`
+  а не live webhook и не прямой relay с локальной машины.
 
 ## Что делать дальше
 
@@ -63,3 +74,5 @@ Naturalness lab: strict-silence patch уже опубликован, но жив
 3. Отдельно проверить, не нужно ли перевязать webhook вместо inactive workflow:
    - `sHTbALayEZdy8Mzs`
 4. До runtime-подтверждения не объявлять `agtvrsn_6001kvcq8b3zf8p9cxdheh1gtbxz` окончательной победной вершиной.
+5. Для branch self-test использовать текущий дефолт:
+   - `relay_via_server -> relay -> webhook`

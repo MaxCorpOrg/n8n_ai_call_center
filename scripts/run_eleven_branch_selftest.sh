@@ -6,12 +6,14 @@ DEFAULT_PHONE_NUMBER_ID="phnum_8501khxz93vnfnnsvdjqn1g92yfs"
 DEFAULT_BRANCH_ID="agtbrch_3701kv7waz0teny9xvsgv7sjt0bp"
 DEFAULT_WEBHOOK_URL="https://www.n-8-n.site/webhook/eleven/outbound-call"
 DEFAULT_RELAY_URL="http://151.241.228.232:8787/eleven/outbound-call"
+DEFAULT_TRANSPORT_ORDER="relay_via_server,relay,webhook"
 DEFAULT_ENVIRONMENT="production"
 DEFAULT_POLL_SECONDS=180
 DEFAULT_POLL_INTERVAL=5
 DEFAULT_CONNECT_TIMEOUT=10
 DEFAULT_REQUEST_TIMEOUT=35
 SERVER_ALIAS="${SERVER_ALIAS:-ai-core-prod-147}"
+TRANSPORT_ORDER="${ELEVEN_SELFTEST_TRANSPORT_ORDER:-$DEFAULT_TRANSPORT_ORDER}"
 
 post_json_with_curl() {
   local url="$1"
@@ -39,6 +41,32 @@ post_json_with_curl() {
   fi
 
   "${cmd[@]}" 2> "$stderr_log"
+}
+
+response_has_success() {
+  local response_json="$1"
+  jq -e '.success == true and (.conversation_id // "") != ""' "$response_json" >/dev/null 2>&1
+}
+
+record_attempt() {
+  local attempts_json="$1"
+  local transport="$2"
+  local http_code="$3"
+  local body_file="$4"
+  local stderr_file="$5"
+
+  jq \
+    --arg transport "$transport" \
+    --arg http_code "$http_code" \
+    --arg body_file "$body_file" \
+    --arg stderr_file "$stderr_file" \
+    '. += [{
+      transport: $transport,
+      http_code: $http_code,
+      body_file: $body_file,
+      stderr_file: $stderr_file
+    }]' \
+    "$attempts_json" > "$attempts_json.tmp" && mv "$attempts_json.tmp" "$attempts_json"
 }
 
 post_via_server_relay() {
@@ -112,8 +140,8 @@ Example:
 
 What it does:
   1. Builds branch-targeted outbound request.json
-  2. Calls live webhook /webhook/eleven/outbound-call
-     or falls back to direct relay if webhook is bound to inactive workflow
+  2. Tries outbound transports in configured order
+     (default: relay_via_server -> relay -> webhook)
   3. Saves outbound_response.json
   4. Polls ElevenLabs conversation details until done/failed or timeout
 EOF
@@ -248,100 +276,77 @@ fi
 jq -n '[]' > "$ATTEMPTS_JSON"
 
 TRANSPORT=""
+IFS=',' read -r -a ORDERED_TRANSPORTS <<< "$TRANSPORT_ORDER"
 
-WEBHOOK_HTTP="curl_failed"
-if WEBHOOK_HTTP="$(post_json_with_curl "$DEFAULT_WEBHOOK_URL" "$REQUEST_JSON" "$WEBHOOK_RESPONSE_JSON" "$WEBHOOK_STDERR")"; then
-  :
-else
-  WEBHOOK_HTTP="curl_failed"
-fi
+for transport_name in "${ORDERED_TRANSPORTS[@]}"; do
+  transport_name="$(printf '%s' "$transport_name" | xargs)"
+  [[ -n "$transport_name" ]] || continue
+  [[ -z "$TRANSPORT" ]] || break
 
-if [[ -s "$WEBHOOK_RESPONSE_JSON" ]]; then
-  cp "$WEBHOOK_RESPONSE_JSON" "$OUTBOUND_RESPONSE_JSON"
-fi
+  case "$transport_name" in
+    relay_via_server)
+      if post_via_server_relay "$REQUEST_JSON" "$SERVER_RELAY_RESPONSE_JSON" 2> "$SERVER_RELAY_STDERR"; then
+        :
+      fi
+      if [[ -s "$SERVER_RELAY_RESPONSE_JSON" ]]; then
+        cp "$SERVER_RELAY_RESPONSE_JSON" "$OUTBOUND_RESPONSE_JSON"
+      fi
+      record_attempt "$ATTEMPTS_JSON" "relay_via_server" "n/a" "$SERVER_RELAY_RESPONSE_JSON" "$SERVER_RELAY_STDERR"
+      if response_has_success "$SERVER_RELAY_RESPONSE_JSON"; then
+        TRANSPORT="relay_via_server"
+      fi
+      ;;
 
-jq \
-  --arg transport "webhook" \
-  --arg http_code "$WEBHOOK_HTTP" \
-  --arg body_file "$WEBHOOK_RESPONSE_JSON" \
-  --arg stderr_file "$WEBHOOK_STDERR" \
-  '. += [{
-    transport: $transport,
-    http_code: $http_code,
-    body_file: $body_file,
-    stderr_file: $stderr_file
-  }]' \
-  "$ATTEMPTS_JSON" > "$ATTEMPTS_JSON.tmp" && mv "$ATTEMPTS_JSON.tmp" "$ATTEMPTS_JSON"
+    relay)
+      if [[ -n "$RELAY_TOKEN" ]]; then
+        RELAY_HTTP="curl_failed"
+        if RELAY_HTTP="$(post_json_with_curl "$DEFAULT_RELAY_URL" "$REQUEST_JSON" "$RELAY_RESPONSE_JSON" "$RELAY_STDERR" "X-Relay-Token" "$RELAY_TOKEN")"; then
+          :
+        else
+          RELAY_HTTP="curl_failed"
+        fi
 
-if jq -e '.success == true and (.conversation_id // "") != ""' "$WEBHOOK_RESPONSE_JSON" >/dev/null 2>&1; then
-  TRANSPORT="webhook"
-else
-  SHOULD_TRY_RELAY=0
-  if [[ -n "$RELAY_TOKEN" ]]; then
-    SHOULD_TRY_RELAY=1
-  fi
+        if [[ -s "$RELAY_RESPONSE_JSON" ]]; then
+          cp "$RELAY_RESPONSE_JSON" "$OUTBOUND_RESPONSE_JSON"
+        fi
 
-  if [[ "$SHOULD_TRY_RELAY" -eq 1 ]]; then
-    RELAY_HTTP="curl_failed"
-    if RELAY_HTTP="$(post_json_with_curl "$DEFAULT_RELAY_URL" "$REQUEST_JSON" "$RELAY_RESPONSE_JSON" "$RELAY_STDERR" "X-Relay-Token" "$RELAY_TOKEN")"; then
-      :
-    else
-      RELAY_HTTP="curl_failed"
-    fi
+        record_attempt "$ATTEMPTS_JSON" "relay" "$RELAY_HTTP" "$RELAY_RESPONSE_JSON" "$RELAY_STDERR"
 
-    if [[ -s "$RELAY_RESPONSE_JSON" ]]; then
-      cp "$RELAY_RESPONSE_JSON" "$OUTBOUND_RESPONSE_JSON"
-    fi
+        if response_has_success "$RELAY_RESPONSE_JSON"; then
+          TRANSPORT="relay"
+        fi
+      fi
+      ;;
 
-    jq \
-      --arg transport "relay" \
-      --arg http_code "$RELAY_HTTP" \
-      --arg body_file "$RELAY_RESPONSE_JSON" \
-      --arg stderr_file "$RELAY_STDERR" \
-      '. += [{
-        transport: $transport,
-        http_code: $http_code,
-        body_file: $body_file,
-        stderr_file: $stderr_file
-      }]' \
-      "$ATTEMPTS_JSON" > "$ATTEMPTS_JSON.tmp" && mv "$ATTEMPTS_JSON.tmp" "$ATTEMPTS_JSON"
+    webhook)
+      WEBHOOK_HTTP="curl_failed"
+      if WEBHOOK_HTTP="$(post_json_with_curl "$DEFAULT_WEBHOOK_URL" "$REQUEST_JSON" "$WEBHOOK_RESPONSE_JSON" "$WEBHOOK_STDERR")"; then
+        :
+      else
+        WEBHOOK_HTTP="curl_failed"
+      fi
 
-    if jq -e '.success == true and (.conversation_id // "") != ""' "$RELAY_RESPONSE_JSON" >/dev/null 2>&1; then
-      TRANSPORT="relay"
-    fi
-  fi
+      if [[ -s "$WEBHOOK_RESPONSE_JSON" ]]; then
+        cp "$WEBHOOK_RESPONSE_JSON" "$OUTBOUND_RESPONSE_JSON"
+      fi
 
-  if [[ -z "$TRANSPORT" ]]; then
-    if post_via_server_relay "$REQUEST_JSON" "$SERVER_RELAY_RESPONSE_JSON" 2> "$SERVER_RELAY_STDERR"; then
-      :
-    fi
+      record_attempt "$ATTEMPTS_JSON" "webhook" "$WEBHOOK_HTTP" "$WEBHOOK_RESPONSE_JSON" "$WEBHOOK_STDERR"
 
-    if [[ -s "$SERVER_RELAY_RESPONSE_JSON" ]]; then
-      cp "$SERVER_RELAY_RESPONSE_JSON" "$OUTBOUND_RESPONSE_JSON"
-    fi
+      if response_has_success "$WEBHOOK_RESPONSE_JSON"; then
+        TRANSPORT="webhook"
+      fi
+      ;;
 
-    jq \
-      --arg transport "relay_via_server" \
-      --arg http_code "n/a" \
-      --arg body_file "$SERVER_RELAY_RESPONSE_JSON" \
-      --arg stderr_file "$SERVER_RELAY_STDERR" \
-      '. += [{
-        transport: $transport,
-        http_code: $http_code,
-        body_file: $body_file,
-        stderr_file: $stderr_file
-      }]' \
-      "$ATTEMPTS_JSON" > "$ATTEMPTS_JSON.tmp" && mv "$ATTEMPTS_JSON.tmp" "$ATTEMPTS_JSON"
-
-    if jq -e '.success == true and (.conversation_id // "") != ""' "$SERVER_RELAY_RESPONSE_JSON" >/dev/null 2>&1; then
-      TRANSPORT="relay_via_server"
-    fi
-  fi
-fi
+    *)
+      echo "Unknown transport in ELEVEN_SELFTEST_TRANSPORT_ORDER: $transport_name" >&2
+      exit 2
+      ;;
+  esac
+done
 
 printf '%s\n' "$TRANSPORT" > "$TRANSPORT_TXT"
 
-if ! jq -e '.success == true and (.conversation_id // "") != ""' "$OUTBOUND_RESPONSE_JSON" >/dev/null 2>&1; then
+if ! response_has_success "$OUTBOUND_RESPONSE_JSON"; then
   echo "Outbound webhook did not return success=true with conversation_id" >&2
   jq '.' "$OUTBOUND_RESPONSE_JSON" >&2
   exit 1

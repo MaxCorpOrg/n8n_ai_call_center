@@ -80,6 +80,16 @@
 - Значит текущее состояние такое:
   - prompt/config часть опубликована и подтверждена;
   - runtime-доказательство поведения на линии пока заблокировано внешним состоянием.
+- Отдельно на `2026-06-18` это ещё раз подтверждено live probe:
+  - `POST https://www.n-8-n.site/webhook/eleven/outbound-call` сейчас реально возвращает
+    - `404 Active version not found for workflow with id "sHTbALayEZdy8Mzs"`
+  - direct local probe в `http://151.241.228.232:8787/health` timeout-ится;
+  - но с live-сервера `ai-core-prod-147` relay health отвечает штатно.
+- Поэтому для lab self-test helper:
+  - [scripts/run_eleven_branch_selftest.sh](/home/max/n8n_ai_call_center/scripts/run_eleven_branch_selftest.sh:1)
+  теперь переставлен на дефолтный transport order:
+  - `relay_via_server -> relay -> webhook`
+  чтобы не тратить первый шаг на заведомо битый webhook-path.
 
 ### Что делать дальше
 1. Как только outbound снова станет доступен, снять один короткий test-call по сценарию молчания после opener.
