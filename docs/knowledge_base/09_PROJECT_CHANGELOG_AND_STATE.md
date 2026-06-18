@@ -58,10 +58,17 @@
 - Затем patch уже реально опубликован в lab:
   - `agtvrsn_6001kvcq8b3zf8p9cxdheh1gtbxz`
 - По опубликованной версии тоже подтверждено:
-  - `26/26 ok`
+  - `43/43 ok`
   - strict silence block на месте
   - запрет `Да? Чем могу помочь?` на месте
   - запрет `SMS / callback / manager` в silence-state на месте
+  - single finalization path на месте
+  - short rescue micro-cut guard на месте
+  - single spoken close through `end_call` на месте
+- Для этого усилен локальный verifier:
+  - [scripts/check_eleven_prompt_invariants.py](/home/max/n8n_ai_call_center/scripts/check_eleven_prompt_invariants.py:1)
+- Новый артефакт полной проверки:
+  - [.runtime/eleven_lab_strict_silence_window_2026-06-17/apply_result/prompt_invariants_43.json](/home/max/n8n_ai_call_center/.runtime/eleven_lab_strict_silence_window_2026-06-17/apply_result/prompt_invariants_43.json:1)
 
 ### На чем остановились
 - Сам patch уже опубликован.

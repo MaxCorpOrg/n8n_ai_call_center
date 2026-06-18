@@ -49,6 +49,17 @@ def check_contains(prompt: str, needle: str, name: str) -> dict:
     }
 
 
+def check_equals(actual, expected, name: str) -> dict:
+    ok = actual == expected
+    return {
+        "name": name,
+        "ok": ok,
+        "expected": expected,
+        "value": actual,
+        "message": f"exactly {expected}" if ok else f"expected {expected}",
+    }
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print("Usage: check_eleven_prompt_invariants.py AGENT_JSON", file=sys.stderr)
@@ -98,16 +109,25 @@ def main() -> int:
         check_contains(prompt, "A lone short pickup token like алло, да, угу, ага, or что is ambiguous by default before the opener.", "ambiguous_short_pickup_rule"),
         check_contains(prompt, "stay silent, use skip_turn if needed, and wait for a clearer answer instead of opening sales dialogue.", "skip_turn_before_opener_rule"),
         check_contains(prompt, "Do not classify not_target from a bare single-word Нет alone.", "no_bare_net_not_target"),
+        check_contains_once(prompt, "Strict post-opener silence override:", "strict_silence_block_once"),
+        check_contains(prompt, "Silence after the opener is a special no-answer state, not a sales state.", "strict_silence_is_no_answer_state"),
+        check_contains(prompt, "do not continue discovery, do not explain the product further, and do not offer SMS, callback, or manager options yet.", "strict_silence_no_sales_progression"),
+        check_contains(prompt, "you may use exactly one short rescue line-check only once.", "strict_silence_one_rescue_only"),
+        check_contains(prompt, "immediately do silent `call_log(no_answer)` and end the call silently.", "strict_silence_silent_no_answer_end"),
+        check_contains(prompt, "Do not ask repeated `Алло?` questions.", "strict_silence_no_repeated_allo"),
+        check_contains(prompt, "Do not say inbound-support phrases like `Да? Чем могу помочь?`, `Чем могу помочь?`, `Можно перезвонить позже или отправить SMS?`, or similar while the call is still in the silence/no-answer state.", "strict_silence_no_helpdesk_phrases"),
+        check_contains(prompt, "Otherwise, silence must end in exactly one no-answer finalization path, not in a loop.", "strict_silence_single_finalization_path"),
+        check_contains(prompt, "Rescue micro-cut override:", "rescue_micro_cut_block"),
+        check_contains(prompt, "Use only a one- or two-word line-check shape, not a clause.", "rescue_micro_cut_short_shape"),
+        check_contains(prompt, "Good shapes: `Алло?`, `Слышно?`, `Да?`", "rescue_micro_cut_good_shapes"),
+        check_contains(prompt, "The close should be spoken only through `end_call.system__message_to_speak`, not as a normal assistant response turn.", "single_spoken_close_through_end_call"),
+        check_contains(prompt, "Do not produce a normal assistant speech turn and then another spoken copy of the same close inside `end_call`.", "no_duplicate_spoken_close"),
+        check_contains(prompt, "Do not say help-desk tails like \"Могу ли я помочь вам ещё чем-то?\"", "no_helpdesk_midcall_phrase"),
     ]
 
     checks.extend(
         [
-            {
-                "name": "soft_timeout_message_placeholder",
-                "ok": soft_timeout.get("message", None) == "...",
-                "value": soft_timeout.get("message", None),
-                "message": "exactly ..." if soft_timeout.get("message", None) == "..." else "expected ...",
-            },
+            check_equals(soft_timeout.get("message", None), "...", "soft_timeout_message_placeholder"),
             {
                 "name": "soft_timeout_prompt_after_opener_only",
                 "ok": "only after the exact opener has been fully completed" in soft_timeout.get(
@@ -119,12 +139,22 @@ def main() -> int:
                 in soft_timeout.get("llm_generated_message_prompt_override", "")
                 else "missing",
             },
-            {
-                "name": "soft_timeout_timeout_3_2",
-                "ok": float(soft_timeout.get("timeout_seconds", -1)) == 3.2,
-                "value": soft_timeout.get("timeout_seconds", None),
-                "message": "exactly 3.2" if float(soft_timeout.get("timeout_seconds", -1)) == 3.2 else "expected 3.2",
-            },
+            check_equals(float(soft_timeout.get("timeout_seconds", -1)), 3.2, "soft_timeout_timeout_3_2"),
+            check_equals(
+                bool(soft_timeout.get("use_llm_generated_message", False)),
+                True,
+                "soft_timeout_llm_filler_enabled",
+            ),
+            check_equals(
+                bool(soft_timeout.get("randomize_fillers", True)),
+                False,
+                "soft_timeout_randomize_fillers_disabled",
+            ),
+            check_equals(
+                int(soft_timeout.get("max_soft_timeouts_per_generation", -1)),
+                1,
+                "soft_timeout_single_fill_per_generation",
+            ),
         ]
     )
 

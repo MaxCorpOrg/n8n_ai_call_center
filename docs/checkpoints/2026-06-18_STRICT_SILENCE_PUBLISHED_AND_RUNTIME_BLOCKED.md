@@ -21,11 +21,23 @@ Naturalness lab: strict-silence patch уже опубликован, но жив
   - strict silence block на месте
   - запрет `Да? Чем могу помочь?` на месте
   - запрет `SMS / callback / manager` в silence-state на месте
-  - инварианты payload зелёные:
-    - `26/26 ok`
+  - усиленные инварианты payload зелёные:
+    - `43/43 ok`
+  - артефакт:
+    - `.runtime/eleven_lab_strict_silence_window_2026-06-17/apply_result/prompt_invariants_43.json`
 - Обновлены основные handoff-документы:
   - `docs/knowledge_base/09_PROJECT_CHANGELOG_AND_STATE.md`
   - `документация_для_агента/02_ТЕКУЩЕЕ_LIVE_СОСТОЯНИЕ.md`
+ - Усилен локальный verifier:
+   - `scripts/check_eleven_prompt_invariants.py`
+   теперь дополнительно страхует:
+   - strict silence block;
+   - запрет helpdesk-фраз в silence-state;
+   - запрет repeated `Алло?`;
+   - single finalization path;
+   - short rescue micro-cut;
+   - single spoken close через `end_call`;
+   - soft-timeout filler config.
 
 ## На чем остановились
 

@@ -28,8 +28,12 @@
   - `This functionality is not available in your location.`
 - параллельно:
   - direct relay timeout
-  - webhook указывает на inactive workflow `sHTbALayEZdy8Mzs`
+- webhook указывает на inactive workflow `sHTbALayEZdy8Mzs`
 - значит published lab-prompt по тишине уже обновлён, но phone runtime ещё не верифицирован живым разговором.
+- локальный verifier по этой версии уже усилен и зелёный:
+  - `43/43 ok`
+  - артефакт:
+    - `.runtime/eleven_lab_strict_silence_window_2026-06-17/apply_result/prompt_invariants_43.json`
 - отдельная контрольная точка:
   - `docs/checkpoints/2026-06-18_STRICT_SILENCE_PUBLISHED_AND_RUNTIME_BLOCKED.md`
 
