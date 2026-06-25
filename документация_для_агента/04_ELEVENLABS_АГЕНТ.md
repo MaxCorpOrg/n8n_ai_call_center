@@ -1,5 +1,265 @@
 # ElevenLabs агент
 
+## Обновление 2026-06-18: что сейчас реально мешает naturalness даже без новых звонков
+
+- Новый стабильный short-entrypoint без привязки к дате:
+  - [.runtime/eleven_control_tower_latest/operational_brief.md](/home/max/n8n_ai_call_center/.runtime/eleven_control_tower_latest/operational_brief.md:1)
+- Новый companion-file для выбора следующего кандидата:
+  - [.runtime/eleven_control_tower_latest/next_variant_advisor.md](/home/max/n8n_ai_call_center/.runtime/eleven_control_tower_latest/next_variant_advisor.md:1)
+- Важно понимать:
+  - этот файл в `latest` без audit-входа показывает baseline post-quota порядок;
+  - targeted recommendation по конкретному звонку появляется либо:
+    - в run-папке как `next_variant_advice.md`,
+    - либо через helper `recommend_next_variant.sh` с audit/run-dir.
+- Свежий advisory:
+  - `.runtime/eleven_docs_alignment_2026-06-18.json`
+- Свежая перепроверка live readiness:
+  - `.runtime/eleven_live_readiness_2026-06-18_check_now/live_readiness_summary.json`
+- Главный operational факт:
+  - новые self-test/live calls до пополнения квоты не запускать;
+  - blocker сейчас именно quota, а не relay/n8n route.
+- Главный product/UX факт по current published `agtvrsn_9601kvcyw6eyebtrv3wpdq56cj0k`:
+  - `turn_timeout = 1.78`
+  - `turn_eagerness = eager`
+  - `client_events` без `interruption`
+  - `soft_timeout_seconds = 1.9`
+  - filler prompt содержит пример `Секунду...`
+- Что это значит простыми словами:
+  - агент сейчас может казаться “ботом” не только из-за голоса;
+  - он слишком быстро перехватывает ход;
+  - не даёт человеку нормально вклиниться;
+  - и может слишком рано вставлять filler, который звучит как обещание времени.
+- Поэтому первый живой цикл после возврата квоты вести так:
+  1. published current `9601...`;
+  2. `interruptible_balanced` variant;
+  3. если barge-in уже лучше, но fillers всё ещё звучат слишком по-ботски:
+     - `interruptible_softfill` variant;
+  4. при необходимости repeatable fallback `0901...`.
+- И отдельно помнить:
+  - после квоты мы тестируем не только голос и LLM;
+  - мы обязательно тестируем:
+    - interruptions;
+    - turn timeout;
+    - turn eagerness;
+    - soft-timeout filler behavior.
+- Новый payload для этого уже собран:
+  - [.runtime/eleven_interruptible_softfill_variant_2026-06-18.json](/home/max/n8n_ai_call_center/.runtime/eleven_interruptible_softfill_variant_2026-06-18.json:1)
+- Его смысл:
+  - не трогать live prompt-state сильнее, чем нужно;
+  - оставить interruptible / more-human turn-taking;
+  - убрать из filler guidance time-promise лексику вроде `Секунду...`;
+  - поднять soft-timeout чуть выше до `2.4`, чтобы filler не выстреливал слишком рано.
+- Дополнительно уже собран и следующий узкий кандидат:
+  - [.runtime/eleven_interruptible_latefill_variant_2026-06-18.json](/home/max/n8n_ai_call_center/.runtime/eleven_interruptible_latefill_variant_2026-06-18.json:1)
+- Его смысл:
+  - сохранить тот же interruptible / softfill-подход;
+  - но отложить старт filler masking ещё немного дальше;
+  - использовать `soft_timeout = 3.0` как более близкий к official-doc starting point для следующего A/B-шага.
+- Для быстрой offline-проверки этого слоя теперь есть:
+  - [scripts/check_eleven_turn_variant_invariants.py](/home/max/n8n_ai_call_center/scripts/check_eleven_turn_variant_invariants.py:1)
+  - [scripts/report_eleven_turn_variant_matrix.py](/home/max/n8n_ai_call_center/scripts/report_eleven_turn_variant_matrix.py:1)
+- Готовый matrix-output:
+  - [.runtime/eleven_turn_variant_checks_2026-06-18/variant_matrix.json](/home/max/n8n_ai_call_center/.runtime/eleven_turn_variant_checks_2026-06-18/variant_matrix.json:1)
+- Его короткое практическое чтение:
+  - `interruptible_balanced` лучше для первого barge-in теста;
+  - `interruptible_softfill` лучше для второго теста, если проблема уже сместилась с “не даёт говорить” на “слишком ботские fillers”.
+  - `interruptible_latefill` лучше для третьего теста, если fillers уже хорошие по лексике, но всё ещё стартуют чуть раньше, чем нужно.
+- В post-quota pack это уже встроено:
+  - [.runtime/eleven_post_quota_test_pack_2026-06-18/validate_variants.sh](/home/max/n8n_ai_call_center/.runtime/eleven_post_quota_test_pack_2026-06-18/validate_variants.sh:1)
+- И там же лежит короткий status brief:
+  - [.runtime/eleven_control_tower_latest/operational_brief.md](/home/max/n8n_ai_call_center/.runtime/eleven_control_tower_latest/operational_brief.md:1)
+- Если нужен один файл, с которого начать после паузы или в новом чате, это сейчас лучший short entrypoint.
+- Если нужен не просто status, а быстрый выбор следующего variant по типу жалобы:
+  - использовать:
+    - `next_variant_advisor.md`
+- Advisor теперь понимает не только свободный текст жалобы, но и:
+  - `finalization_audit.json`
+  - или целую run-папку, внутри которой уже лежит `finalization_audit.json`
+- Это значит:
+  - после первого post-quota self-test можно не гадать вручную;
+  - можно сразу прогнать advisor по audit и получить следующий разумный variant-order.
+- Теперь это уже умеет и сам:
+  - [scripts/run_eleven_selftest_audit.sh](/home/max/n8n_ai_call_center/scripts/run_eleven_selftest_audit.sh:1)
+- После `--audit-only` или полного self-test цикла он теперь пишет рядом:
+  - `finalization_audit.json`
+  - `next_variant_advice.json`
+  - `next_variant_advice.md`
+- И сразу печатает короткую summary-подсказку по следующему variant прямо в консоль.
+- Важно:
+  - advisor теперь умеет честно ставить:
+    - `ready_for_variant_testing = false`
+  - это значит:
+    - сначала нужен fix-before-variant шаг;
+    - и только потом уже новый A/B звонок.
+- Типичные fix-before-variant кейсы:
+  - `single_close_only`
+  - `hard_stop_machine_transfer`
+  - `fix_tool_identity_binding`
+- Если нужен не только status, но и полный инженерный refresh одной командой:
+  - [scripts/refresh_eleven_control_tower.sh](/home/max/n8n_ai_call_center/scripts/refresh_eleven_control_tower.sh:1)
+- Поэтому следующий практический запуск должен начинаться так:
+  1. `validate_variants.sh`
+  2. readiness
+  3. published self-test
+  4. только потом lab-payload apply/self-test
+
+## Обновление 2026-06-18: как теперь выбирать рабочую версию после quota-blocker
+
+- Пока live/self-test заблокирован квотой, не выбирать “лучшую версию” по памяти или по одному понравившемуся разговору.
+- Источник выбора сейчас:
+  - `.runtime/eleven_lab_version_leaderboard_2026-06-18.json`
+- Новое правило:
+  1. `best_repeatable_candidates` важнее, чем `best_single_run_candidates`;
+  2. хороший один разговор ещё не делает версию основной рабочей базой;
+  3. текущую published version всегда проверять первой после снятия квоты;
+  4. если published version слаба, fallback брать из `best_repeatable_candidates`, а не из красивого одиночного случая.
+- На текущий момент:
+  - лучший repeatable-кандидат:
+    - `agtvrsn_0901kva21515f08v6xn9w3v05zg3`
+  - лучший single-run-кандидат:
+    - `agtvrsn_5501kv8bkjkffjna37fq79vd5c7j`
+  - текущая опубликованная версия:
+    - `agtvrsn_9601kvcyw6eyebtrv3wpdq56cj0k`
+
+## Обновление 2026-06-18: official docs указывают на turn-taking, а не только на голос
+
+- Локальный advisory по current published snapshot:
+  - `.runtime/eleven_docs_alignment_2026-06-18.json`
+- Главный вывод:
+  - у текущей published version нет `interruption` в `client_events`;
+  - при этом стоит:
+    - `turn_eagerness = eager`
+    - `turn_timeout = 1.78`
+- Для user-perceived naturalness это сильный сигнал, что проблема может быть не только в voice/LLM, а в том, что агент слишком рано забирает ход и не пускает человека в ответ.
+- Под этот сценарий уже подготовлен lab-only payload:
+  - `.runtime/eleven_interruptible_balanced_variant_2026-06-18.json`
+- Его смысл:
+  - включить interruptions;
+  - ослабить агрессивность turn-taking;
+  - не трогать лишний раз текущий prompt и voice stack.
+
+## Обновление 2026-06-18: post-quota pack уже собран
+
+- Готовый execution pack:
+  - `.runtime/eleven_post_quota_test_pack_2026-06-18/`
+- В нём уже лежат:
+  - `payload_interruptible_balanced.json`
+  - `payload_repeatable_fallback.json`
+  - `manifest.json`
+  - `run_commands.sh`
+- Практический смысл:
+  - после пополнения квоты следующий цикл запускается уже не “по памяти”, а через один готовый пакет;
+  - `run_commands.sh` сначала делает readiness и сам останавливается, если quota blocker ещё активен.
+
+## Обновление 2026-06-18: batch-layer уже показывает статистический backlog по серии self-test разговоров
+
+- Для серии разговоров теперь есть и batch-layer:
+  - [scripts/analyze_eleven_conversation_batch.py](/home/max/n8n_ai_call_center/scripts/analyze_eleven_conversation_batch.py:1)
+- Он позволяет видеть не только один кейс, а статистический backlog по группе разговоров.
+- Готовый пример:
+  - [.runtime/eleven_lab_golden_confirm_2026-06-17/batch_audit_summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_lab_golden_confirm_2026-06-17/batch_audit_summary.json:1)
+- На этой серии уже видно:
+  - `turn_taking_or_dialogue_flow = 15`
+  - `tool_path = 2`
+  - `llm_generation = 1`
+- На более широком lab-summary:
+  - [.runtime/eleven_all_lab_batch_summary_2026-06-18.json](/home/max/n8n_ai_call_center/.runtime/eleven_all_lab_batch_summary_2026-06-18.json:1)
+  картина ещё жёстче:
+  - `turn_taking_or_dialogue_flow = 185`
+  - `tool_path = 16`
+  - `llm_generation = 6`
+- То есть следующий цикл должен начинаться не с косметического voice-polish, а с:
+  - `focus_turn_taking`
+  - `single_close_only`
+  - `fix_tool_identity_binding`
+  - `no_normal_speech_after_call_log`
+  - `remove_late_line_checks`
+
+## Обновление 2026-06-18: локальный audit разговора теперь меряет и задержки, а не только хвосты финализации
+
+- Усилен:
+  - [scripts/analyze_eleven_conversation.py](/home/max/n8n_ai_call_center/scripts/analyze_eleven_conversation.py:1)
+- Теперь он ловит не только structural issues вроде:
+  - `duplicate_close_before_end_call`
+  - `placeholder_conversation_id_in_tool_call`
+  - `context_fetch_before_opener`
+  но и timing/flow problems:
+  - `long_user_to_agent_gap`
+  - `consecutive_agent_speech_without_user_reply`
+  - `repeated_line_check_self_talk`
+  - `machine_transfer_phrase_reached_agent_dialogue`
+- Он также считает timing-summary:
+  - `first_user_to_agent_gap_secs`
+  - `user_to_agent_gap_stats_secs`
+  - `known_path_stats_secs`
+  - `unexplained_overhead_stats_secs`
+  - `primary_bottleneck_counts`
+  - `llm_ttfb_stats_secs`
+  - `llm_ttf_sentence_stats_secs`
+  - `llm_last_sentence_stats_secs`
+  - `tts_ttfb_stats_secs`
+- Wrapper:
+  - [scripts/run_eleven_selftest_audit.sh](/home/max/n8n_ai_call_center/scripts/run_eleven_selftest_audit.sh:1)
+  теперь выводит timing-summary прямо в коротком summary без ручного `jq`.
+- И теперь же выводит короткий top-list рекомендаций:
+  - какие именно фиксы приоритетнее на этом разговоре.
+- Практический смысл:
+  - если `llm_ttfb` и `tts_ttfb` сами по себе нормальные, а user-facing gap остаётся длинным,
+    значит узкое место уже не в raw модели/голосе, а в:
+    - turn-taking;
+    - лишнем rescue;
+    - позднем финальном close;
+    - лишнем tool-step;
+    - dialogue-flow.
+- Теперь это видно и машинно:
+  - когда classifier даёт `tool_path`, имеет смысл смотреть в `call_log/send_sms_info/context_fetch`;
+  - когда даёт `turn_taking_or_dialogue_flow`, следующий fix искать уже в правилах разговора и sequencing, а не в одной только модели.
+- А recommendation-layer превращает это в готовый следующий ход:
+  - например `focus_turn_taking`, `remove_late_line_checks`, `single_close_only`.
+
+## Обновление 2026-06-18: текущая опубликованная ветка перепроверена и совпадает с нашей живой нормой
+
+- Для быстрой и повторяемой проверки добавлен helper:
+  - [scripts/fetch_eleven_agent_snapshot_via_server_env.sh](/home/max/n8n_ai_call_center/scripts/fetch_eleven_agent_snapshot_via_server_env.sh:1)
+- Свежий snapshot текущей опубликованной ветки:
+  - [.runtime/eleven_current_branch_snapshot_2026-06-18_now/summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_current_branch_snapshot_2026-06-18_now/summary.json:1)
+- На 2026-06-18 сейчас подтверждено:
+  - `agent_id = agent_8801kgybyekned2a8yae6rp8hk3q`
+  - `branch_id = agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+  - `version_id = agtvrsn_9601kvcyw6eyebtrv3wpdq56cj0k`
+  - `llm = gpt-5-mini`
+  - `tts.model_id = eleven_v3_conversational`
+  - `first_message = ""`
+  - `turn_timeout = 1.78`
+  - `soft_timeout_seconds = 1.9`
+- Активные tools в текущем published snapshot:
+  - `context_fetch`
+  - `call_log`
+  - `send_sms_info`
+  - `end_call`
+  - `skip_turn`
+  - `voicemail_detection`
+- Локальный инвариант-checker:
+  - [scripts/check_eleven_prompt_invariants.py](/home/max/n8n_ai_call_center/scripts/check_eleven_prompt_invariants.py:1)
+  синхронизирован с этой фактической нормой.
+- Свежая проверка опубликованной ветки:
+  - [.runtime/eleven_current_branch_snapshot_2026-06-18_now/invariants.json](/home/max/n8n_ai_call_center/.runtime/eleven_current_branch_snapshot_2026-06-18_now/invariants.json:1)
+  показывает:
+  - `43/43 ok`
+  - `checks_failed = 0`
+- Это означает, что на текущий момент опубликованная ветка не “уплыла” от нашей контрольной логики по:
+  - exact opener;
+  - hard-stop по `абонент` / machine;
+  - strict silence;
+  - one-rescue rule;
+  - price-answer anchor;
+  - soft-timeout filler.
+- Важно:
+  - если звонки снова fail сейчас, нельзя автоматически считать, что уехал prompt;
+  - свежий live readiness по-прежнему показывает внешний blocker:
+    - `overall_diagnosis = quota_blocker_active`
+  - то есть текущий стоп сейчас не в drift этой ветки, а в квоте Eleven.
+
 ## Обновление 2026-06-17: отдельный system-binding цикл дал частичную победу, но жёсткая `v2` отклонена
 
 - Для отдельного technical-шага добавлен helper:

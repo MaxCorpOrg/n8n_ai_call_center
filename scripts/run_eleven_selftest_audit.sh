@@ -4,6 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUN_SELFTEST="$SCRIPT_DIR/run_eleven_branch_selftest.sh"
 ANALYZE="$SCRIPT_DIR/analyze_eleven_conversation.py"
+ADVISOR="$SCRIPT_DIR/report_eleven_next_variant_advisor.py"
+DEFAULT_VARIANT_MATRIX=".runtime/eleven_control_tower_latest/turn_checks/variant_matrix.json"
 
 usage() {
   cat <<'EOF' >&2
@@ -35,9 +37,65 @@ print_summary() {
     version_id,
     call_summary_title,
     termination_reason,
+    timing_summary: {
+      long_gap_threshold_secs: .timing_summary.long_gap_threshold_secs,
+      first_user_to_agent_gap_secs: .timing_summary.first_user_to_agent_gap_secs,
+      user_to_agent_gap_stats_secs: .timing_summary.user_to_agent_gap_stats_secs,
+      known_path_stats_secs: .timing_summary.known_path_stats_secs,
+      unexplained_overhead_stats_secs: .timing_summary.unexplained_overhead_stats_secs,
+      primary_bottleneck_counts: .timing_summary.primary_bottleneck_counts,
+      llm_ttfb_stats_secs: .timing_summary.llm_ttfb_stats_secs,
+      tts_ttfb_stats_secs: .timing_summary.tts_ttfb_stats_secs
+    },
+    top_recommendations: [.recommendations[0:3][] | {priority, code, title}],
     issues_count,
     issue_types: [.issues[].type]
   }' "$audit_json"
+}
+
+print_next_variant_summary() {
+  local advice_json="$1"
+  jq '{
+    inputs,
+    detected_reasons,
+    ready_for_variant_testing,
+    action_plan: [.action_plan[0:3][] | {
+      kind,
+      code,
+      title
+    }],
+    recommended_order: [.recommended_order[0:3][] | {
+      variant,
+      why,
+      turn_timeout,
+      turn_eagerness,
+      soft_timeout_seconds,
+      interruptions_enabled
+    }]
+  }' "$advice_json"
+}
+
+generate_next_variant_advice() {
+  local output_dir="$1"
+  local audit_json="$output_dir/finalization_audit.json"
+  local advice_json="$output_dir/next_variant_advice.json"
+  local advice_md="$output_dir/next_variant_advice.md"
+  local matrix_path="${ADVISOR_MATRIX_PATH:-$DEFAULT_VARIANT_MATRIX}"
+
+  if [[ ! -f "$matrix_path" ]]; then
+    echo "Variant matrix not found, skipping advisor: $matrix_path"
+    return 0
+  fi
+
+  python3 "$ADVISOR" \
+    --matrix "$matrix_path" \
+    --audit "$audit_json" \
+    --json-output "$advice_json" \
+    --md-output "$advice_md" \
+    >/dev/null
+
+  echo "Saved next-variant advice: $advice_json"
+  print_next_variant_summary "$advice_json"
 }
 
 run_audit_only() {
@@ -53,6 +111,7 @@ run_audit_only() {
   "$ANALYZE" "$final_json" > "$audit_json"
   echo "Saved audit: $audit_json"
   print_summary "$audit_json"
+  generate_next_variant_advice "$output_dir"
 }
 
 if [[ $# -lt 1 ]]; then
@@ -83,6 +142,11 @@ fi
 
 if [[ ! -x "$ANALYZE" ]]; then
   echo "Missing or non-executable: $ANALYZE" >&2
+  exit 1
+fi
+
+if [[ ! -f "$ADVISOR" ]]; then
+  echo "Missing advisor script: $ADVISOR" >&2
   exit 1
 fi
 

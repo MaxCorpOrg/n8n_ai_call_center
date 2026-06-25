@@ -10,6 +10,11 @@ EXACT_OPENER = (
     '"Здравствуйте, я официальный представитель липолитика Липолонг. '
     'Это липолитик для косметологов. Вам это интересно?"'
 )
+DEFAULT_EXPECTED_SOFT_TIMEOUT_SECONDS = 1.9
+ACCEPTED_SOFT_TIMEOUT_PROMPT_MARKERS = (
+    "only after the exact opener has already finished",
+    "only after the exact opener has been fully completed",
+)
 
 
 def load_prompt(data: dict) -> str:
@@ -61,14 +66,21 @@ def check_equals(actual, expected, name: str) -> dict:
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
-        print("Usage: check_eleven_prompt_invariants.py AGENT_JSON", file=sys.stderr)
+    if len(sys.argv) not in (2, 3):
+        print(
+            "Usage: check_eleven_prompt_invariants.py AGENT_JSON [EXPECTED_SOFT_TIMEOUT_SECONDS]",
+            file=sys.stderr,
+        )
         return 2
 
     src = Path(sys.argv[1])
     if not src.exists():
         print(f"File not found: {src}", file=sys.stderr)
         return 2
+
+    expected_soft_timeout_seconds = DEFAULT_EXPECTED_SOFT_TIMEOUT_SECONDS
+    if len(sys.argv) == 3:
+        expected_soft_timeout_seconds = float(sys.argv[2])
 
     data = json.loads(src.read_text(encoding="utf-8"))
     prompt = load_prompt(data)
@@ -130,16 +142,23 @@ def main() -> int:
             check_equals(soft_timeout.get("message", None), "...", "soft_timeout_message_placeholder"),
             {
                 "name": "soft_timeout_prompt_after_opener_only",
-                "ok": "only after the exact opener has been fully completed" in soft_timeout.get(
-                    "llm_generated_message_prompt_override", ""
+                "ok": any(
+                    marker in soft_timeout.get("llm_generated_message_prompt_override", "")
+                    for marker in ACCEPTED_SOFT_TIMEOUT_PROMPT_MARKERS
                 ),
                 "value": soft_timeout.get("llm_generated_message_prompt_override", ""),
                 "message": "present"
-                if "only after the exact opener has been fully completed"
-                in soft_timeout.get("llm_generated_message_prompt_override", "")
+                if any(
+                    marker in soft_timeout.get("llm_generated_message_prompt_override", "")
+                    for marker in ACCEPTED_SOFT_TIMEOUT_PROMPT_MARKERS
+                )
                 else "missing",
             },
-            check_equals(float(soft_timeout.get("timeout_seconds", -1)), 3.2, "soft_timeout_timeout_3_2"),
+            check_equals(
+                float(soft_timeout.get("timeout_seconds", -1)),
+                expected_soft_timeout_seconds,
+                "soft_timeout_timeout_expected",
+            ),
             check_equals(
                 bool(soft_timeout.get("use_llm_generated_message", False)),
                 True,
@@ -164,6 +183,18 @@ def main() -> int:
         "anchor_source_file": "/home/max/n8n_ai_call_center/docs/agent_kb_lipolong/10_COMMERCIAL_ANCHOR_RU.json",
         "version_id": data.get("version_id"),
         "branch_id": data.get("branch_id"),
+        "llm": (
+            data.get("conversation_config", {})
+            .get("agent", {})
+            .get("prompt", {})
+            .get("llm")
+        ),
+        "tts_model_id": (
+            data.get("conversation_config", {})
+            .get("tts", {})
+            .get("model_id")
+        ),
+        "expected_soft_timeout_seconds": expected_soft_timeout_seconds,
         "checks_total": len(checks),
         "checks_passed": len(checks) - len(failed),
         "checks_failed": len(failed),

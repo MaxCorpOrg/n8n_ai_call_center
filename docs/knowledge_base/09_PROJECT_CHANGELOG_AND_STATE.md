@@ -1,5 +1,1671 @@
 # 09. Состояние проекта и последние изменения
 
+## 1.14) Обновление 2026-06-25: live relay снова поднят, workflow URL снова совпадает, текущий стоп-фактор только quota blocker
+
+### Сделано
+- Повторно снят свежий live refresh через:
+  - [scripts/refresh_eleven_control_tower.sh](/home/max/n8n_ai_call_center/scripts/refresh_eleven_control_tower.sh:1)
+- Свежий live snapshot лежит в:
+  - [.runtime/eleven_current_branch_snapshot_2026-06-25_now/summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_current_branch_snapshot_2026-06-25_now/summary.json:1)
+- Он подтвердил, что published/current branch по-прежнему:
+  - `branch_id = agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+  - `version_id = agtvrsn_9601kvcyw6eyebtrv3wpdq56cj0k`
+  - `llm = gpt-5-mini`
+  - `tts = eleven_v3_conversational`
+  - `turn_timeout = 1.78`
+  - `soft_timeout_seconds = 1.9`
+- Локальный relay stack был поднят заново через:
+  - [scripts/start_eleven_local_relay_stack.sh](/home/max/n8n_ai_call_center/scripts/start_eleven_local_relay_stack.sh:1)
+- После этого был переснят readiness:
+  - [2026-06-25_after_stack_recover_retry/live_readiness_summary.json](/home/max/n8n_ai_call_center/2026-06-25_after_stack_recover_retry/live_readiness_summary.json:1)
+
+### Что подтверждено свежим срезом
+- До восстановления relay runtime контур был частично не готов:
+  - local stack был down;
+  - public relay health был `503`;
+  - live workflow смотрел в устаревший tunnel URL.
+- После восстановления:
+  - `relay_url` в state:
+    - `https://08c619650e448a.lhr.life/eleven/outbound-call`
+  - `public_health_ok = true`
+  - `workflow_matches_state = true`
+  - `local_stack_running = true`
+- То есть на `2026-06-25` технический relay/webhook-контур снова исправен.
+
+### Что осталось блокером
+- Свежий readiness всё ещё показывает:
+  - `overall_diagnosis = quota_blocker_active`
+  - `checks.calls_should_be_blocked_now = true`
+- Свежий quota preflight:
+  - [.runtime/eleven_quota_preflight_2026-06-25_check_now/eleven_quota_preflight_summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_quota_preflight_2026-06-25_check_now/eleven_quota_preflight_summary.json:1)
+  подтверждает:
+  - `diagnosis = provider_quota_limit_observed_recently`
+  - `call_attempt_recommendation = do_not_call_until_quota_is_restored`
+  - последний blocking conversation по-прежнему:
+    - `conv_1201kvdae8fxf779k0deagwst8b6`
+    - `termination_reason = This request exceeds your quota limit.`
+    - `start_time_utc = 2026-06-18T12:14:23Z`
+    - это `2026-06-18 15:14:23 MSK`
+- Subscription endpoint через текущий ключ по-прежнему не даёт billing snapshot:
+  - `missing_permissions`
+  - отсутствует право `user_read`
+- Значит:
+  - реальный текущий вывод строится не по billing screen, а по истории live failures в branch.
+
+### Практический вывод
+- На `2026-06-25` проблема уже не в N8N webhook, не в tunnel и не в relay URL.
+- Инфраструктура дозвона снова собрана правильно.
+- Новые live/self-test звонки всё ещё нельзя запускать, пока не восстановлена квота ElevenLabs или не будет подставлен ключ с рабочим лимитом.
+
+### Что делать дальше
+1. Не запускать звонки, пока readiness показывает `quota_blocker_active`.
+2. Если снова будет жалоба "live не стартовал", сначала проверять:
+   - `.runtime/eleven_control_tower_latest/operational_brief.md`
+   - `2026-06-25_after_stack_recover_retry/live_readiness_summary.json`
+3. Если relay снова упадёт:
+   - перезапустить:
+     - `bash scripts/start_eleven_local_relay_stack.sh`
+   - затем переснять:
+     - `bash scripts/report_eleven_live_readiness.sh <date_tag>`
+4. После реального восстановления квоты первым шагом делать не mass call, а:
+   - один readiness;
+   - один короткий self-test;
+   - только потом следующий engineering cycle.
+
+## 1.16) Обновление 2026-06-25: controlled cycle после возврата ключа, найден safe head и пойман prompt-regression
+
+### Сделано
+- После восстановления рабочего Eleven key проведён короткий controlled cycle на published branch:
+  - `conv_8901kvyyr24cee28s4zxwkwc3t24`
+  - `conv_4501kvyyz89wfq88gyqrt833b5nm`
+  - `conv_2201kvyz4kf6e9avc45fvqc7kxjr`
+- Для узких prompt-правок добавлен builder:
+  - [scripts/prepare_eleven_late_rescue_sms_fastlane_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_late_rescue_sms_fastlane_variant.sh:1)
+- Через него были проверены две последовательные published-версии:
+  - `agtvrsn_7601kvyyy5sce6xarqwa6nsj7kcy`
+  - `agtvrsn_6501kvyz3x23f0ktzbjr2aw52g07`
+- После регрессии выполнен safe revert, текущий branch-head теперь:
+  - `agtvrsn_0401kvyz7rxwek0ascbsx8det42f`
+- Свежий snapshot после safe revert:
+  - [.runtime/eleven_live_snapshot_2026-06-25_after_revert_safe/summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_live_snapshot_2026-06-25_after_revert_safe/summary.json:1)
+
+### Что показал цикл
+- Базовый published `9601...` снова реально звонит:
+  - `conv_1701kvywnxy1fb9bm40n263y709v`
+- На старой published `9601...` были подтверждены старые defects:
+  - поздний `Алло?` после уже живого business-dialogue;
+  - spoken `Секунду...` перед `send_sms_info`;
+  - duplicate close around SMS wrap-up.
+- Узкий patch `7601...` улучшил часть поведения:
+  - поздний `Алло?` в SMS-сценарии ушёл;
+  - explicit branch-head:
+    - `agtvrsn_7601kvyyy5sce6xarqwa6nsj7kcy`
+- Но в `7601...` остались defects:
+  - `[calm]` в spoken text;
+  - helpdesk-tail:
+    - `Могу чем-то ещё помочь?`
+    после callback-finalization.
+- Попытка дожать это второй версией `6501...` оказалась плохой:
+  - `agtvrsn_6501kvyz3x23f0ktzbjr2aw52g07`
+  - агент начал проговаривать служебные tool-инструкции как обычную речь:
+    - `silent call_log with refusal_soft ...`
+  - это признано prompt-regression и сразу откатено.
+
+### Текущее безопасное live-состояние
+- Текущий safe head:
+  - `agtvrsn_0401kvyz7rxwek0ascbsx8det42f`
+- Это safe rollback по содержанию к узкому patch-level до tool-speech regression.
+- Его свойства:
+  - `gpt-5-mini`
+  - `eleven_v3_conversational`
+  - `soft_timeout_seconds = 2.4`
+  - current relay/live contour рабочий
+- Что важно:
+  - `6501...` не использовать как точку возврата;
+  - safe source-of-truth на сейчас — именно `0401...`
+
+### Практический вывод
+- Инфраструктура и ключ снова рабочие.
+- Published branch снова пригоден для controlled calls.
+- Главный текущий класс проблем уже не quota и не relay, а dialogue-flow / finalization behavior.
+- В следующем цикле нельзя снова смешивать:
+  - late rescue fix;
+  - callback finalization;
+  - terminal tool phrasing
+  в один слишком агрессивный patch.
+
+### Что делать дальше
+1. Следующий цикл начинать от safe head:
+   - `agtvrsn_0401kvyz7rxwek0ascbsx8det42f`
+2. Не трогать opener, machine-stop и SMS fastlane сразу вместе.
+3. Следующий узкий patch делать отдельно только на:
+   - callback finalization tail
+   или только на
+   - bracketed stage directions
+4. Новый цикл снова вести как:
+   - `1` звонок
+   - лог
+   - разбор
+   - точечная правка
+   - стоп
+
+## 1.17) Обновление 2026-06-25: узкий callback-close patch выпущен без нового tool-speech regression, но target-case ещё не подтверждён
+
+### Сделано
+- Для safe-head `0401...` добавлен отдельный узкий builder:
+  - [scripts/prepare_eleven_callback_close_override_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_callback_close_override_variant.sh:1)
+- Он меняет только callback close tail и не трогает:
+  - opener;
+  - rescue;
+  - machine-stop;
+  - SMS fastlane.
+- Выпущена новая published-версия:
+  - `agtvrsn_8601kvyzffdyf58bhf4knm6wk15m`
+- Контрольный звонок на неё:
+  - `conv_9401kvyzg726f6qvrk7vskh1vcpv`
+
+### Что подтвердили
+- Новая версия `8601...` не повторила опасный regression из `6501...`:
+  - tool-инструкции не проговаривались как обычная речь;
+  - `silent call_log ...` больше не вылез.
+- В этом тесте также не было `[calm]` в spoken turns.
+
+### Что не подтвердили
+- Этот конкретный звонок ушёл в pronunciation-correction flow, а не в callback-later close.
+- Поэтому главный целевой вопрос пока остаётся открытым:
+  - исчез ли tail `Могу чем-то ещё помочь?`
+    именно в живом callback-finalization кейсе.
+
+### Текущее чтение
+- `8601...` выглядит безопаснее, чем `6501...`.
+- Но она ещё не доказана именно на нужном callback terminal path.
+
+### Что делать дальше
+1. Следующий звонок нужен именно под сценарий:
+   - `сейчас неудобно`
+   - `перезвоните позже`
+   - `я занят, давайте потом`
+2. Проверять в нём только одно:
+   - уходит ли helpdesk-tail после callback finalization.
+3. Если tail ушёл:
+   - `8601...` можно считать новым safe head.
+4. Если tail остался:
+   - править только callback final spoken close, без новых rescue/tool-sequencing вмешательств.
+
+### Дополнение по следующему controlled-звонку
+- Дополнительный live test на `8601...`:
+  - `conv_6901kvz1bwyye11skyebrrj42w9p`
+- Он подтвердил:
+  - `8601...` остаётся без нового tool-speech regression;
+  - normal spoken close после SMS всё ещё выглядит привычно;
+  - опасный `6501...`-дефект не вернулся.
+- Но callback-tail всё ещё не доказан на target-case:
+  - пользователь снова свернул разговор в SMS path;
+  - итоговый flow был `SMS sent`, а не `callback later`.
+- Значит следующая проверка должна быть не “любой ещё звонок”, а именно разговор, где пользователь явно держит линию:
+  - `сейчас неудобно`
+  - `перезвоните позже`
+  - `я занят, давайте потом`
+  и не уходит в SMS.
+
+## 1.15) Обновление 2026-06-25: новый Eleven key подтверждён живым self-test, quota blocker больше не активен как текущий стоп-сигнал
+
+### Сделано
+- Выполнен один controlled self-test через:
+  - [scripts/run_eleven_live_cycle.sh](/home/max/n8n_ai_call_center/scripts/run_eleven_live_cycle.sh:1)
+- Артефакты этого запуска:
+  - [.runtime/eleven_key_restore_probe_2026-06-25_call_01/selftest/runtime_diagnosis.json](/home/max/n8n_ai_call_center/.runtime/eleven_key_restore_probe_2026-06-25_call_01/selftest/runtime_diagnosis.json:1)
+  - [.runtime/eleven_key_restore_probe_2026-06-25_call_01/selftest/outbound_response.json](/home/max/n8n_ai_call_center/.runtime/eleven_key_restore_probe_2026-06-25_call_01/selftest/outbound_response.json:1)
+- Self-test создал новый реальный conversation:
+  - `conv_1701kvywnxy1fb9bm40n263y709v`
+  - `status = done`
+  - `call_successful = success`
+  - `version_matches_expected = true`
+- После этого исправлен локальный readiness classifier:
+  - [scripts/report_eleven_live_readiness.sh](/home/max/n8n_ai_call_center/scripts/report_eleven_live_readiness.sh:1)
+
+### Что подтверждено
+- Новый live key реально работает:
+  - outbound request проходит;
+  - новый `conversation_id` создаётся;
+  - published version `agtvrsn_9601kvcyw6eyebtrv3wpdq56cj0k` реально исполняется.
+- Старый quota-fail остался в истории как historical signal:
+  - `conv_1201kvdae8fxf779k0deagwst8b6`
+- Но это уже не текущий active blocker, потому что новый последний разговор успешен.
+
+### Новый корректный readiness
+- Свежий статус:
+  - [.runtime/eleven_live_readiness_2026-06-25_latest_status/live_readiness_summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_live_readiness_2026-06-25_latest_status/live_readiness_summary.json:1)
+- Теперь он показывает:
+  - `latest_conversation = conv_1701kvywnxy1fb9bm40n263y709v`
+  - `call_attempt_recommendation = quota_pressure_seen_verify_before_call`
+  - `checks.calls_should_be_blocked_now = false`
+  - `overall_diagnosis = quota_pressure_seen_history_only`
+- Это и есть правильное текущее чтение:
+  - historical quota-pressure ещё виден;
+  - но live-контур уже снова может делать controlled calls.
+
+### Практический вывод
+- На `2026-06-25` система снова способна звонить.
+- Переходить сразу в mass-calling не надо.
+- Правильный режим после возврата key:
+  1. короткие controlled calls;
+  2. лог/разбор;
+  3. только потом расширение цикла.
+
+### Что делать дальше
+1. Следующий шаг:
+   - короткий controlled цикл на `1-3` звонка, не массовый запуск.
+2. После каждого звонка снимать:
+   - `runtime_diagnosis.json`
+   - `conversation_poll_final.json`
+   - свежий `live_readiness_summary.json`
+3. Дальше уже возвращаться к основной задаче качества:
+   - задержки;
+   - machine / voicemail;
+   - premature hangup;
+   - turn-taking.
+
+## 1.09) Обновление 2026-06-18: quota stop теперь зафиксирован жёстко, а live-cycle не делает пустой звонок
+
+### Сделано
+- Усилен preflight:
+  - [scripts/report_eleven_quota_preflight.sh](/home/max/n8n_ai_call_center/scripts/report_eleven_quota_preflight.sh:1)
+- Он теперь пишет не только факт quota-pressure, но и:
+  - `call_attempt_recommendation`
+  - `latest_conversation.start_time_utc`
+  - `latest_conversation.age_minutes`
+  - `latest_conversation_is_quota_fail`
+- Усилен readiness:
+  - [scripts/report_eleven_live_readiness.sh](/home/max/n8n_ai_call_center/scripts/report_eleven_live_readiness.sh:1)
+- Он теперь явно показывает:
+  - `checks.calls_should_be_blocked_now`
+- Усилен live launcher:
+  - [scripts/run_eleven_live_cycle.sh](/home/max/n8n_ai_call_center/scripts/run_eleven_live_cycle.sh:1)
+- Теперь при quota-pressure он завершает цикл до звонка с:
+  - `action = stopped_before_call`
+  - `reason = quota_pressure_guard`
+  - `exit_code = 2`
+  - и с привязкой к последнему blocking signal.
+
+### Что подтверждено свежим срезом
+- Новый preflight:
+  - [.runtime/eleven_quota_preflight_2026-06-18_now_guard/eleven_quota_preflight_summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_quota_preflight_2026-06-18_now_guard/eleven_quota_preflight_summary.json:1)
+  показывает:
+  - `diagnosis = provider_quota_limit_observed_recently`
+  - `call_attempt_recommendation = do_not_call_until_quota_is_restored`
+  - последний blocking conversation:
+    - `conv_1201kvdae8fxf779k0deagwst8b6`
+    - `version_id = agtvrsn_9601kvcyw6eyebtrv3wpdq56cj0k`
+    - `termination_reason = This request exceeds your quota limit.`
+    - `start_time_utc = 2026-06-18T12:14:23Z`
+    - это `2026-06-18 15:14:23 MSK`
+- Новый readiness:
+  - [.runtime/eleven_live_readiness_2026-06-18_guard/live_readiness_summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_live_readiness_2026-06-18_guard/live_readiness_summary.json:1)
+  показывает одновременно:
+  - `workflow_matches_state = true`
+  - `public_health_ok = true`
+  - `local_stack_running = true`
+  - `calls_should_be_blocked_now = true`
+  - `overall_diagnosis = quota_blocker_active`
+- Контрольная проверка live-cycle:
+  - [.runtime/eleven_live_cycle_quota_guard_2026-06-18/live_cycle_summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_live_cycle_quota_guard_2026-06-18/live_cycle_summary.json:1)
+  подтверждает:
+  - звонок реально не пошёл;
+  - guard остановил цикл ещё до outbound request.
+
+### Практический вывод
+- Сейчас проблема уже не в prompt, не в route и не в relay.
+- Сейчас система технически готова звонить, но делать этого не надо, пока не восстановлена квота Eleven.
+- Это состояние теперь отражается не только “в голове” или в одном ручном логе, а в самих служебных скриптах.
+
+### Что делать дальше
+1. Не запускать live/self-test без реального восстановления квоты.
+2. После пополнения первым действием прогнать:
+   - `scripts/report_eleven_live_readiness.sh`
+   - затем один короткий self-test.
+3. Пока квота закрыта, продолжать только offline-аудит и улучшение flow/tool-path без сжигания звонков.
+
+## 1.10) Обновление 2026-06-18: version leaderboard теперь разделяет repeatable-кандидатов и single-run-кандидатов
+
+### Сделано
+- Усилен:
+  - [scripts/rank_eleven_lab_versions.py](/home/max/n8n_ai_call_center/scripts/rank_eleven_lab_versions.py:1)
+- Теперь он строит не только общий `version_leaderboard`, но и отдельные представления:
+  - `best_repeatable_candidates`
+  - `best_highly_repeatable_candidates`
+  - `best_single_run_candidates`
+  - `best_overall_moderate_or_better`
+- Новый артефакт:
+  - [.runtime/eleven_lab_version_leaderboard_2026-06-18.json](/home/max/n8n_ai_call_center/.runtime/eleven_lab_version_leaderboard_2026-06-18.json:1)
+
+### Что это показало
+- Лучший `repeatable` кандидат среди уже подтверждённых strong-разговоров с `2+` разговорами:
+  - `agtvrsn_0901kva21515f08v6xn9w3v05zg3`
+  - `conversations_count = 2`
+  - `score_avg = 26.007`
+  - `gap_avg_of_avgs_secs = 4.767`
+  - `unexplained_avg_of_avgs_secs = 2.74`
+- Лучший `single-run` кандидат:
+  - `agtvrsn_5501kv8bkjkffjna37fq79vd5c7j`
+  - `conversations_count = 1`
+  - `score_avg = 7.431`
+  - `gap_avg_of_avgs_secs = 2.5`
+  - `unexplained_avg_of_avgs_secs = 0.931`
+- Это важное различие:
+  - `5501...` выглядит очень сильным, но пока опирается только на один разговор;
+  - `0901...` слабее по сырому score, но это лучший воспроизводимый кандидат в текущем архиве разговоров.
+- Текущая опубликованная ветка:
+  - `agtvrsn_9601kvcyw6eyebtrv3wpdq56cj0k`
+  сейчас не может быть честно дооценена live-звонками, потому что цикл блокируется квотой Eleven.
+
+### Практический вывод
+- После снятия квоты не надо сразу хаотично крутить все версии подряд.
+- Правильный порядок теперь такой:
+  1. сначала один короткий self-test на текущей опубликованной версии `agtvrsn_9601kvcyw6eyebtrv3wpdq56cj0k`;
+  2. если текущая опубликованная версия окажется слабой или регрессивной, базовым кандидатом для rollback/повторной сборки считать `agtvrsn_0901kva21515f08v6xn9w3v05zg3`;
+  3. `agtvrsn_5501kv8bkjkffjna37fq79vd5c7j` держать как promising single-run candidate, но не как основную рабочую базу без повторного подтверждения.
+
+### Что делать дальше
+1. После пополнения квоты первым live-циклом проверять не “лучшую по ощущениям” версию, а:
+   - published current `9601...`;
+   - затем при необходимости repeatable fallback `0901...`.
+2. Single-run winner `5501...` проверять только отдельным узким self-test, если понадобится догонять latency/flow.
+
+## 1.11) Обновление 2026-06-18: official-doc alignment показал вероятную причину “не даёт человеку говорить”
+
+### Сделано
+- Добавлен:
+  - [scripts/report_eleven_docs_alignment.py](/home/max/n8n_ai_call_center/scripts/report_eleven_docs_alignment.py:1)
+- Он сравнивает текущий published snapshot с официальными рекомендациями ElevenLabs.
+- Новый артефакт:
+  - [.runtime/eleven_docs_alignment_2026-06-18.json](/home/max/n8n_ai_call_center/.runtime/eleven_docs_alignment_2026-06-18.json:1)
+- Добавлен lab-only payload builder:
+  - [scripts/prepare_eleven_interruptible_balanced_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_interruptible_balanced_variant.sh:1)
+- Подготовленный payload:
+  - [.runtime/eleven_interruptible_balanced_variant_2026-06-18.json](/home/max/n8n_ai_call_center/.runtime/eleven_interruptible_balanced_variant_2026-06-18.json:1)
+
+### Что показало сравнение с official docs
+- Текущая published version:
+  - `agtvrsn_9601kvcyw6eyebtrv3wpdq56cj0k`
+  имеет:
+  - `turn_timeout = 1.78`
+  - `turn_eagerness = eager`
+  - `soft_timeout = 1.9`
+  - `client_events` без `interruption`
+- Practical reading по docs:
+  - interruptions, скорее всего, сейчас выключены;
+  - turn-taking при этом остаётся очень агрессивным;
+  - это хорошо совпадает с жалобой пользователя:
+    - “она не даёт мне сказать”.
+- При этом voice settings сами по себе уже близки к нормальному стартовому band:
+  - `stability = 0.42`
+  - `similarity_boost = 0.78`
+  - `speed = 1.08`
+  поэтому текущий главный фокус не голос, а именно human barge-in / turn-taking.
+
+### Что уже подготовлено
+- Готов lab-only payload для следующего цикла:
+  - включает `interruption` в `client_events`;
+  - меняет `turn_eagerness` на `normal`;
+  - поднимает `turn_timeout` до `2.3`;
+  - не ломает текущий prompt-state и voice-stack.
+
+### Что делать дальше
+1. После пополнения квоты первым speech-экспериментом проверить не голос, а именно этот turn-taking variant.
+2. Сравнивать его против текущей published `9601...` по:
+   - барж-ину пользователя;
+   - ощущению “даёт ли договорить”;
+   - появлению/исчезновению premature take-over.
+3. Voice-polish продолжать только после этого, если turn-taking pain реально уйдёт.
+
+## 1.12) Обновление 2026-06-18: собран готовый post-quota execution pack
+
+### Сделано
+- Добавлен:
+  - [scripts/prepare_eleven_post_quota_test_pack.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_post_quota_test_pack.sh:1)
+- Он собирает готовую папку для первого инженерного цикла после пополнения квоты:
+  - manifest;
+  - copied payloads;
+  - copied advisory JSON;
+  - run script;
+  - краткий README.
+- Готовый pack:
+  - [.runtime/eleven_post_quota_test_pack_2026-06-18/manifest.json](/home/max/n8n_ai_call_center/.runtime/eleven_post_quota_test_pack_2026-06-18/manifest.json:1)
+  - [.runtime/eleven_post_quota_test_pack_2026-06-18/run_commands.sh](/home/max/n8n_ai_call_center/.runtime/eleven_post_quota_test_pack_2026-06-18/run_commands.sh:1)
+
+### Что внутри pack
+- `current_published`:
+  - published `9601...`
+  - `gpt-5-mini + eleven_v3_conversational`
+- `primary_lab_candidate`:
+  - `payload_interruptible_balanced.json`
+  - это turn-taking fix-кандидат “дай человеку договорить”
+- `repeatable_fallback_candidate`:
+  - `payload_repeatable_fallback.json`
+  - это fallback из repeatable-кандидата `0901...`
+
+### Что важно
+- `run_commands.sh` теперь сам делает readiness первым шагом.
+- Если `overall_diagnosis = quota_blocker_active`, он сам останавливается и не идёт в self-test.
+- Это снижает риск случайно снова жечь бесполезные попытки до реального восстановления квоты.
+
+### Что делать дальше
+1. После пополнения квоты запускать не вручную по памяти, а через этот pack.
+2. Сначала published `9601...`, потом interruptible-balanced variant, потом при необходимости repeatable fallback.
+3. Результаты каждого шага сразу гнать через `run_eleven_selftest_audit.sh`.
+
+## 1.13) Обновление 2026-06-18: подтверждён quota-blocker прямо сейчас и уточнены official-doc выводы по filler / turn-taking
+
+### Сделано
+- Повторно снят свежий preflight:
+  - [.runtime/eleven_quota_preflight_2026-06-18_check_now/eleven_quota_preflight_summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_quota_preflight_2026-06-18_check_now/eleven_quota_preflight_summary.json:1)
+- Повторно снят свежий readiness:
+  - [.runtime/eleven_live_readiness_2026-06-18_check_now/live_readiness_summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_live_readiness_2026-06-18_check_now/live_readiness_summary.json:1)
+- Доведён comparator для локального сравнения candidate-runs:
+  - [scripts/compare_eleven_candidate_runs.py](/home/max/n8n_ai_call_center/scripts/compare_eleven_candidate_runs.py:1)
+- Усилен local advisory по official docs:
+  - [scripts/report_eleven_docs_alignment.py](/home/max/n8n_ai_call_center/scripts/report_eleven_docs_alignment.py:1)
+  - новый актуальный output:
+    - [.runtime/eleven_docs_alignment_2026-06-18.json](/home/max/n8n_ai_call_center/.runtime/eleven_docs_alignment_2026-06-18.json:1)
+
+### Что подтверждено свежим срезом
+- Прямо сейчас live calls всё ещё нельзя запускать:
+  - `call_attempt_recommendation = do_not_call_until_quota_is_restored`
+  - `overall_diagnosis = quota_blocker_active`
+- Последний blocking conversation остаётся тем же:
+  - `conv_1201kvdae8fxf779k0deagwst8b6`
+  - `termination_reason = This request exceeds your quota limit.`
+  - `start_time_utc = 2026-06-18T12:14:23Z`
+  - это `2026-06-18 15:14:23 MSK`
+- Subscription endpoint через текущий ключ не даёт billing details:
+  - `missing_permissions`
+  - нет права `user_read`
+- Это не отменяет диагноза:
+  - quota-blocker подтверждён по истории реальных conversation failures, а не по предположению.
+
+### Что уточнили official docs и локальный snapshot
+- Официальная страница ElevenLabs Conversation flow:
+  - `https://elevenlabs.io/docs/eleven-agents/customization/conversation-flow`
+  прямо говорит:
+  - interruptions включаются через `interruption` в client events;
+  - `Normal` — базовый default для general conversational flows;
+  - soft timeout рекомендуют начинать с `3.0` секунд;
+  - filler-фразы не должны обещать время вроде `one second`.
+- На текущей published version `agtvrsn_9601kvcyw6eyebtrv3wpdq56cj0k` у нас сейчас:
+  - `turn_timeout = 1.78`
+  - `turn_eagerness = eager`
+  - `client_events` без `interruption`
+  - `soft_timeout_seconds = 1.9`
+  - `use_llm_generated_message = true`
+  - filler override всё ещё содержит пример `Секунду...`
+- Отсюда новый practical reading:
+  - проблема “не даёт сказать” почти наверняка сидит не только в голосе;
+  - current branch одновременно:
+    - слишком рано забирает ход;
+    - не даёт полноценный barge-in;
+    - маскирует ожидание filler'ом раньше, чем рекомендует docs;
+    - ещё и подсовывает time-promise пример в filler prompt.
+
+### Что теперь улучшено в offline tooling
+- `compare_eleven_candidate_runs.py` больше не объявляет старый неполный audit “лучшим” только потому, что в нём нет timing-summary.
+- Новое правило сортировки:
+  - сначала `timing_complete`,
+  - потом уже lower score.
+- Практический смысл:
+  - для решений после пополнения квоты нельзя опираться на красивые, но неполные старые артефакты.
+
+### Что делать дальше
+1. Не запускать новый live/self-test до реального снятия quota-blocker.
+2. После восстановления квоты:
+   - сначала published `9601...`;
+   - затем `interruptible_balanced`;
+   - затем при необходимости repeatable fallback `0901...`.
+3. В первом же lab-cycle после квоты отдельно проверить не только interruptions, но и:
+   - не стоит ли поднять `soft_timeout` в диапазон примерно `2.2-2.5`;
+   - убрать из filler prompt time-promise пример `Секунду...`.
+
+## 1.14) Обновление 2026-06-18: собран второй lab-кандидат `interruptible_softfill`
+
+### Сделано
+- Добавлен отдельный builder:
+  - [scripts/prepare_eleven_interruptible_softfill_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_interruptible_softfill_variant.sh:1)
+- Он строит lab-only payload поверх текущей published ветки со следующими изменениями:
+  - `turn_timeout = 2.3`
+  - `turn_eagerness = normal`
+  - `client_events` гарантированно включают `interruption`
+  - `soft_timeout_seconds = 2.4`
+  - static fallback filler = `Да...`
+  - LLM filler prompt больше не использует примеры `Секунду... / Момент...`, а предпочитает нейтральные формы `Да... / Так... / Угу...`
+- Новый payload:
+  - [.runtime/eleven_interruptible_softfill_variant_2026-06-18.json](/home/max/n8n_ai_call_center/.runtime/eleven_interruptible_softfill_variant_2026-06-18.json:1)
+
+### Зачем это нужно
+- `interruptible_balanced` закрывает самую грубую проблему “не даёт человеку сказать”.
+- Но official docs также подсветили отдельную вторую проблему:
+  - fillers не должны обещать время;
+  - слишком ранний filler может сам по себе звучать по-ботски.
+- Поэтому `interruptible_softfill` — это не замена primary-кандидату, а следующий осмысленный A/B шаг:
+  - сохранить более естественный barge-in;
+  - одновременно смягчить filler behavior.
+
+### Что ещё обновлено
+- Добавлен единый brief-builder:
+  - [scripts/report_eleven_operational_brief.py](/home/max/n8n_ai_call_center/scripts/report_eleven_operational_brief.py:1)
+- Добавлен единый refresh-entrypoint:
+  - [scripts/refresh_eleven_control_tower.sh](/home/max/n8n_ai_call_center/scripts/refresh_eleven_control_tower.sh:1)
+- Готовые свежие brief-артефакты:
+  - [.runtime/eleven_operational_brief_2026-06-18.json](/home/max/n8n_ai_call_center/.runtime/eleven_operational_brief_2026-06-18.json:1)
+  - [.runtime/eleven_operational_brief_2026-06-18.md](/home/max/n8n_ai_call_center/.runtime/eleven_operational_brief_2026-06-18.md:1)
+- Пересобран post-quota execution pack:
+  - [.runtime/eleven_post_quota_test_pack_2026-06-18/manifest.json](/home/max/n8n_ai_call_center/.runtime/eleven_post_quota_test_pack_2026-06-18/manifest.json:1)
+  - [.runtime/eleven_post_quota_test_pack_2026-06-18/README.txt](/home/max/n8n_ai_call_center/.runtime/eleven_post_quota_test_pack_2026-06-18/README.txt:1)
+  - [.runtime/eleven_post_quota_test_pack_2026-06-18/run_commands.sh](/home/max/n8n_ai_call_center/.runtime/eleven_post_quota_test_pack_2026-06-18/run_commands.sh:1)
+  - [.runtime/eleven_post_quota_test_pack_2026-06-18/validate_variants.sh](/home/max/n8n_ai_call_center/.runtime/eleven_post_quota_test_pack_2026-06-18/validate_variants.sh:1)
+  - [.runtime/eleven_post_quota_test_pack_2026-06-18/operational_brief.md](/home/max/n8n_ai_call_center/.runtime/eleven_post_quota_test_pack_2026-06-18/operational_brief.md:1)
+  - [.runtime/eleven_post_quota_test_pack_2026-06-18/operational_brief.json](/home/max/n8n_ai_call_center/.runtime/eleven_post_quota_test_pack_2026-06-18/operational_brief.json:1)
+- В pack теперь есть:
+  - `payload_interruptible_balanced.json`
+  - `payload_interruptible_softfill.json`
+  - `payload_repeatable_fallback.json`
+  - `variant_checks/`
+
+### Что теперь умеет сам pack
+- Перед readiness pack теперь запускает локальный self-check:
+  - `validate_variants.sh`
+- И внутри pack уже лежит короткий human-readable status:
+  - `operational_brief.md`
+- А также machine-readable сводка:
+  - `operational_brief.json`
+- Он:
+  - прогоняет `check_eleven_turn_variant_invariants.py` по:
+    - published current
+    - interruptible balanced
+    - interruptible softfill
+  - печатает matrix через:
+    - `report_eleven_turn_variant_matrix.py`
+- Это значит:
+  - после пополнения квоты мы сначала убеждаемся, что сам engineering-pack не деградировал;
+  - и только потом идём в реальные self-tests.
+
+### Новый инженерный entrypoint
+- Теперь весь Eleven control tower можно перестроить одной командой:
+  - `./scripts/refresh_eleven_control_tower.sh --date-tag 2026-06-18`
+- Что он делает:
+  1. проверяет текущий snapshot;
+  2. переснимает quota preflight;
+  3. переснимает readiness;
+  4. обновляет docs alignment;
+  5. пересобирает `interruptible_balanced`;
+  6. пересобирает `interruptible_softfill`;
+  7. обновляет `variant_checks`;
+  8. пересобирает `post_quota pack`;
+  9. обновляет standalone brief.
+- Если нужен полный refresh от live Eleven, а не от текущего локального snapshot:
+  - `./scripts/refresh_eleven_control_tower.sh --with-fetch --date-tag 2026-06-18`
+- Под этот способ входа добавлена отдельная checkpoint-страница:
+  - [docs/checkpoints/2026-06-18_ELEVEN_CONTROL_TOWER_ENTRYPOINT.md](/home/max/n8n_ai_call_center/docs/checkpoints/2026-06-18_ELEVEN_CONTROL_TOWER_ENTRYPOINT.md:1)
+
+### Стабильный latest-entrypoint
+- Поверх dated runtime-артефактов теперь собирается стабильная точка входа:
+  - [.runtime/eleven_control_tower_latest/operational_brief.md](/home/max/n8n_ai_call_center/.runtime/eleven_control_tower_latest/operational_brief.md:1)
+  - [.runtime/eleven_control_tower_latest/README.txt](/home/max/n8n_ai_call_center/.runtime/eleven_control_tower_latest/README.txt:1)
+- Это сделано, чтобы новый чат не стартовал с ручного поиска правильной даты в `.runtime/`.
+- Внутри latest-слоя лежат или линкуются:
+  - `snapshot/`
+  - `quota/`
+  - `readiness/`
+  - `alignment.json`
+  - `interruptible_balanced.json`
+  - `interruptible_softfill.json`
+  - `turn_checks/`
+  - `pack/`
+  - `operational_brief.md`
+- Теперь практический вход такой:
+  1. открыть `operational_brief.md` в latest;
+  2. если состояние устарело, выполнить:
+     - `./scripts/refresh_eleven_control_tower.sh`
+  3. если нужен свежий live snapshot:
+     - `./scripts/refresh_eleven_control_tower.sh --with-fetch`
+
+### Новый дополнительный кандидат: interruptible_latefill
+- Добавлен builder:
+  - [scripts/prepare_eleven_interruptible_latefill_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_interruptible_latefill_variant.sh:1)
+- Его задача:
+  - не трогать opener и machine-stop логику;
+  - сохранить `interruption`;
+  - сохранить `turn_timeout = 2.3` и `turn_eagerness = normal`;
+  - но отложить старт filler masking до `soft_timeout = 3.0`
+  - и при этом не возвращать time-promise лексику.
+- Он уже встроен в:
+  - `refresh_eleven_control_tower.sh`
+  - `prepare_eleven_post_quota_test_pack.sh`
+  - `check_eleven_turn_variant_invariants.py`
+  - `report_eleven_turn_variant_matrix.py`
+  - `operational_brief.md`
+- Практический post-quota порядок теперь такой:
+  1. `interruptible_balanced`
+  2. `interruptible_softfill`
+  3. `interruptible_latefill`
+  4. repeatable fallback `0901...`
+
+### Новый advisor по следующему варианту
+- Добавлен:
+  - [scripts/report_eleven_next_variant_advisor.py](/home/max/n8n_ai_call_center/scripts/report_eleven_next_variant_advisor.py:1)
+- Он умеет брать:
+  - `variant_matrix.json`
+  - optional `finalization_audit.json`
+  - optional freeform complaint text
+  и возвращать осмысленный порядок, что тестировать следующим.
+- Для pack добавлен helper:
+  - `recommend_next_variant.sh`
+- В stable latest теперь лежит:
+  - [.runtime/eleven_control_tower_latest/next_variant_advisor.md](/home/max/n8n_ai_call_center/.runtime/eleven_control_tower_latest/next_variant_advisor.md:1)
+- Практический смысл:
+  - `operational_brief.md` отвечает на вопрос "что сейчас происходит";
+  - `next_variant_advisor.md` отвечает на вопрос "какой candidate брать следующим под текущую жалобу".
+- Дополнительно advisor уже устойчив к двум типам старых артефактов:
+  - обычный `finalization_audit.json`
+  - batch/list-формат старого audit-файла
+- И helper в pack умеет принимать:
+  - путь к `finalization_audit.json`
+  - путь к run-dir
+  - или просто complaint text
+- Дополнительно `run_eleven_selftest_audit.sh` теперь сам замыкает короткий цикл:
+  - пишет `finalization_audit.json`
+  - сразу пишет `next_variant_advice.json/md`
+  - и печатает short recommendation summary по следующему variant
+- Новый practical gain:
+  - advisor теперь различает два режима:
+    - `ready_for_variant_testing = true`
+    - `ready_for_variant_testing = false`
+- Во втором режиме он уже не маскирует техническую проблему под очередной variant-test, а явно отдаёт `action_plan` с fix-before-variant шагами.
+
+### Новый практический порядок после квоты
+1. `validate_variants.sh`
+2. Self-test текущей published `9601...`
+3. Apply + self-test `interruptible_balanced`
+4. Если стало лучше, но fillers всё ещё звучат слишком рано или слишком синтетично:
+   - apply + self-test `interruptible_softfill`
+5. Если оба варианта всё ещё слабее ожиданий:
+   - repeatable fallback `0901...`
+
+### Дополнительная машинная проверка
+- Добавлен validator именно для turn-taking / filler слоя:
+  - [scripts/check_eleven_turn_variant_invariants.py](/home/max/n8n_ai_call_center/scripts/check_eleven_turn_variant_invariants.py:1)
+- Сохранены результаты проверки:
+  - [.runtime/eleven_turn_variant_checks_2026-06-18/published_current.json](/home/max/n8n_ai_call_center/.runtime/eleven_turn_variant_checks_2026-06-18/published_current.json:1)
+  - [.runtime/eleven_turn_variant_checks_2026-06-18/interruptible_balanced.json](/home/max/n8n_ai_call_center/.runtime/eleven_turn_variant_checks_2026-06-18/interruptible_balanced.json:1)
+  - [.runtime/eleven_turn_variant_checks_2026-06-18/interruptible_softfill.json](/home/max/n8n_ai_call_center/.runtime/eleven_turn_variant_checks_2026-06-18/interruptible_softfill.json:1)
+- Все три профиля сейчас проходят свои ожидаемые инварианты.
+
+### Ещё один удобный артефакт
+- Добавлен компактный matrix-report:
+  - [scripts/report_eleven_turn_variant_matrix.py](/home/max/n8n_ai_call_center/scripts/report_eleven_turn_variant_matrix.py:1)
+  - готовый output:
+    - [.runtime/eleven_turn_variant_checks_2026-06-18/variant_matrix.json](/home/max/n8n_ai_call_center/.runtime/eleven_turn_variant_checks_2026-06-18/variant_matrix.json:1)
+- Он уже машинно подтверждает:
+  - `published_current`:
+    - interruptions выключены;
+    - filler prompt содержит time-promise markers;
+  - `interruptible_balanced`:
+    - interruptions включены;
+    - filler prompt всё ещё содержит time-promise markers;
+  - `interruptible_softfill`:
+    - interruptions включены;
+    - filler prompt уже без time-promise markers.
+
+## 1.08) Обновление 2026-06-18: batch-аудит по серии разговоров уже показал реальный backlog
+
+### Сделано
+- Добавлен:
+  - [scripts/analyze_eleven_conversation_batch.py](/home/max/n8n_ai_call_center/scripts/analyze_eleven_conversation_batch.py:1)
+- Он агрегирует серию разговоров и считает:
+  - `issue_type_counts`
+  - `primary_bottleneck_counts`
+  - `top_recommendation_counts`
+  - `timing_rollup`
+- Для серии:
+  - `.runtime/eleven_lab_golden_confirm_2026-06-17/*/conversation_poll_final.json`
+  уже сохранён готовый summary:
+  - [.runtime/eleven_lab_golden_confirm_2026-06-17/batch_audit_summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_lab_golden_confirm_2026-06-17/batch_audit_summary.json:1)
+
+### Что показал summary
+- `conversations_analyzed = 5`
+- Главные issue counts:
+  - `long_user_to_agent_gap = 18`
+  - `duplicate_close_before_end_call = 7`
+  - `placeholder_conversation_id_in_tool_call = 6`
+  - `final_close_spoken_before_call_log = 5`
+  - `line_check_after_meaningful_post_opener_reply = 4`
+  - `normal_assistant_speech_after_call_log = 4`
+- Главные bottleneck counts:
+  - `turn_taking_or_dialogue_flow = 15`
+  - `mixed_or_small_gap = 3`
+  - `tool_path = 2`
+  - `llm_generation = 1`
+- Timing rollup тоже подтверждает прежнюю гипотезу:
+  - `gap_avg_of_avgs_secs = 7.84`
+  - `known_path_avg_of_avgs_secs = 1.57`
+  - `unexplained_overhead_avg_of_avgs_secs = 6.27`
+  - `llm_ttfb_avg_of_avgs_secs = 0.939`
+  - `tts_ttfb_avg_of_avgs_secs = 0.298`
+
+### Практический вывод
+- На этой серии тестов bottleneck уже нельзя честно назвать “просто медленная модель”.
+- Главный backlog сейчас выглядит так:
+  1. `focus_turn_taking`
+  2. `single_close_only`
+  3. `fix_tool_identity_binding`
+  4. `no_normal_speech_after_call_log`
+  5. `remove_late_line_checks`
+
+### Что делать дальше
+1. Следующий live цикл после восстановления квоты вести именно по этому backlog.
+2. После каждой заметной серии правок переснимать batch-аудит и смотреть, поменялась ли вершина топ-проблем.
+3. Тонкий voice/LLM polish продолжать только после того, как flow перестанет доминировать в batch-статистике.
+
+### Более широкий lab-срез
+- Дополнительно снят общий summary по всем доступным `.runtime/eleven_lab_*` разговорам:
+  - [.runtime/eleven_all_lab_batch_summary_2026-06-18.json](/home/max/n8n_ai_call_center/.runtime/eleven_all_lab_batch_summary_2026-06-18.json:1)
+- По нему уже видно:
+  - `conversations_analyzed = 49`
+  - `long_user_to_agent_gap = 208`
+  - `normal_assistant_speech_after_call_log = 45`
+  - `duplicate_close_before_end_call = 41`
+  - `line_check_after_meaningful_post_opener_reply = 38`
+  - `turn_taking_or_dialogue_flow = 185`
+  - `tool_path = 16`
+  - `llm_generation = 6`
+- Это ещё сильнее подтверждает, что системный backlog сейчас именно flow-first, а не model-first.
+
+## 1.07) Обновление 2026-06-18: offline-audit теперь считает реальные voice gaps и отделяет latency модели от latency flow
+
+### Сделано
+- Усилен:
+  - [scripts/analyze_eleven_conversation.py](/home/max/n8n_ai_call_center/scripts/analyze_eleven_conversation.py:1)
+- Помимо structural issues он теперь считает timing-summary:
+  - `first_user_to_agent_gap_secs`
+  - `user_to_agent_gap_stats_secs`
+  - `known_path_stats_secs`
+  - `unexplained_overhead_stats_secs`
+  - `llm_ttfb_stats_secs`
+  - `llm_ttf_sentence_stats_secs`
+  - `llm_last_sentence_stats_secs`
+  - `tts_ttfb_stats_secs`
+- Добавлены дополнительные issue types:
+  - `long_user_to_agent_gap`
+  - `consecutive_agent_speech_without_user_reply`
+  - `repeated_line_check_self_talk`
+  - `machine_transfer_phrase_reached_agent_dialogue`
+- Добавлена и автоматическая подсказка по основной причине gap:
+  - `turn_taking_or_dialogue_flow`
+  - `tool_path`
+  - `llm_generation`
+  - `tts_start`
+  - `mixed_known_path_and_flow`
+  - `mixed_or_small_gap`
+- Добавлен и recommendation-layer:
+  - analyzer пишет `recommendations`
+  - wrapper печатает `top_recommendations`
+- Усилен и:
+  - [scripts/run_eleven_selftest_audit.sh](/home/max/n8n_ai_call_center/scripts/run_eleven_selftest_audit.sh:1)
+  - его короткий вывод теперь печатает не только issue types, но и timing-summary.
+- Подтверждённый пример на старом opener-кейсе:
+  - [.runtime/single_call_2026-06-06_row_8_opener_or_conv_check/conv_2701ktdzmjz7fxqrmfczhea65r56.json](/home/max/n8n_ai_call_center/.runtime/single_call_2026-06-06_row_8_opener_or_conv_check/conv_2701ktdzmjz7fxqrmfczhea65r56.json:1)
+  показывает:
+  - `first_user_to_agent_gap_secs = 4.0`
+  - при этом:
+    - `llm_ttfb ≈ 0.476s`
+    - `tts_ttfb ≈ 0.351s`
+- Подтверждённый пример на длинном lab-разговоре:
+  - [.runtime/eleven_lab_mid_dialogue_reassurance_trim_2026-06-17/call_01_verify/conversation_poll_final.json](/home/max/n8n_ai_call_center/.runtime/eleven_lab_mid_dialogue_reassurance_trim_2026-06-17/call_01_verify/conversation_poll_final.json:1)
+  показывает:
+  - `user_to_agent_gap_stats_secs.max = 12.0`
+  - `user_to_agent_gap_stats_secs.avg = 6.5`
+  - `known_path_stats_secs.avg = 1.818`
+  - `unexplained_overhead_stats_secs.avg = 4.682`
+  - `unexplained_overhead_stats_secs.max = 10.907`
+  - `primary_bottleneck_counts`:
+    - `turn_taking_or_dialogue_flow = 5`
+    - `tool_path = 1`
+  - при этом средний `llm_ttfb` остаётся около `0.809s`
+  - а средний `tts_ttfb` около `0.342s`
+- На этом же кейсе top recommendations уже автоматически дают правильный порядок:
+  - `focus_turn_taking`
+  - `remove_late_line_checks`
+  - `single_close_only`
+- На audit-only кейсе:
+  - `run_eleven_selftest_audit.sh --audit-only .runtime/eleven_lab_golden_confirm_2026-06-17/call_02_confirm`
+  wrapper уже печатает этот short list без ручного разбора полного JSON.
+- Для финального close на другом self-test:
+  - `run_eleven_selftest_audit.sh --audit-only .runtime/eleven_lab_golden_confirm_2026-06-17/call_02_confirm`
+  уже показывает в summary:
+  - `known_path_stats_secs.avg = 1.288`
+  - `unexplained_overhead_stats_secs.avg = 5.312`
+  - то есть gap слышится длинным не только из-за raw модели, но и из-за самого flow.
+
+### На чем остановились
+- Теперь у нас есть offline-инструмент, который разделяет:
+  - проблему модели/TTS;
+  - и проблему самого dialogue-flow / turn-taking.
+- И уже не просто по человеческой интерпретации, а через повторяемую машинную подсказку в audit JSON.
+- Это полезно именно сейчас, когда live-серия блокируется квотой Eleven и нельзя бесконечно проверять всё звонками.
+
+### Что делать дальше
+1. После снятия квоты использовать этот audit на каждом коротком self-test.
+2. Если raw `llm/tts` быстрые, а human-facing gap длинный, править уже не модель, а flow и tool sequencing.
+3. Следующий live цикл после восстановления лимита оценивать не только по слуху, но и по timing-summary JSON.
+
+## 1.06) Обновление 2026-06-18: текущая ветка агента перепроверена, prompt-инварианты зелёные, blocker по-прежнему квота
+
+### Сделано
+- Добавлен и проверен новый helper:
+  - [scripts/fetch_eleven_agent_snapshot_via_server_env.sh](/home/max/n8n_ai_call_center/scripts/fetch_eleven_agent_snapshot_via_server_env.sh:1)
+- Он снимает живой snapshot текущей ветки агента напрямую через server env и сохраняет:
+  - `response.json`
+  - `summary.json`
+- Свежий артефакт:
+  - [.runtime/eleven_current_branch_snapshot_2026-06-18_now/summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_current_branch_snapshot_2026-06-18_now/summary.json:1)
+- Сейчас фактически подтверждено:
+  - `agent_id = agent_8801kgybyekned2a8yae6rp8hk3q`
+  - `branch_id = agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+  - `version_id = agtvrsn_9601kvcyw6eyebtrv3wpdq56cj0k`
+  - `llm = gpt-5-mini`
+  - `tts = eleven_v3_conversational`
+  - `turn_timeout = 1.78`
+  - `soft_timeout_seconds = 1.9`
+- Актуализирован:
+  - [scripts/check_eleven_prompt_invariants.py](/home/max/n8n_ai_call_center/scripts/check_eleven_prompt_invariants.py:1)
+- Его локальная норма теперь совпадает с фактической опубликованной веткой:
+  - ожидает `soft_timeout = 1.9`;
+  - принимает текущую формулировку:
+    - `only after the exact opener has already finished`
+- Свежая проверка опубликованной ветки:
+  - [.runtime/eleven_current_branch_snapshot_2026-06-18_now/invariants.json](/home/max/n8n_ai_call_center/.runtime/eleven_current_branch_snapshot_2026-06-18_now/invariants.json:1)
+  дала:
+  - `43/43 ok`
+  - `checks_failed = 0`
+- Параллельно readiness по live-контуру остаётся зелёным по инфраструктуре:
+  - [.runtime/eleven_live_readiness_2026-06-18_now/live_readiness_summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_live_readiness_2026-06-18_now/live_readiness_summary.json:1)
+  показывает:
+  - `public_health_ok = true`
+  - `local_stack_running = true`
+  - `workflow_matches_state = true`
+  - `alternate_named_eleven_credential_detected = false`
+  - `quota_fail_count = 13`
+  - `overall_diagnosis = quota_blocker_active`
+
+### На чем остановились
+- И prompt-state, и infrastructure-state сейчас подтверждены независимо.
+- Поэтому текущие `failed`/застопоренные live-звонки нельзя честно объяснять:
+  - ни поломкой route;
+  - ни дрейфом live prompt;
+  - ни “случайной” сменой модели/голоса.
+- Реальный текущий blocker остаётся тем же:
+  - квота / quota-pressure на стороне Eleven.
+
+### Что делать дальше
+1. До снятия квоты не жечь новые тестовые звонки как будто мы лечим prompt.
+2. После восстановления лимита первым запускать короткий `local_relay-first` self-test.
+3. Для быстрой сверки опубликованной ветки использовать новый fetch-helper + invariant-checker вместо ручной проверки JSON.
+
+## 1.03) Обновление 2026-06-18: live route снова зелёный, direct local relay подтверждает новый quota fail
+
+### Сделано
+- Подтверждён новый живой public tunnel:
+  - `https://29d29137388b89.lhr.life/eleven/outbound-call`
+- Live workflow `sHTbALayEZdy8Mzs` уже смотрит именно в этот URL, и readiness-report теперь фиксирует:
+  - `workflow_matches_state = true`
+  - `public_health_ok = true`
+  - артефакт:
+    - [.runtime/eleven_live_readiness_2026-06-18_live_sessions/live_readiness_summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_live_readiness_2026-06-18_live_sessions/live_readiness_summary.json:1)
+- Это означает, что инфраструктурный путь снова собран целиком:
+  - local relay;
+  - public tunnel;
+  - live workflow URL;
+  - localhost.run state file.
+- Затем сделан принудительный live-cycle:
+  - `.runtime/eleven_live_cycle_forced_2026-06-18_onecall/`
+  - и он показал, что старый transport `relay_via_server` по-прежнему может ловить:
+    - `cloudflare_challenge`
+    - help-page вместо JSON.
+- После этого выполнен более важный direct probe в локальный relay:
+  - POST на `http://127.0.0.1:18787/eleven/outbound-call`
+  - тем же `request.json`, что self-test уже собрал.
+- Этот probe вернул:
+  - `success = true`
+  - `Outbound call initiated`
+  - `conversation_id = conv_9801kvda6zckfmp9jds52x52yp9w`
+- Разговор затем дочитан через Eleven API и уже там подтверждён новый прямой факт:
+  - `termination_reason = This request exceeds your quota limit.`
+  - `error.code = 1002`
+  - `status = failed`
+- Отдельно поправлен self-test tooling:
+  - [scripts/run_eleven_branch_selftest.sh](/home/max/n8n_ai_call_center/scripts/run_eleven_branch_selftest.sh:1)
+  - default transport order теперь:
+    - `local_relay -> relay_via_server -> relay -> webhook`
+  - это лучше отражает наш реальный рабочий live path через local egress.
+
+### На чем остановились
+- Идея “route сломан” сейчас уже закрыта фактами:
+  - route жив;
+  - public health зелёный;
+  - direct local relay инициирует outbound.
+- Server-side relay по-прежнему ненадёжен из-за Cloudflare/help block.
+- Но главный текущий блок уже локализован точнее:
+  - даже по рабочему local path Eleven после создания разговора завершает его по quota limit.
+
+### Что делать дальше
+1. Не диагностировать prompt/naturalness как главную причину текущих failed-call, пока не снята квота.
+2. После восстановления лимита запускать следующий цикл уже через `local_relay` как first transport.
+3. Server-side relay path рассматривать как вспомогательный, а не как основной source-of-truth для live self-test в этом проекте.
+
+## 1.04) Обновление 2026-06-18: штатный detached launcher снова работает, а selftest теперь по умолчанию local-relay-first
+
+### Сделано
+- Проверен обновлённый:
+  - [scripts/run_eleven_branch_selftest.sh](/home/max/n8n_ai_call_center/scripts/run_eleven_branch_selftest.sh:1)
+- Новый controlled run:
+  - [.runtime/eleven_localrelay_first_2026-06-18/runtime_diagnosis.json](/home/max/n8n_ai_call_center/.runtime/eleven_localrelay_first_2026-06-18/runtime_diagnosis.json:1)
+  уже честно показывает:
+  - `transport = local_relay`
+  - `diagnosis = provider_quota_limit`
+  - `conversation_id = conv_1201kvdae8fxf779k0deagwst8b6`
+  - `version_matches_expected = true`
+- Это важно, потому что старый server-first selftest мог увести нас в `cloudflare_challenge`, хотя основной local path уже был рабочим.
+- Дополнительно восстановлен штатный stack launcher:
+  - [scripts/start_eleven_local_relay_stack.sh](/home/max/n8n_ai_call_center/scripts/start_eleven_local_relay_stack.sh:1)
+- Практический fix:
+  - relay теперь запускается detached через `setsid python3 ...`;
+  - tunnel теперь запускается detached через `setsid script -qefc ...`;
+  - из-за этого stack больше не умирает сразу после завершения стартового shell.
+- Подтверждённый новый live URL после detached-launch:
+  - `https://0087b8fcfbdd94.lhr.life/eleven/outbound-call`
+- Подтверждённый readiness snapshot:
+  - [.runtime/eleven_live_readiness_2026-06-18_detached_launcher/live_readiness_summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_live_readiness_2026-06-18_detached_launcher/live_readiness_summary.json:1)
+  показывает:
+  - `workflow_matches_state = true`
+  - `public_health_ok = true`
+  - `quota_fail_count = 13`
+  - `overall_diagnosis = quota_blocker_active`
+
+### На чем остановились
+- Теперь operational stack стал намного устойчивее:
+  - не только ручные PTY-сессии;
+  - но и обычный launcher снова может поднимать рабочий live route.
+- Основной блокер после этой правки не изменился:
+  - внешняя квота Eleven по-прежнему рвёт разговор уже после `Outbound call initiated`.
+
+### Что делать дальше
+1. Использовать текущий detached launcher как основной путь поднятия relay+tunnel.
+2. Для новых controlled tests считать `local_relay` first transport обязательным дефолтом.
+3. Возвращаться к диалоговой качественной настройке только после восстановления квоты Eleven.
+
+## 1.05) Обновление 2026-06-18: readiness-report теперь показывает config inventory и статус локального stack
+
+### Сделано
+- Усилен:
+  - [scripts/report_eleven_live_readiness.sh](/home/max/n8n_ai_call_center/scripts/report_eleven_live_readiness.sh:1)
+- Теперь он дополнительно собирает:
+  - `config_inventory`
+  - `runtime_stack`
+- Подтверждённый новый snapshot:
+  - [.runtime/eleven_live_readiness_2026-06-18_inventory/live_readiness_summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_live_readiness_2026-06-18_inventory/live_readiness_summary.json:1)
+- Он показывает:
+  - `public_health_ok = true`
+  - `local_stack_running = true`
+  - `workflow_matches_state = true`
+  - `overall_diagnosis = quota_blocker_active`
+- Важные новые operational facts из `config_inventory`:
+  - обе server env mirror-конфигурации содержат:
+    - `ELEVENLABS_API_KEY`
+    - `ELEVEN_OUTBOUND_RELAY_TOKEN`
+  - но в `n8n` обнаружен только один named Eleven credential:
+    - `ElevenLabs XI API`
+  - readiness прямо фиксирует:
+    - `alternate_named_eleven_credential_detected = false`
+- Текущий живой tunnel на момент этого snapshot:
+  - `https://96e9645631456d.lhr.life/eleven/outbound-call`
+
+### На чем остановились
+- Теперь один readiness-файл уже сам отвечает:
+  - жив ли маршрут;
+  - жив ли local stack;
+  - виден ли альтернативный named credential.
+- По текущим данным:
+  - инфраструктура восстановлена;
+  - named запасного Eleven credential не видно;
+  - главный внешний стоп всё ещё в quota limit.
+
+### Что делать дальше
+1. При новой диагностике начинать с этого readiness snapshot, а не с ручной проверки pgrep/URL/env.
+2. Не предполагать существование второго рабочего ключа без нового подтверждённого источника.
+3. Следующий meaningful прогон делать после восстановления лимита или после появления нового внешнего credential-source.
+
+## 0.98) Обновление 2026-06-18: live outbound снова проходит через local tunnel, а helper умеет восстанавливать `conv_id` даже при пустом webhook body
+
+### Сделано
+- Подтверждено, что первый public tunnel `077b96f77ded60.lhr.life` устарел, и из-за этого live workflow снова смотрел в мёртвый URL.
+- Новый рабочий tunnel сейчас:
+  - `https://fd7bdf984512a5.lhr.life/eleven/outbound-call`
+- Для live workflow:
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)`
+  - `sHTbALayEZdy8Mzs`
+  выполнен точечный SQL-fix:
+  - `workflow_entity.nodes`
+  - active `workflow_history.versionId = 0e21f126-db50-4500-b74f-3df4e9891d51`
+  обновлены со старого `077b...` URL на новый `fd7b...`.
+- После этого live webhook снова реально доходит до local relay:
+  - relay health:
+    - `http://127.0.0.1:18787/health`
+  - public health:
+    - `https://fd7bdf984512a5.lhr.life/health`
+  - server-side health probe с `ai-core-prod-147` тоже снова успешен.
+- Реальный relay log после cutover снова показал:
+  - `Upstream 200`
+  - `Outbound call initiated`
+  - пример разговора:
+    - `conv_6501kvd1t042ent9vznzex9g0y7t`
+- Отдельно добит recovery в:
+  - [scripts/run_eleven_branch_selftest.sh](/home/max/n8n_ai_call_center/scripts/run_eleven_branch_selftest.sh:1)
+  - теперь helper:
+    - не только ищет разговор по `user_id + branch_id`;
+    - но и умеет fallback через recent branch history;
+    - плюс делает короткие retry, потому что Eleven показывает разговор в list API не мгновенно.
+- Это уже подтверждено self-test артефактом:
+  - `.runtime/eleven_local_tunnel_cutover_2026-06-18_resume/call_07_webhook_tunnel_branch_retry/`
+  - helper сам восстановил:
+    - `conversation_id = conv_9501kvd22c3hfrn9nqry1cg6t8sc`
+    - `branch_id = agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+    - `version_id = agtvrsn_9601kvcyw6eyebtrv3wpdq56cj0k`
+    - `version_matches_expected = true`
+
+### На чем остановились
+- Локальный обход server-side country block через local relay + public tunnel сейчас снова рабочий.
+- Live workflow опять способен физически пробрасывать outbound request до Eleven.
+- Self-test tooling больше не ломается только из-за пустого body от webhook.
+- Текущий блок сместился дальше:
+  - после `Outbound call initiated` часть разговоров всё ещё приходит как `failed`;
+  - list API уже прямо показывает для свежих lab-call:
+    - `conv_1601kvd1wrdhf89beweq56y0v3pq`
+    - `conv_5301kvd1zyb2emgtk2p7g5jbezhj`
+    - `conv_7901kvd29vy1fxq835szb2wvj89f`
+    - `conv_9501kvd22c3hfrn9nqry1cg6t8sc`
+    причину:
+    - `termination_reason = This request exceeds your quota limit.`
+  - selftest теперь не маскирует это как безликий `failed`:
+    - `.runtime/eleven_local_tunnel_cutover_2026-06-18_resume/call_08_quota_surface/runtime_diagnosis.json`
+      уже пишет:
+      - `diagnosis = provider_quota_limit`
+  - в некоторых карточках Eleven не отдаёт полную telephony metadata даже при существующем `conversation_id`;
+  - это уже не баг n8n route и не провал helper recovery.
+
+### Что делать дальше
+1. При любой новой смене public tunnel первым делом обновлять URL в live workflow.
+2. Следующий узкий цикл вести уже вокруг post-init состояния conversation:
+   - quota;
+   - provider/runtime termination;
+   - неполная metadata в Eleven.
+3. Пока local tunnel нужен для обхода server-side restriction, держать в уме его runtime-зависимость:
+   - локальный relay session;
+   - активный tunnel session;
+   - live URL в workflow должен совпадать с текущим tunnel доменом.
+
+## 0.99) Обновление 2026-06-18: добавлен quota preflight до звонка, а selftest теперь сохраняет его в каждый run-dir
+
+### Сделано
+- Добавлен новый helper:
+  - [scripts/report_eleven_quota_preflight.sh](/home/max/n8n_ai_call_center/scripts/report_eleven_quota_preflight.sh:1)
+- Он снимает:
+  - raw `user/subscription` snapshot;
+  - recent branch conversations;
+  - и собирает короткий `eleven_quota_preflight_summary.json`.
+- Практически это дало сразу два результата:
+  - видно, что recent branch history уже забита quota-fail;
+  - видно, что current live API key не имеет права:
+    - `user_read`
+    поэтому `GET /v1/user/subscription` возвращает:
+    - `missing_permissions`
+- Несмотря на это, summary остаётся полезным, потому что считает:
+  - `quota_fail_count`
+  - latest quota fail
+  - и пишет diagnosis:
+    - `provider_quota_limit_observed_recently`
+- Подтверждённый standalone-артефакт:
+  - [.runtime/eleven_quota_preflight_2026-06-18/eleven_quota_preflight_summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_quota_preflight_2026-06-18/eleven_quota_preflight_summary.json:1)
+- Затем preflight встроен прямо в:
+  - [scripts/run_eleven_branch_selftest.sh](/home/max/n8n_ai_call_center/scripts/run_eleven_branch_selftest.sh:1)
+  - теперь selftest автоматически сохраняет `preflight/` в свой output-dir.
+- Подтверждённый интеграционный run:
+  - `.runtime/eleven_local_tunnel_cutover_2026-06-18_resume/call_09_preflight_integration/`
+  - внутри:
+    - `preflight/eleven_quota_preflight_summary.json`
+    - `runtime_diagnosis.json`
+  - оба артефакта согласованно показывают quota problem.
+
+### На чем остановились
+- Теперь live/selftest контур умеет показывать quota-pressure и до звонка, и после звонка.
+- Значит текущая диагностика стала намного честнее:
+  - не только `provider_quota_limit` post factum;
+  - но и `provider_quota_limit_observed_recently` заранее.
+
+### Что делать дальше
+1. Использовать preflight как первую проверку перед любым новым live self-test.
+2. Пока preflight показывает свежие quota-fail, не считать новые failed calls регрессией prompt/voice logic.
+3. После восстановления лимита Eleven повторить короткий self-test на `agtvrsn_9601kvcyw6eyebtrv3wpdq56cj0k` и уже тогда вернуться к разговорным улучшениям.
+
+## 1.00) Обновление 2026-06-18: helper для localhost.run tunnel sync переписан под реальный live outbound bridge
+
+### Сделано
+- Переписан:
+  - [scripts/localhost_run_tunnel_sync.py](/home/max/n8n_ai_call_center/scripts/localhost_run_tunnel_sync.py:1)
+- Раньше он:
+  - смотрел в старый workflow id;
+  - пытался патчить live только через n8n API;
+  - был уязвим к той же проблеме, которую мы уже ловили руками:
+    - `workflow_entity` обновлён, а active `workflow_history` нет.
+- Теперь helper заточен под реальный текущий live outbound path:
+  - workflow id:
+    - `sHTbALayEZdy8Mzs`
+  - node:
+    - `Eleven | Outbound HTTP`
+  - patch mode:
+    - `server_postgres`
+- Логика теперь такая:
+  1. tunnel поднимается через `localhost.run`;
+  2. новый public URL ловится из stdout;
+  3. helper через `ssh` идёт на `ai-core-prod-147`;
+  4. берёт `DB_POSTGRESDB_*` из live `n8n-server-n8n-1`;
+  5. патчит URL сразу в:
+     - `workflow_entity`
+     - active `workflow_history`
+  6. пишет state в:
+     - `/home/max/.config/lipolong-eleven-relay-state.json`
+- Отдельно исправлены два практических багa:
+  - remote helper теперь передаётся по stdin, а не через хрупкий `python3 -c ...`;
+  - аргументы кодируются через base64, чтобы не ломаться на имени ноды `Eleven | Outbound HTTP`.
+- Проверка уже проведена безопасным no-op patch на текущий URL:
+  - `https://fd7bdf984512a5.lhr.life/eleven/outbound-call`
+  - helper вернул:
+    - `ok = true`
+    - `active_version_id = 0e21f126-db50-4500-b74f-3df4e9891d51`
+- Независимая readback-проверка из live Postgres сразу после этого подтвердила тот же URL.
+
+### На чем остановились
+- У live outbound теперь есть рабочий reusable sync-helper на случай новой ротации `localhost.run` домена.
+- Это не снимает текущий quota blocker Eleven, но убирает повторяющийся инфраструктурный ручной хвост.
+
+### Что делать дальше
+1. При следующей ротации tunnel не патчить SQL вручную, а использовать `localhost_run_tunnel_sync.py`.
+2. После восстановления квоты Eleven сочетать:
+   - preflight quota helper;
+   - tunnel sync helper;
+   - branch selftest
+   в одном коротком controlled цикле.
+
+## 1.01) Обновление 2026-06-18: добавлен единый guard-cycle для live self-test
+
+### Сделано
+- Добавлен orchestration script:
+  - [scripts/run_eleven_live_cycle.sh](/home/max/n8n_ai_call_center/scripts/run_eleven_live_cycle.sh:1)
+- Он объединяет три ранее разрозненных шага:
+  1. quota preflight;
+  2. state-based relay URL repatch;
+  3. branch selftest.
+- Главное поведение по умолчанию:
+  - если preflight показывает:
+    - `provider_quota_limit_observed_recently`
+  то script останавливает цикл **до звонка**.
+- Это подтверждено run-артефактом:
+  - [.runtime/eleven_live_cycle_guard_2026-06-18](/home/max/n8n_ai_call_center/.runtime/eleven_live_cycle_guard_2026-06-18:1)
+  - `live_cycle_summary.json` там уже пишет:
+    - `action = stopped_before_call`
+    - `reason = quota_pressure_guard`
+- При этом cycle не бесполезный:
+  - `preflight_gate/` всё равно сохраняется;
+  - `state_repatch_result.json` тоже сохраняется;
+  - то есть контур и диагностируется, и подготавливается, но не жжёт звонок зря.
+- Для принудительного прогона поверх quota pressure добавлен явный флаг:
+  - `--allow-quota-pressure`
+
+### На чем остановились
+- Теперь live self-test путь стал заметно более зрелым:
+  - он умеет заранее остановиться, если причина уже понятна и внешний лимит ещё не восстановлен.
+- Это прямо помогает цели “лучший ассистент”, потому что мы перестали путать внешнюю квоту с регрессией разговорной логики.
+
+### Что делать дальше
+1. После восстановления лимита использовать `run_eleven_live_cycle.sh` как основной controlled entrypoint.
+2. Сначала убедиться, что guard перестал срабатывать.
+3. Только потом возвращаться к звонкам на качество речи, паузы, machine-detection и naturalness.
+
+## 1.02) Обновление 2026-06-18: readiness-report сводит в один снимок квоту, tunnel state, public relay health и live workflow URL
+
+### Сделано
+- Добавлен operational helper:
+  - [scripts/report_eleven_live_readiness.sh](/home/max/n8n_ai_call_center/scripts/report_eleven_live_readiness.sh:1)
+- Он собирает в один `live_readiness_summary.json`:
+  - quota preflight;
+  - `localhost.run` state file;
+  - health текущего public relay URL;
+  - readback текущего URL из live workflow `sHTbALayEZdy8Mzs`.
+- Это уже применено к реальному текущему состоянию:
+  - [.runtime/eleven_live_readiness_2026-06-18/live_readiness_summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_live_readiness_2026-06-18/live_readiness_summary.json:1)
+- И этот snapshot показывает важную двойную правду:
+  - quota blocker по-прежнему активен;
+  - плюс старый public tunnel уже мёртв.
+- Конкретно сейчас readiness-report показывает:
+  - `quota_preflight.diagnosis = provider_quota_limit_observed_recently`
+  - `quota_fail_count = 11`
+  - `live_workflow.current_url = https://fd7bdf984512a5.lhr.life/eleven/outbound-call`
+  - `workflow_matches_state = true`
+  - `public_relay_health.http_code = 503`
+  - `raw_preview = <h1>no tunnel here :(</h1>`
+- Это полезно потому, что старые runtime sessions уже исчезли, и теперь мы не зависим от памяти о том, “был ли жив tunnel”, а снимаем факт снаружи.
+
+### На чем остановились
+- Текущая проблема полностью локализована:
+  - не логика агента;
+  - не webhook path registration;
+  - не branch targeting;
+  - а одновременно:
+    - quota blocker Eleven;
+    - и уже умерший временный public tunnel.
+
+### Что делать дальше
+1. Восстановить квоту Eleven.
+2. Поднять новый public tunnel через `localhost_run_tunnel_sync.py`.
+3. Сразу после этого повторить `report_eleven_live_readiness.sh`.
+4. И только при readiness:
+   - `public_health_ok = true`
+   - `quota_guard_recommended = false`
+   переходить к новому живому self-test циклу.
+
+## 0.96) Обновление 2026-06-18: dead-air masking усилен до двухслойной схемы, новая lab-версия `9601...` опубликована
+
+### Сделано
+- По новой жалобе на пустую тишину между ответами выпущен отдельный lab-cycle:
+  - `version_id = agtvrsn_9601kvcyw6eyebtrv3wpdq56cj0k`
+  - `branch_id = agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- Добавлен новый helper:
+  - [scripts/prepare_eleven_gap_masking_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_gap_masking_variant.sh:1)
+- В этой версии зафиксирована двухслойная маскировка:
+  - для LLM-thinking pause:
+    - `soft_timeout_config.timeout_seconds = 1.9`
+    - `use_llm_generated_message = true`
+    - `message = "..."`
+    - один filler максимум;
+    - filler только после завершённого opener и только как сверхкороткая thinking-вставка;
+  - для tool execution pause:
+    - `context_fetch`
+    - `call_log`
+    - `send_sms_info`
+    получают:
+    - `tool_call_sound = elevator3`
+    - `tool_call_sound_behavior = always`
+- Отдельно расширен tool-level repair helper:
+  - [scripts/patch_eleven_tool_call_sounds_via_server_env.sh](/home/max/n8n_ai_call_center/scripts/patch_eleven_tool_call_sounds_via_server_env.sh:1)
+  - он теперь умеет принимать:
+    - `TOOL_CALL_SOUND`
+    - `TOOL_CALL_SOUND_BEHAVIOR`
+- После этого выполнен реальный patch active tools через Eleven Tools API:
+  - `context_fetch`:
+    - `tool_1601km62rxpqegqr52m9gk9sftr3`
+  - `call_log`:
+    - `tool_5701ktec2x6wfnj8t5b1rwhtw51p`
+  - `send_sms_info`:
+    - `tool_1701km86jmcpek4rj2j1rbhxqtfr`
+  - фактическое состояние:
+    - `typing/always -> elevator3/always`
+- Артефакты:
+  - [.runtime/eleven_lab_gap_masking_2026-06-18](/home/max/n8n_ai_call_center/.runtime/eleven_lab_gap_masking_2026-06-18:1)
+  - [.runtime/eleven_tool_sound_patch_2026-06-18_elevator3](/home/max/n8n_ai_call_center/.runtime/eleven_tool_sound_patch_2026-06-18_elevator3:1)
+
+### На чем остановились
+- Теперь фраза "мы это предусматривали" уже подтверждена фактом:
+  - не только payload;
+  - не только старый `typing`;
+  - а реально опубликованный `soft_timeout + elevator3/always`.
+- Живой слуховой self-test этой новой версии пока ещё не снят.
+
+### Что делать дальше
+1. Снять один короткий self-test именно на `agtvrsn_9601kvcyw6eyebtrv3wpdq56cj0k`.
+2. Проверить на слух отдельно:
+   - thinking pause;
+   - tool pause.
+3. Если `elevator3` окажется слишком тяжёлым, следующий узкий шаг:
+   - не ломать остальную схему;
+   - только заменить `elevator3` на `elevator1` или `elevator2`.
+
+## 0.97) Обновление 2026-06-18: текущий блок подтверждён как server-side `sanctioned_country`, а не как дефект агента
+
+### Сделано
+- После публикации `agtvrsn_9601kvcyw6eyebtrv3wpdq56cj0k` выполнен новый self-test через:
+  - `relay_via_server`
+  - артефакт:
+    - [.runtime/eleven_lab_gap_masking_2026-06-18/call_01_selftest](/home/max/n8n_ai_call_center/.runtime/eleven_lab_gap_masking_2026-06-18/call_01_selftest:1)
+  - итог:
+    - `relay_upstream_failed`
+    - `message = The read operation timed out`
+- Затем выполнен второй self-test через:
+  - `webhook`
+  - артефакт:
+    - [.runtime/eleven_lab_gap_masking_2026-06-18/call_02_selftest_webhook](/home/max/n8n_ai_call_center/.runtime/eleven_lab_gap_masking_2026-06-18/call_02_selftest_webhook:1)
+  - итог:
+    - `status = sanctioned_country`
+    - `message = This functionality is not available in your location.`
+- После этого выполнен прямой probe с live-сервера `ai-core-prod-147` в Eleven endpoint:
+  - `POST https://api.elevenlabs.io/v1/convai/sip-trunk/outbound-call`
+- И он дал уже окончательное сетевое доказательство:
+  - `HTTP/2 302`
+  - `location = https://help.elevenlabs.io/hc/en-us/articles/22497891312401-Do-you-restrict-access-to-the-service-and-platform-for-any-specific-countries-add`
+- Это значит:
+  - текущий стоп не в agent prompt;
+  - не в `soft_timeout`;
+  - не в `tool_call_sound`;
+  - не в lab branch routing;
+  - а в том, что текущий server-side outbound path упирается в Eleven country restriction.
+- Под это сразу улучшена диагностика:
+  - [scripts/eleven_outbound_relay_server.py](/home/max/n8n_ai_call_center/scripts/eleven_outbound_relay_server.py:1)
+    теперь распознаёт redirect на help.elevenlabs и умеет отдавать структурированный:
+    - `status = sanctioned_country`
+    - `error = provider_restricted_country`
+  - [scripts/run_eleven_branch_selftest.sh](/home/max/n8n_ai_call_center/scripts/run_eleven_branch_selftest.sh:1)
+    теперь классифицирует такой ответ как:
+    - `reason = sanctioned_country`
+    вместо неявного общего фейла.
+
+### На чем остановились
+- Работа по качеству речи и dead-air реально продвинута и опубликована.
+- Но полноценная phone verification этой версии на текущем server path сейчас упирается не в агент, а в provider-side location block.
+
+### Что делать дальше
+1. Для следующего честного live-прогона нужен новый разрешённый outbound location/IP.
+2. До этого не тратить циклы на новые prompt-микроправки как на якобы корень проблемы.
+3. Когда появится разрешённый outbound path, первым тестом проверить именно `agtvrsn_9601...` на живом звонке.
+
+## 0.95) Обновление 2026-06-18: lab-call на версии 6801 создан, но завис до старта медиа; masking на tools уже включён, а текущий блок выше по SIP/runtime
+
+### Сделано
+- После tool-level patch на active tools выполнен живой self-test:
+  - `.runtime/eleven_toolmask_livecheck_2026-06-18/call_02_selftest/`
+- Разговор реально создался в Eleven:
+  - `conversation_id = conv_2101kvcxvfsrfyz92cr40t8nhfh2`
+  - `branch_id = agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+  - `version_id = agtvrsn_6801kvcx5jcvf6n88sd9yv86nx5v`
+- Это подтверждает:
+  - branch-targeting сохранён;
+  - текущая masking-версия реально доходит до Eleven;
+  - звонок уже не теряется на уровне выбора ветки/version.
+- Но за полный poll window `180s` разговор так и остался:
+  - `status = in-progress`
+  - `has_audio = false`
+  - `has_user_audio = false`
+  - `has_response_audio = false`
+  - `transcript_count = 0`
+  - `call_duration_secs = 0`
+- Дополнительно проверено:
+  - `GET /v1/convai/conversations/:conversation_id/sip-messages`
+  вернул:
+  - `count = 0`
+- Но `GET /v1/convai/phone-numbers/phnum_8501khxz93vnfnnsvdjqn1g92yfs/sip-messages`
+  показал, что на уровне самого SIP-номера трафик живой:
+  - есть свежие `183 Session Progress`;
+  - есть `200 OK`;
+  - есть `BYE/ACK`;
+  - transport:
+    - `TCP`
+  - trunk:
+    - `147.45.213.87`
+- Практический вывод:
+  - текущий блок уже не в prompt;
+  - не в tool masking;
+  - не в branch/version routing;
+  - и не в полном отсутствии SIP-жизни на phone number;
+  - сейчас симптом точнее такой:
+    - phone-number SIP жив,
+    - а конкретная conversation не получает media/transcript/sip trace как conversation artifact.
+- Под это усилен helper:
+  - [scripts/run_eleven_branch_selftest.sh](/home/max/n8n_ai_call_center/scripts/run_eleven_branch_selftest.sh:1)
+  - теперь он:
+    - классифицирует HTML `Cloudflare/help.elevenlabs.io` как `selftest_blocked`;
+    - пишет runtime-диагноз для кейса:
+      - `sip_pending_no_media`
+
+### На чем остановились
+- Masking пустой тишины на `context_fetch/call_log/send_sms_info` уже реально включён на active tools.
+- Но его живое слуховое подтверждение пока заблокировано тем, что текущий звонок не доходит до стадии медиа вообще.
+- Последний твёрдо подтверждённый runtime-state:
+  - Eleven создаёт `conversation_id`;
+  - но не начинается ни SIP-поток, ни аудио, ни transcript.
+
+### Что делать дальше
+1. Следующий узкий цикл вести уже не по prompt, а по phone runtime:
+   - почему conversation создаётся, но остаётся `in-progress` без media.
+2. Смотреть именно:
+   - conversation-to-call linkage;
+   - почему `conversation sip-messages = 0`, хотя на `phone-number sip-messages` есть свежий `183/200/BYE`;
+   - outbound initiation/runtime path после создания conversation.
+3. До восстановления media-start не делать выводов о том, сработал ли masking на слух.
+
+## 0.94) Обновление 2026-06-18: tool-call masking тишины реально включён на active tools через Eleven Tools API
+
+### Сделано
+- Подтверждено, что одного branch-payload было недостаточно:
+  - в опубликованной lab-версии `agtvrsn_6801kvcx5jcvf6n88sd9yv86nx5v`
+    мы уже закладывали:
+    - `tool_call_sound = typing`
+    - `tool_call_sound_behavior = always`
+  - но фактически в workspace tools это не сохранилось автоматически.
+- Поэтому выполнен отдельный tool-level repair через Eleven Tools API.
+- Для текущей lab-ветки подтверждены реальные active tool ids:
+  - `context_fetch`:
+    - `tool_1601km62rxpqegqr52m9gk9sftr3`
+  - `call_log`:
+    - `tool_5701ktec2x6wfnj8t5b1rwhtw51p`
+  - `send_sms_info`:
+    - `tool_1701km86jmcpek4rj2j1rbhxqtfr`
+- На все три tool-а реально применён patch:
+  - `tool_call_sound = typing`
+  - `tool_call_sound_behavior = always`
+- Для этого добавлен служебный скрипт:
+  - [scripts/patch_eleven_tool_call_sounds_via_server_env.sh](/home/max/n8n_ai_call_center/scripts/patch_eleven_tool_call_sounds_via_server_env.sh:1)
+- Артефакты backup/verify сохранены в:
+  - [.runtime/eleven_tool_sound_patch_2026-06-18](/home/max/n8n_ai_call_center/.runtime/eleven_tool_sound_patch_2026-06-18:1)
+- Практический итог:
+  - тишина во время `context_fetch`, `call_log`, `send_sms_info` теперь должна маскироваться уже не только "по payload", а реальным tool-level sound config.
+
+### На чем остановились
+- Tool-level masking repair уже применён и подтверждён GET-after-PATCH.
+- Теперь остаётся живой слуховой тест:
+  - слышно ли `typing` на линии;
+  - насколько это убирает ощущение провала между ответами.
+- Важное различие:
+  - tool-call sound закрывает тишину во время webhook tool execution;
+  - чистая LLM-пауза отдельно регулируется через `soft_timeout`.
+
+### Что делать дальше
+1. Следующий короткий self-test проводить уже на tool-level repaired конфиге.
+2. Отдельно на слух проверить два типа пауз:
+   - tool pause;
+   - чистая thinking pause до tool.
+3. Если после этого останется "мертвая" пауза вне tool execution, следующий узкий цикл делать уже вокруг `soft_timeout` и turn-taking.
+
+## 0.93) Обновление 2026-06-18: terminal-finalization bug пойман по живому звонку, analyzer усилен, latency masking вынесен в отдельный lab-cycle
+
+### Сделано
+- Живой lab-звонок:
+  - `conv_0601kvcwg3nyf7hstxwyksj0nxvn`
+  показал конкретный разговорный регресс:
+  - normal spoken close до `call_log`;
+  - повторное открытие диалога на `...` и молчание;
+  - нормальная речь агента после `call_log`;
+  - отсутствие `end_call`.
+- Под это усилен локальный analyzer:
+  - [scripts/analyze_eleven_conversation.py](/home/max/n8n_ai_call_center/scripts/analyze_eleven_conversation.py:1)
+- Теперь он ловит ещё и:
+  - `normal_assistant_speech_after_call_log`
+  - `final_close_spoken_before_call_log`
+  - `call_log_without_end_call`
+  - `helpdesk_tail_in_outbound_close`
+- Затем выпущен узкий patch:
+  - terminal finalization gate
+  - lab version:
+    - `agtvrsn_9101kvcwr2keeet9ye7q33e7qg2x`
+- Следующий звонок:
+  - `conv_9601kvcwrnv2e5yrdn3h0w7y7zs8`
+  показал частичное улучшение:
+  - `end_call` уже вызвался;
+  - тяжёлый self-talk после `call_log` ушёл;
+  - но остались duplicate close и placeholder `conv_abcdef...`.
+- Под это выпущен следующий узкий patch:
+  - terminal tool sequencing + binding
+  - lab version:
+    - `agtvrsn_2201kvcwwby6f3r803sqkrawzqn0`
+- Отдельно по пользовательской жалобе на пустую тишину между ответами выпущен отдельный masking-cycle:
+  - lab version:
+    - `agtvrsn_6801kvcx5jcvf6n88sd9yv86nx5v`
+  - что добавлено:
+    - `soft_timeout_config.timeout_seconds = 2.4`
+    - `tool_call_sound = typing`
+    - `tool_call_sound_behavior = always`
+    на:
+      - `context_fetch`
+      - `call_log`
+      - `send_sms_info`
+- Это согласовано с текущей docs ElevenLabs:
+  - `soft timeout` — для LLM delay;
+  - `tool call sounds` — для маскировки тишины during tool execution.
+
+### На чем остановились
+- Structural webhook-ветка уже исправлена раньше;
+  теперь основной фронт снова purely conversational.
+- Последний latency-masking cycle опубликован, но живое подтверждение этой конкретной версии пока нестабильно из-за внешнего outbound состояния:
+  - один запуск наткнулся на Cloudflare `Just a moment...`;
+  - следующий relay-path дал `sanctioned_country`.
+- Значит текущий блокер по `6801...` не в конфиге agent, а во внешнем provider access.
+
+### Что делать дальше
+1. Повторить короткий self-test на:
+   - `agtvrsn_6801kvcx5jcvf6n88sd9yv86nx5v`
+   как только транспорт снова даст нормальный outbound.
+2. Проверять уже отдельно:
+   - слышна ли masking-аудио маскировка на tool paths;
+   - остался ли duplicate close до/после `end_call`.
+3. Держать analyzer обязательным после каждого живого self-test.
+
+## 0.92) Обновление 2026-06-18: repaired live webhook теперь реально сохраняет lab branch-targeting
+
+### Сделано
+- Для live workflow:
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` (`sHTbALayEZdy8Mzs`)
+  оказалось недостаточно просто обновить `workflow_entity` и вызвать `publish:workflow`.
+- По факту live runtime продолжал отвечать по старому snapshot из:
+  - `workflow_history`
+  который был привязан через:
+  - `activeVersionId = fa191bde-c556-4d32-8977-33ceba9da603`
+- Перед правкой снят свежий backup:
+  - [backups/2026-06-18_eleven_outbound_call_bridge_before_branch_fix_fresh.json](/home/max/n8n_ai_call_center/backups/2026-06-18_eleven_outbound_call_bridge_before_branch_fix_fresh.json:1)
+- Затем branch-safe patch реально применён в live:
+  - обновлены `nodes / connections / settings` в `workflow_entity`;
+  - вручную создан новый published snapshot в `workflow_history`;
+  - `activeVersionId` переведён на:
+    - `0e21f126-db50-4500-b74f-3df4e9891d51`
+- После этого сделан узкий рестарт только контейнера:
+  - `n8n-server-n8n-1`
+- Контрольный validation POST снова отвечает штатным JSON.
+- Затем branch-targeted webhook probe уже вернул нормальный accepted response:
+  - `success = true`
+  - `conversation_id = conv_0801kvcw73eaeqf8t1pjy9p0y8kf`
+  - `branch_id = agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+  - `environment = production`
+- По API Eleven отдельно подтверждено, что этот разговор реально создан именно в lab:
+  - `version_id = agtvrsn_6001kvcq8b3zf8p9cxdheh1gtbxz`
+- Артефакты:
+  - [.runtime/eleven_webhook_branch_fix_probe_2026-06-18_01/conversation_details.json](/home/max/n8n_ai_call_center/.runtime/eleven_webhook_branch_fix_probe_2026-06-18_01/conversation_details.json:1)
+  - [.runtime/eleven_outbound_call_bridge_branch_fix_2026-06-18/apply_live.sql](/home/max/n8n_ai_call_center/.runtime/eleven_outbound_call_bridge_branch_fix_2026-06-18/apply_live.sql:1)
+  - [.runtime/eleven_outbound_call_bridge_branch_fix_2026-06-18/publish_active_history.sql](/home/max/n8n_ai_call_center/.runtime/eleven_outbound_call_bridge_branch_fix_2026-06-18/publish_active_history.sql:1)
+- Заодно исправлен локальный helper:
+  - [scripts/run_eleven_branch_selftest.sh](/home/max/n8n_ai_call_center/scripts/run_eleven_branch_selftest.sh:1)
+  - теперь он на пустом response body сохраняет JSON `selftest_failed`, а не падает на `sed` по отсутствующему файлу.
+
+### На чем остановились
+- Structural webhook-fix уже не гипотеза, а подтверждённый live-факт:
+  - webhook-path снова сохраняет `branch_id`;
+  - top-level `success/conversation_id` снова возвращаются;
+  - lab self-test больше не уезжает в `Main`.
+- Следующий фронт снова чисто разговорный:
+  - `duplicate_close_before_end_call`;
+  - silence-after-opener;
+  - machine/no-human handling на линии.
+- Параллельно в логах остаётся отдельный старый inbound-хвост:
+  - `VOICE_INBOUND_AGENT (draft)` (`bfNbTwtyXNSFzMc2`)
+  - он `active=false` и без `activeVersionId`, поэтому старые `mango/events/*` стучатся в битый route.
+
+### Что делать дальше
+1. Следующий живой цикл строить уже не вокруг webhook-repair, а вокруг speech-behavior:
+  - один короткий звонок;
+  - transcript;
+  - audit;
+  - узкая правка.
+2. Держать outbound bridge замороженным:
+  - он снова рабочий.
+3. Отдельно решить, нужен ли отдельный hotfix по старому inbound draft:
+  - `bfNbTwtyXNSFzMc2`
+  если эти `mango/events/*` ещё должны обслуживаться.
+
+## 0.91) Обновление 2026-06-18: live webhook `eleven/outbound-call` восстановлен
+
+### Сделано
+- На live-сервере `ai-core-prod-147` подтверждено, что webhook:
+  - `https://www.n-8-n.site/webhook/eleven/outbound-call`
+  смотрел на workflow:
+  - `ELEVEN_OUTBOUND_CALL_BRIDGE (draft)` (`sHTbALayEZdy8Mzs`)
+  у которого не было опубликованной active version.
+- Из-за этого live route отвечал:
+  - `404 Active version not found for workflow with id "sHTbALayEZdy8Mzs"`
+- Перед правкой снят точечный backup:
+  - [backups/2026-06-18_eleven_outbound_call_bridge_before_publish.json](/home/max/n8n_ai_call_center/backups/2026-06-18_eleven_outbound_call_bridge_before_publish.json:1)
+- На live выполнена публикация workflow:
+  - `n8n publish:workflow --id=sHTbALayEZdy8Mzs`
+- После публикации контрольный probe перестал отдавать `404` и начал отвечать штатным validation JSON:
+  - HTTP `200`
+  - `action=validation_failed`
+  - ошибка только про пустой `to_number`, то есть сам маршрут снова рабочий.
+- Сразу после восстановления маршрута снят один controlled self-test:
+  - [.runtime/eleven_restore_probe_2026-06-18_01](/home/max/n8n_ai_call_center/.runtime/eleven_restore_probe_2026-06-18_01:1)
+- По этому self-test подтверждено:
+  - разговор не создался;
+  - `conversation_id` не появился;
+  - `relay_via_server` вернул HTML `Just a moment...` вместо JSON;
+  - значит следующий блокер уже выше по цепочке: relay/upstream/provider-side access, а не публикация webhook.
+
+### На чем остановились
+- Блокер уровня webhook registration снят.
+- Теперь уже можно честно проверять не "существует ли route", а что происходит дальше по цепочке:
+  - relay;
+  - outbound request;
+  - conversation creation;
+  - live поведение strict-silence патча.
+- Баланс ElevenLabs сейчас доступен, но первый тест после восстановления показал неуспех уже на upstream-ответе: HTML challenge/page вместо нормального API JSON.
+
+### Что делать дальше
+1. Проверить relay/upstream-путь и причину HTML challenge вместо JSON.
+2. Убедиться, что запрос идёт в корректный outbound-call endpoint Eleven, а не в help/sanctions redirect path.
+3. После этого повторить один короткий controlled test-call.
+4. Если разговор стартует, сразу снять лог именно на silence/machine ветке.
+5. Дополнение по факту `2026-06-18`:
+  - прямой full-payload вызов с relay-хоста уже смог создать lab-разговор:
+    - `conv_4601kvct8fx4f6qs8nfb17vke8gh`
+    - branch:
+      - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+    - version:
+      - `agtvrsn_6001kvcq8b3zf8p9cxdheh1gtbxz`
+  - значит strict-silence lab-версия уже реально вышла на линию;
+  - но helper fallback через webhook сейчас уводит вызов в live `Main`, поэтому сам helper отдельно усилен:
+    - recovery через `List conversations` API;
+    - запрет auto-webhook fallback для non-live branch.
+
 ## 0.9) Обновление 2026-06-18: добавлен готовый промпт для старта нового чата
 
 ### Сделано

@@ -31,15 +31,22 @@ RETRYABLE_PROVIDER_MESSAGES = {
     "max auth retry attemps reached",
     "max auth retry attempts reached",
 }
+HELP_REDIRECT_MARKERS = (
+    "help.elevenlabs.io",
+    "Do-you-restrict-access-to-the-service-and-platform-for-any-specific-countries-add",
+)
 
 
 def fail(handler: BaseHTTPRequestHandler, status: int, payload: dict) -> None:
     body = json.dumps(payload, ensure_ascii=False).encode()
-    handler.send_response(status)
-    handler.send_header("Content-Type", "application/json; charset=utf-8")
-    handler.send_header("Content-Length", str(len(body)))
-    handler.end_headers()
-    handler.wfile.write(body)
+    try:
+        handler.send_response(status)
+        handler.send_header("Content-Type", "application/json; charset=utf-8")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.end_headers()
+        handler.wfile.write(body)
+    except BrokenPipeError:
+        logger.warning("Client disconnected before error response could be written")
 
 
 def extract_provider_message(body: bytes) -> str:
@@ -80,6 +87,25 @@ def summarize_upstream_body(body: bytes) -> str:
     if not summary:
         summary["keys"] = sorted(payload.keys())[:12]
     return json.dumps(summary, ensure_ascii=False)[:300]
+
+
+def looks_like_help_restriction(text: str) -> bool:
+    lower = str(text or "").lower()
+    return any(marker.lower() in lower for marker in HELP_REDIRECT_MARKERS)
+
+
+def build_provider_restriction_payload(location: str = "", detail: str = "") -> dict:
+    payload = {
+        "ok": False,
+        "status": "sanctioned_country",
+        "error": "provider_restricted_country",
+        "message": "This functionality is not available in your location.",
+    }
+    if location:
+        payload["location"] = location
+    if detail:
+        payload["detail"] = detail[:300]
+    return payload
 
 
 def summarize_request_payload(payload: dict) -> str:
@@ -125,7 +151,27 @@ def build_request(payload: dict) -> request.Request:
     )
 
 
+class NoRedirectHandler(request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+OPENER = request.build_opener(NoRedirectHandler)
+
+
 class RelayHandler(BaseHTTPRequestHandler):
+    def _write_upstream_response(self, status: int, body: bytes, content_type: str) -> bool:
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return True
+        except BrokenPipeError:
+            logger.warning("Client disconnected before upstream response could be written")
+            return False
+
     def do_GET(self) -> None:
         if self.path != "/health":
             fail(self, 404, {"ok": False, "error": "not_found"})
@@ -175,9 +221,29 @@ class RelayHandler(BaseHTTPRequestHandler):
         for attempt in range(RELAY_RETRY_COUNT + 1):
             req = build_request(payload)
             try:
-                with request.urlopen(req, timeout=RELAY_TIMEOUT) as resp:
+                with OPENER.open(req, timeout=RELAY_TIMEOUT) as resp:
                     body = resp.read()
                     elapsed_ms = int((time.monotonic() - start) * 1000)
+                    if 300 <= getattr(resp, "status", 0) < 400:
+                        location = resp.headers.get("Location", "")
+                        if looks_like_help_restriction(location):
+                            restriction_payload = build_provider_restriction_payload(
+                                location=location,
+                                detail="Upstream redirected relay request to ElevenLabs restricted-country help page.",
+                            )
+                            encoded = json.dumps(restriction_payload, ensure_ascii=False).encode()
+                            logger.warning(
+                                "Upstream redirect restriction %d (%dms): %s",
+                                resp.status,
+                                elapsed_ms,
+                                location,
+                            )
+                            self._write_upstream_response(
+                                200,
+                                encoded,
+                                "application/json; charset=utf-8",
+                            )
+                            return
                     if should_retry_http_response(resp.status, body, attempt):
                         logger.warning(
                             "Upstream retryable response %d on attempt %d/%d (%dms): %s",
@@ -196,18 +262,38 @@ class RelayHandler(BaseHTTPRequestHandler):
                         len(body),
                         summarize_upstream_body(body),
                     )
-                    self.send_response(resp.status)
-                    self.send_header(
-                        "Content-Type",
+                    self._write_upstream_response(
+                        resp.status,
+                        body,
                         resp.headers.get("Content-Type", "application/json; charset=utf-8"),
                     )
-                    self.send_header("Content-Length", str(len(body)))
-                    self.end_headers()
-                    self.wfile.write(body)
                     return
             except error.HTTPError as exc:
                 body = exc.read() or b""
                 elapsed_ms = int((time.monotonic() - start) * 1000)
+                location = ""
+                try:
+                    location = exc.headers.get("Location", "")
+                except Exception:
+                    location = ""
+                if exc.code in (301, 302, 303, 307, 308) and looks_like_help_restriction(location):
+                    restriction_payload = build_provider_restriction_payload(
+                        location=location,
+                        detail="Upstream redirected relay request to ElevenLabs restricted-country help page.",
+                    )
+                    encoded = json.dumps(restriction_payload, ensure_ascii=False).encode()
+                    logger.warning(
+                        "Upstream redirect restriction %d (%dms): %s",
+                        exc.code,
+                        elapsed_ms,
+                        location,
+                    )
+                    self._write_upstream_response(
+                        200,
+                        encoded,
+                        "application/json; charset=utf-8",
+                    )
+                    return
                 if should_retry_http_response(exc.code, body, attempt):
                     logger.warning(
                         "Upstream HTTP retryable %d on attempt %d/%d (%dms): %s",
@@ -225,14 +311,11 @@ class RelayHandler(BaseHTTPRequestHandler):
                     elapsed_ms,
                     summarize_upstream_body(body) or body[:200],
                 )
-                self.send_response(exc.code)
-                self.send_header(
-                    "Content-Type",
+                self._write_upstream_response(
+                    exc.code,
+                    body,
                     exc.headers.get("Content-Type", "application/json; charset=utf-8"),
                 )
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
                 return
             except Exception as exc:
                 elapsed_ms = int((time.monotonic() - start) * 1000)
