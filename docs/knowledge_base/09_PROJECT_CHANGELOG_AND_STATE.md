@@ -1,5 +1,982 @@
 # 09. Состояние проекта и последние изменения
 
+## 1.28) Обновление 2026-07-02: цикл `1201... -> 5001... -> 0601... -> 6401...` сузил реальный дефект до финализации refusal-path
+
+### Сделано
+- Проведён живой self-test на:
+  - `agtvrsn_1201kwh2kt2pfsna2qcrmv50svda`
+  - артефакты:
+    - [.runtime/eleven_lexical_nottarget_terminal_2026-07-02/call_01_selftest_localrelay/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_lexical_nottarget_terminal_2026-07-02/call_01_selftest_localrelay/finalization_audit.json:1)
+- Этот run показал, что narrow lexical `not_target` override сам по себе не был честно проверен:
+  - раньше него всплыл более ранний flow-defect;
+  - agent повторял opener;
+  - позже возвращался в line-check / rescue pattern;
+  - появлялся helpdesk-tail.
+- Под это собран и опубликован новый узкий head:
+  - builder:
+    - [scripts/prepare_eleven_single_shot_opener_nottarget_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_single_shot_opener_nottarget_variant.sh:1)
+  - published head:
+    - `agtvrsn_5001kwh30b0yfpdvjqk497p7pbj7`
+- Что меняет `5001...`:
+  - включает `interruption`;
+  - фиксирует `turn_timeout = 2.3`, `turn_eagerness = normal`;
+  - запрещает restart opener после живого post-opener lexical reply;
+  - запрещает late line-check после meaningful reply;
+  - запрещает helpdesk-tail после terminal outcome;
+  - сохраняет lexical `not_target` terminal intent.
+- Self-test на `5001...`:
+  - [.runtime/eleven_single_shot_opener_nottarget_2026-07-02/call_01_selftest_localrelay/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_single_shot_opener_nottarget_2026-07-02/call_01_selftest_localrelay/finalization_audit.json:1)
+- Практический результат `5001...`:
+  - стало лучше:
+    - ушёл старый helpdesk-tail;
+    - ушёл самый грубый multi-restart flow;
+  - но осталось:
+    - pre-opener line-check `Алло?`;
+    - duplicate close;
+    - normal speech before/after `call_log`.
+- Под это собран следующий structural follow-up:
+  - сначала `Plaintext terminal single-close` + `Non-interruptible finalization`;
+  - published head:
+    - `agtvrsn_0601kwh345rse22aztp6hezdkazt`
+- Self-test на `0601...`:
+  - [.runtime/eleven_single_shot_singleclose_2026-07-02/call_01_selftest_localrelay/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_single_shot_singleclose_2026-07-02/call_01_selftest_localrelay/finalization_audit.json:1)
+- Практический результат `0601...`:
+  - opener стартовал быстро;
+  - finalization стала чуть чище;
+  - но duplicate close всё ещё остался;
+  - plus opener всё ещё мог повторяться при повторном `Алло?`.
+- Под это собран ещё один micro-patch:
+  - builder:
+    - [scripts/prepare_eleven_no_preopener_linecheck_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_no_preopener_linecheck_variant.sh:1)
+  - published head:
+    - `agtvrsn_6401kwh3889qfb6art4b4s2692fa`
+- Self-test на `6401...`:
+  - [.runtime/eleven_no_preopener_linecheck_2026-07-02/call_01_selftest_localrelay/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_no_preopener_linecheck_2026-07-02/call_01_selftest_localrelay/finalization_audit.json:1)
+- Практический результат `6401...`:
+  - хороший gain:
+    - pre-opener `Алло?` ушёл;
+    - opener снова стартует сразу с первого живого `Алло!`;
+  - remaining:
+    - в opener resurfaced bracket-tag:
+      - `[calm]`
+    - duplicate close всё ещё есть;
+    - normal speech after `call_log` всё ещё есть;
+    - refusal-path всё ещё не держит чистый `silent call_log -> one spoken end_call -> stop`.
+
+### На чем остановились
+- Current newest lab head now:
+  - `agtvrsn_6401kwh3889qfb6art4b4s2692fa`
+- Практически мы уже сузили проблему:
+  - opener gate стало лучше;
+  - turn-taking уже не выглядит главным blocker;
+  - текущий реальный stubborn blocker сидит именно в refusal finalization path.
+- То есть сейчас главный remaining defect уже не в opener, а в том, что агент:
+  - сначала говорит обычное `Поняла, спасибо. Хорошего дня.`
+  - потом всё равно делает `call_log`
+  - и потом ещё раз закрывает через `end_call`.
+
+### Что делать дальше
+1. Следующий узкий шаг делать уже не про opener, а только про refusal finalization.
+2. Проверить, почему prompt-layer single-close до сих пор недостаточен:
+  - это обычный assistant turn до `call_log`;
+  - или скрытый tool-path / pre-tool behavior.
+3. Следующий builder должен быть максимально узким:
+  - absolute ban on any normal assistant speech for clear `refusal_soft`;
+  - explicit order:
+    - silent `call_log(refusal_soft)`
+    - one spoken `end_call`
+    - stop
+4. Отдельно после этого вернуть plain-text guard, чтобы снова прибить `[calm]`.
+
+## 1.26) Обновление 2026-07-02: выпущен новый lab-head `4801...` для spoken-ack перед SMS без музыки и пустой паузы
+
+### Сделано
+- По официальной документации ElevenLabs дополнительно подтверждён practical split:
+  - `soft timeout` маскирует только ожидание ответа LLM, а не сам долгий tool-path;
+  - для tool-ожидания у Eleven есть `pre_tool_speech` и `tool call sounds`, но tool sounds у нас intentionally остаются выключенными.
+- Использованы официальные страницы:
+  - `Conversation flow`
+  - `Tool Call Sounds`
+  - `Update tool`
+- Под этот confirmed gap добавлен новый узкий builder:
+  - [scripts/prepare_eleven_post_sms_progress_ack_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_post_sms_progress_ack_variant.sh:1)
+- Новый builder делает только узкий lab-only шаг:
+  - опускает `soft_timeout` c `3.2` до `2.6`;
+  - оставляет fallback filler `Да...`;
+  - сохраняет `tool_call_sound = null` для `context_fetch`, `call_log`, `send_sms_info`;
+  - добавляет prompt-блок `Post-SMS progress ack override`:
+    - после явного согласия на SMS agent должен сразу дать один очень короткий spoken-ack;
+    - затем немедленно вызывать `send_sms_info`;
+    - дальше удерживать silent `call_log`;
+    - финальную spoken-фразу оставлять только внутри `end_call.system__message_to_speak`.
+- Payload собран и опубликован в lab branch:
+  - payload:
+    - [.runtime/eleven_post_sms_progress_ack_2026-07-02/payload.json](/home/max/n8n_ai_call_center/.runtime/eleven_post_sms_progress_ack_2026-07-02/payload.json:1)
+  - apply result:
+    - [.runtime/eleven_post_sms_progress_ack_2026-07-02/apply_result/response.json](/home/max/n8n_ai_call_center/.runtime/eleven_post_sms_progress_ack_2026-07-02/apply_result/response.json:1)
+  - verify snapshot:
+    - [.runtime/eleven_post_sms_progress_ack_2026-07-02/verify/summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_post_sms_progress_ack_2026-07-02/verify/summary.json:1)
+- Новый lab head:
+  - `agtvrsn_4801kwh163xgfv08p39a52jq4mae`
+
+### Что важно сейчас
+- Prompt-layer правка точно встала:
+  - `Post-SMS progress ack override` присутствует в текущем branch snapshot.
+- `soft_timeout_seconds` в lab snapshot теперь реально `2.6`.
+- Но branch snapshot снова показал старую проблему tool-level persistence:
+  - `send_sms_info.pre_tool_speech` остался `auto`, хотя в payload просили `force`;
+  - `call_log.pre_tool_speech` тоже остался `auto`, хотя в payload просили `off`.
+- Это значит:
+  - смысловая prompt-правка и `soft_timeout` branch держит;
+  - а tool-level `pre_tool_speech` через обычный branch payload по-прежнему нельзя считать надёжно закреплённым.
+- Shared custom tool напрямую сейчас не патчили специально:
+  - чтобы не занести риск в боевой main branch.
+
+### На чем остановились
+- Lab branch уже стоит на:
+  - `agtvrsn_4801kwh163xgfv08p39a52jq4mae`
+- В нём уже есть:
+  - более ранний spoken filler;
+  - SMS progress-ack prompt override;
+  - silence-free intention на post-SMS path.
+- Но ещё не доказано живым self-test, что этого prompt-only слоя уже достаточно для реального исчезновения мёртвой паузы после:
+  - `да, отправьте`.
+
+### Что делать дальше
+1. Сделать один controlled self-test именно на SMS-consent path уже на `4801...`.
+2. Проверить только четыре вещи:
+  - появился ли быстрый spoken-ack сразу после согласия на SMS;
+  - ушла ли пустая пауза `3-4s` до `send_sms_info`;
+  - не вернулся ли duplicate close;
+  - осталась ли финальная spoken-фраза только внутри `end_call`.
+3. Если prompt-only слой окажется недостаточным:
+  - не трогать shared tool вслепую;
+  - искать branch-safe способ отдельно для tool pre-speech, чтобы не рисковать боевым main.
+
+## 1.27) Обновление 2026-07-02: живой self-test `4801...` вскрыл spoken tool-plan leak и duplicate close, выпущен новый lab-head `4601...`
+
+### Сделано
+- Выполнен один реальный controlled self-test на:
+  - `agtvrsn_4801kwh163xgfv08p39a52jq4mae`
+- Артефакты:
+  - request/run:
+    - [.runtime/eleven_post_sms_progress_ack_2026-07-02/call_01_selftest/request.json](/home/max/n8n_ai_call_center/.runtime/eleven_post_sms_progress_ack_2026-07-02/call_01_selftest/request.json:1)
+    - [.runtime/eleven_post_sms_progress_ack_2026-07-02/call_01_selftest/runtime_diagnosis.json](/home/max/n8n_ai_call_center/.runtime/eleven_post_sms_progress_ack_2026-07-02/call_01_selftest/runtime_diagnosis.json:1)
+  - final conversation:
+    - [.runtime/eleven_post_sms_progress_ack_2026-07-02/call_01_selftest/conversation_poll_final_enriched.json](/home/max/n8n_ai_call_center/.runtime/eleven_post_sms_progress_ack_2026-07-02/call_01_selftest/conversation_poll_final_enriched.json:1)
+  - audit:
+    - [.runtime/eleven_post_sms_progress_ack_2026-07-02/call_01_selftest/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_post_sms_progress_ack_2026-07-02/call_01_selftest/finalization_audit.json:1)
+- Infra часть снова была clean:
+  - transport = `relay_via_server`
+  - branch/version matched expected
+  - termination went through `end_call`
+- Но live transcript показал три очень конкретных defects:
+  1. после `Пока.` agent вслух проговорил внутренний meta-text:
+     - `silent_call_log: call_log with ...`
+  2. после этого user ещё раз отреагировал раздражённо, а agent всё равно сделал:
+     - silent `call_log`
+     - потом обычную spoken close:
+       - `Поняла, спасибо. Хорошего дня.`
+     - потом `end_call` с тем же close
+  3. большие user-to-agent gaps остались:
+     - `М-м-м, нет.` -> agent only after `5s`
+     - `Алло!` -> `Да?` after `4s`
+     - финальный hostile turn -> spoken close only after `15s`
+- Под этот confirmed defect layer добавлен новый узкий builder:
+  - [scripts/prepare_eleven_terminal_meta_silence_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_terminal_meta_silence_variant.sh:1)
+- Новый builder добавляет `Terminal meta-silence override`:
+  - запрещает spoken leakage of raw tool-planning text;
+  - закрепляет, что `пока / до свидания / всего доброго` = immediate terminal close;
+  - запрещает new question / `Да?` после ясного goodbye;
+  - закрепляет, что hesitant refusal вроде `м-м-м, нет` всё равно считается реальным refusal signal, а не endless hesitation.
+- Этот patch уже опубликован в lab:
+  - new lab head:
+    - `agtvrsn_4601kwh1fs4sfxb8ka9sba04r731`
+- verify:
+  - [.runtime/eleven_terminal_meta_silence_2026-07-02/verify/summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_terminal_meta_silence_2026-07-02/verify/summary.json:1)
+
+### Что важно сейчас
+- SMS-consent spoken-ack patch сам по себе не сломал infra path.
+- Но test не дошёл до целевой SMS ветки:
+  - вместо этого раньше всплыл более критичный terminal defect.
+- Новый `4601...` — это теперь более правильный next head, потому что он закрывает defect, который реально прозвучал в живом разговоре, а не гипотетический.
+
+### На чем остановились
+- Current best lab head now:
+  - `agtvrsn_4601kwh1fs4sfxb8ka9sba04r731`
+- В нём уже одновременно есть:
+  - post-SMS spoken-ack intent;
+  - `soft_timeout = 2.6`;
+  - ban on spoken tool-plan leakage;
+  - hardening for clear farewell immediate finalization.
+
+### Что делать дальше
+1. Следующий controlled self-test делать уже на `4601...`.
+2. Первый gate:
+  - исчез ли spoken meta-text типа `silent_call_log: ...`;
+  - исчез ли duplicate close before `end_call`;
+  - перестал ли agent отвечать `Да?` после ясного `Пока.`
+3. Только если этот terminal layer станет clean, возвращаться к точечной проверке:
+  - ушла ли именно пауза после SMS-consent.
+
+### Дополнительный статус тестирования на 2026-07-02
+- Сразу после публикации `4601...` был запущен следующий self-test:
+  - `.runtime/eleven_terminal_meta_silence_2026-07-02/call_01_selftest/`
+- Но этот прогон не дошёл до conversation stage:
+  - `local_relay` timeout;
+  - `relay_via_server` returned:
+    - `{"status":"sanctioned_country","message":"This functionality is not available in your location."}`
+  - `relay` timeout again
+- Артефакты:
+  - [.runtime/eleven_terminal_meta_silence_2026-07-02/call_01_selftest/transport_attempts.json](/home/max/n8n_ai_call_center/.runtime/eleven_terminal_meta_silence_2026-07-02/call_01_selftest/transport_attempts.json:1)
+  - [.runtime/eleven_terminal_meta_silence_2026-07-02/call_01_selftest/server_relay_response.json](/home/max/n8n_ai_call_center/.runtime/eleven_terminal_meta_silence_2026-07-02/call_01_selftest/server_relay_response.json:1)
+- Значит прямо сейчас по `4601...` нет нового live transcript:
+  - текущий blocker этого конкретного цикла — transport/outbound path, а не доказанный prompt regression.
+
+### Follow-up по transport и новым self-tests
+- После этого local self-test path был восстановлен:
+  - `scripts/start_eleven_local_relay_stack.sh`
+  - локальный relay снова поднят на `127.0.0.1:18787`
+  - новый tunnel URL опубликован через `localhost.run`
+- Повторный self-test уже на `4601...` прошёл через `local_relay`:
+  - [.runtime/eleven_terminal_meta_silence_2026-07-02/call_02_selftest_localrelay/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_terminal_meta_silence_2026-07-02/call_02_selftest_localrelay/finalization_audit.json:1)
+- Практический результат `4601...`:
+  - good:
+    - больше не было spoken leakage `silent_call_log: ...`
+    - не было старого post-goodbye `Да?`
+  - remaining:
+    - normal assistant speech after `call_log` всё ещё осталась;
+    - callback terminal path дал filler `Так...` перед `call_log`;
+    - long user-to-agent gaps всё ещё видны.
+- Под этот live callback case был выпущен новый узкий head:
+  - `agtvrsn_1701kwh1wvgbfvz921cgf3t241v6`
+  - builder:
+    - [scripts/prepare_eleven_callback_terminal_fastpath_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_callback_terminal_fastpath_variant.sh:1)
+- Self-test на `1701...`:
+  - [.runtime/eleven_callback_terminal_fastpath_2026-07-02/call_01_selftest_localrelay/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_callback_terminal_fastpath_2026-07-02/call_01_selftest_localrelay/finalization_audit.json:1)
+- Он показал:
+  - `silent_call_log` не вернулся;
+  - но `[calm]` снова surfaced;
+  - duplicate close before `end_call` тоже остался;
+  - normal speech after `call_log` тоже осталась.
+- Под это собран ещё один более общий candidate:
+- Под это собран ещё один более общий candidate:
+  - builder:
+    - [scripts/prepare_eleven_plaintext_terminal_singleclose_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_plaintext_terminal_singleclose_variant.sh:1)
+  - published head:
+    - `agtvrsn_0201kwh22m83faq98y8rexfcqgj1`
+- Что он меняет:
+  - переводит soft filler в static plain mode:
+    - `soft_timeout = 2.6`
+    - `message = "Да..."`
+    - `use_llm_generated_message = false`
+  - добавляет global `Plaintext terminal single-close override`
+  - усиливает:
+    - no bracket tags anywhere;
+    - no normal assistant speech after `call_log`;
+    - single-close path for `not_target`, `refusal_soft`, `callback`, `SMS`.
+- Self-test на `0201...`:
+  - [.runtime/eleven_plaintext_terminal_singleclose_2026-07-02/call_01_selftest_localrelay/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_plaintext_terminal_singleclose_2026-07-02/call_01_selftest_localrelay/finalization_audit.json:1)
+- Практический результат `0201...`:
+  - good:
+    - `duplicate_close_before_end_call` больше не surfaced в audit;
+    - `normal_assistant_speech_after_call_log` больше не surfaced;
+    - `[calm]` больше не surfaced;
+  - remaining:
+    - всплыла смысловая ошибка qualification:
+      - agent сформулировал forbidden negative-polarity question:
+        - `Вы не работаете с липолитиками вообще?`
+      - потом запутался на user reply `Да.` / `Не-не, мы не работаем.`
+      - и продолжил pitch нецелевому контакту.
+- Под этот новый confirmed logic defect выпущен следующий узкий builder:
+  - [scripts/prepare_eleven_positive_polarity_qualification_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_positive_polarity_qualification_variant.sh:1)
+- Новый published head now:
+  - `agtvrsn_2001kwh296fwemca6fa5q2ctd78a`
+- Он закрепляет:
+  - только positive-polarity qualification:
+    - `Вы вообще с липолитиками работаете?`
+  - lexical disambiguation:
+    - если ответ содержит `не работаем / не используем / не наш профиль`, верить лексике, а не частице `да/нет`
+  - после confirmed `not_target` не предлагать SMS и не возвращаться в pitch.
+- Self-test на `2001...`:
+  - [.runtime/eleven_positive_polarity_qualification_2026-07-02/call_01_selftest_localrelay/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_positive_polarity_qualification_2026-07-02/call_01_selftest_localrelay/finalization_audit.json:1)
+- Практический результат `2001...`:
+  - good:
+    - negative-polarity question действительно ушёл;
+    - agent теперь использует:
+      - `Вы вообще с липолитиками работаете?`
+  - remaining:
+    - после clear answer:
+      - `Нет, ещё не работаем.`
+      agent всё ещё не схлопывает `not_target`, а продолжает pitch и SMS path;
+    - single-close still regressed in this branch state.
+- Под это выпущен следующий узкий head:
+  - builder:
+    - [scripts/prepare_eleven_lexical_nottarget_terminal_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_lexical_nottarget_terminal_variant.sh:1)
+  - published head:
+    - `agtvrsn_1201kwh2kt2pfsna2qcrmv50svda`
+- Его смысл:
+  - lexical `не работаем / не используем / не наш профиль` теперь должен override curiosity and earlier interest;
+  - после такого lexical mismatch agent должен идти straight into:
+    - silent `call_log(not_target)`
+    - one short spoken `end_call`
+    - stop
+
+## 1.22) Обновление 2026-06-26: поднят безопасный Eleven simulation probe по официальной OpenAPI-схеме
+
+### Сделано
+- Через официальный `https://api.elevenlabs.io/openapi.json` подтверждена реальная схема endpoint:
+  - `POST /v1/convai/agents/{agent_id}/simulate-conversation`
+  - у него `dynamic_variables` должны лежать именно в:
+    - `simulation_specification.dynamic_variables`
+  - а mocked webhook-tools передаются как словарь по именам tools в:
+    - `simulation_specification.tool_mock_config`
+- На этой базе добавлен helper:
+  - [scripts/run_eleven_simulation_probe_via_server_env.sh](/home/max/n8n_ai_call_center/scripts/run_eleven_simulation_probe_via_server_env.sh:1)
+- Helper:
+  - сам забирает live Eleven API key с сервера;
+  - строит `payload.json`;
+  - поддерживает:
+    - `PARTIAL_HISTORY_FILE`
+    - `MOCKED_TOOLS`
+    - `SIM_CONVERSATION_ID`
+    - `SIM_CALLED_NUMBER`
+  - сохраняет:
+    - `payload.json`
+    - `response.json`
+    - `summary.json`
+- Первый валидный simulation probe успешно прошёл:
+  - [.runtime/sim_probe_attempt_2026-06-26_v2.json](/home/max/n8n_ai_call_center/.runtime/sim_probe_attempt_2026-06-26_v2.json:1)
+  - он показал:
+    - simulation endpoint живой;
+    - `dynamic_variables` теперь принимаются;
+    - mocked tool path реально работает.
+- После этого поднят отдельный safe-сценарий post-opener silence:
+  - history:
+    - [.runtime/sim_history_post_opener_silence_2026-06-26.json](/home/max/n8n_ai_call_center/.runtime/sim_history_post_opener_silence_2026-06-26.json:1)
+  - run artifacts:
+    - [.runtime/eleven_sim_post_opener_silence_2026-06-26/summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_sim_post_opener_silence_2026-06-26/summary.json:1)
+    - [.runtime/eleven_sim_post_opener_silence_2026-06-26/response.json](/home/max/n8n_ai_call_center/.runtime/eleven_sim_post_opener_silence_2026-06-26/response.json:1)
+- Этот simulation подтвердил:
+  - после opener и `...` agent делает ровно один rescue:
+    - `Алло, вы на линии?`
+  - затем уходит в:
+    - `call_log(no_answer)`
+    - `end_call(reason=no_answer, system__message_to_speak="")`
+  - то есть high-level silence-flow в simulation выглядит правильно.
+
+### Что важно сейчас
+- Ограничение simulation endpoint подтвердилось ещё раз:
+  - в transcript simulation по-прежнему:
+    - `agent_metadata.branch_id = null`
+    - `agent_metadata.version_id = null`
+  - значит этот endpoint нельзя считать надёжной branch-specific проверкой lab-ветки.
+- Но как безопасный стенд для logic-shape он уже полезен:
+  - можно быстро проверять:
+    - one-rescue logic;
+    - no-answer sequencing;
+    - наличие normal speech after `call_log`;
+    - tool ordering.
+- В том же simulation всплыл ещё один полезный сигнал:
+  - drafted `call_log` всё ещё может содержать placeholder-style значения:
+    - `{{system__conversation_id}}`
+    - `{{lead_id}}`
+    - `{{caller}}`
+  - то есть safe simulation не заменяет live transcript для проверки final bound payload, но хорошо показывает сырой drafted behavior.
+
+### На чем остановились
+- Safe simulation harness уже появился в проекте и работает.
+- Post-opener silence каркас в simulation выглядит лучше, чем часть последних live SIP-case шумов.
+- Основной unresolved фронт теперь ещё точнее:
+  - не просто fillers и не просто SIP;
+  - а difference между:
+    - drafted tool behavior,
+    - real live bound tool payload,
+    - final `call_log -> end_call` sequencing.
+
+### Что делать дальше
+1. Прогнать через новый helper ещё минимум 2 safe-сценария:
+   - `send_sms_info` final-close;
+   - short refusal after opener.
+2. Проверить, появляется ли в simulation:
+   - normal speech after `call_log`;
+   - duplicate close;
+   - placeholder `{{system__conversation_id}}` в drafted tool payload.
+3. Только после safe simulation comparison снова идти в real self-test, чтобы не тратить SIP-цикл на уже очевидные prompt defects.
+
+## 1.23) Обновление 2026-06-26: найден SMS-finalization drift и выпущен новый lab patch
+
+### Сделано
+- Через safe simulation был прогнан post-SMS сценарий:
+  - history:
+    - [.runtime/sim_history_sms_consent_2026-06-26.json](/home/max/n8n_ai_call_center/.runtime/sim_history_sms_consent_2026-06-26.json:1)
+  - run:
+    - [.runtime/eleven_sim_sms_consent_2026-06-26/summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_sim_sms_consent_2026-06-26/summary.json:1)
+    - [.runtime/eleven_sim_sms_consent_2026-06-26/response.json](/home/max/n8n_ai_call_center/.runtime/eleven_sim_sms_consent_2026-06-26/response.json:1)
+- Этот simulation показал текущий drift:
+  - agent делает:
+    - `send_sms_info`
+    - потом обычную spoken реплику:
+      - `Информацию отправила в SMS...`
+    - и только потом:
+      - `call_log`
+      - `end_call`
+- То есть high-level defect теперь локализован очень чётко:
+  - post-SMS ветка всё ещё может жить как обычный spoken turn перед backend finalization.
+- Для этого собран новый узкий builder:
+  - [scripts/prepare_eleven_post_sms_finalization_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_post_sms_finalization_variant.sh:1)
+- Builder добавляет отдельный prompt-only блок:
+  - `Post-SMS finalization override`
+  - с жёстким порядком:
+    1. `send_sms_info`
+    2. silent `call_log(send_kp_pending_callback)`
+    3. one short `end_call.system__message_to_speak`
+    4. stop
+- На базе текущей lab head `2201...` выпущена новая lab version:
+  - `agtvrsn_0101kw1q5z84fky9nh654bzt6naq`
+- Артефакты publish/verify:
+  - payload:
+    - [.runtime/eleven_post_sms_finalization_2026-06-26/payload.json](/home/max/n8n_ai_call_center/.runtime/eleven_post_sms_finalization_2026-06-26/payload.json:1)
+  - apply:
+    - [.runtime/eleven_post_sms_finalization_2026-06-26/apply_result/response.json](/home/max/n8n_ai_call_center/.runtime/eleven_post_sms_finalization_2026-06-26/apply_result/response.json:1)
+  - verify:
+    - [.runtime/eleven_post_sms_finalization_2026-06-26/verify/summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_post_sms_finalization_2026-06-26/verify/summary.json:1)
+
+### Что важно сейчас
+- Новый `0101...` — это не broad rewrite, а очень узкий lab-only patch поверх текущего strongest safe base.
+- Main live branch не трогался.
+- Safe simulation по-прежнему не может доказать именно branch-specific effect этого patch.
+- Но теперь у lab есть точный следующий candidate именно под SMS-final-close.
+
+### На чем остановились
+- Safe simulation уже локализовал две разные зоны:
+  - post-opener silence выглядит структурно нормально;
+  - post-SMS finalization всё ещё требует специальной доводки.
+- Для post-SMS доводки новый lab patch уже опубликован:
+  - `agtvrsn_0101kw1q5z84fky9nh654bzt6naq`
+
+### Что делать дальше
+1. Следующий controlled шаг — один branch-targeted self-test именно на SMS path уже на `0101...`.
+2. На этом test смотреть только 4 вещи:
+   - нет ли обычной spoken реплики между `call_log` и `end_call`;
+   - нет ли повторного close;
+   - нет ли длинного tool-gap;
+   - не сломался ли opener / machine-stop.
+3. Если SMS-final-close подтвердится, потом таким же способом добивать short-refusal close.
+
+## 1.24) Обновление 2026-06-26: живой self-test `0101...` не дошёл до SMS-path и вскрыл ASR-contradiction defect
+
+### Сделано
+- Выполнен один реальный branch-targeted self-test уже на:
+  - `agtvrsn_0101kw1q5z84fky9nh654bzt6naq`
+- Артефакты:
+  - request/run:
+    - [.runtime/eleven_post_sms_finalization_2026-06-26/call_01_selftest/request.json](/home/max/n8n_ai_call_center/.runtime/eleven_post_sms_finalization_2026-06-26/call_01_selftest/request.json:1)
+    - [.runtime/eleven_post_sms_finalization_2026-06-26/call_01_selftest/runtime_diagnosis.json](/home/max/n8n_ai_call_center/.runtime/eleven_post_sms_finalization_2026-06-26/call_01_selftest/runtime_diagnosis.json:1)
+  - final conversation:
+    - [.runtime/eleven_post_sms_finalization_2026-06-26/call_01_selftest/conversation_poll_final_enriched.json](/home/max/n8n_ai_call_center/.runtime/eleven_post_sms_finalization_2026-06-26/call_01_selftest/conversation_poll_final_enriched.json:1)
+  - audit:
+    - [.runtime/eleven_post_sms_finalization_2026-06-26/call_01_selftest/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_post_sms_finalization_2026-06-26/call_01_selftest/finalization_audit.json:1)
+- Проверка инфраструктуры прошла чисто:
+  - transport = `local_relay`
+  - `branch_id` совпал
+  - `version_id` совпал с expected
+  - SIP/quota/runtime path не сломались
+- Но сам разговор не дошёл до SMS-finalization:
+  - user first turn:
+    - `Поздно.`
+  - agent wrongly ушёл в callback-style interpretation:
+    - `Поняла, сейчас неудобно? Могу перезвонить в удобное для вас время?`
+  - потом user прямо отменил эту интерпретацию:
+    - `Я вообще этого не говорил. Вы чё?`
+  - после этого agent всё равно повёл себя неправильно:
+    - `Поняла. Вы сейчас на линии?`
+    - потом ещё хуже:
+      - `Понялa. Вы вообще с липолитиками работаете?`
+- Audit подтвердил:
+  - два long gaps
+  - primary bottleneck:
+    - `turn_taking_or_dialogue_flow`
+
+### Что важно сейчас
+- Это не SMS-finalization failure в узком смысле.
+- Это более ранний, но очень ценный live defect:
+  - agent не умеет корректно reset-нуться после user contradiction типа:
+    - `я этого не говорил`
+    - `вы чё`
+    - `ошиблись`
+- Именно из-за этого defect self-test так и не дошёл до той ветки, которую мы хотели проверить.
+- Следующий лучший ход был не повторять вслепую тот же тест, а закрыть contradiction-reset behavior.
+
+### Новая правка
+- Под этот подтверждённый defect добавлен новый узкий builder:
+  - [scripts/prepare_eleven_asr_contradiction_reset_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_asr_contradiction_reset_variant.sh:1)
+- Что он делает:
+  - добавляет `ASR contradiction reset override`
+  - запрещает после contradiction-фразы:
+    - late line-check
+    - premature qualification
+  - требует:
+    - если opener ещё не был delivered cleanly, reset и сказать exact opener cleanly once
+  - добавляет `hostile confusion exit`:
+    - если после contradiction сразу идёт directed hostility и stable dialogue так и не появился, не продолжать sales qualification
+- Эта правка уже опубликована в lab:
+  - new lab head:
+    - `agtvrsn_3301kw1qg4s4fwgvrt3zsrs46nxa`
+- verify:
+  - [.runtime/eleven_asr_contradiction_reset_2026-06-26/verify/summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_asr_contradiction_reset_2026-06-26/verify/summary.json:1)
+
+### На чем остановились
+- `0101...` proved infra and showed a real dialogue defect before SMS path.
+- `3301...` is now the current best next lab candidate.
+
+### Что делать дальше
+1. Следующий controlled self-test делать уже на `3301...`.
+2. Проверять первым делом contradiction-reset кейс:
+   - ambiguous first cue
+   - user says `я этого не говорил` / `вы чё`
+   - agent must not jump to `Вы на линии?`
+   - agent must not jump to qualification
+3. Только если этот reset path станет clean, снова возвращаться к SMS-final-close validation.
+
+## 1.25) Обновление 2026-06-26: живой self-test `3301...` подтвердил `[calm]` и длинный второй ход, выпущен новый lab-head `1401...`
+
+### Сделано
+- Выполнен второй реальный branch-targeted self-test уже на:
+  - `agtvrsn_3301kw1qg4s4fwgvrt3zsrs46nxa`
+- Артефакты:
+  - final conversation:
+    - [.runtime/eleven_asr_contradiction_reset_2026-06-26/call_01_selftest/conversation_poll_final_enriched.json](/home/max/n8n_ai_call_center/.runtime/eleven_asr_contradiction_reset_2026-06-26/call_01_selftest/conversation_poll_final_enriched.json:1)
+  - audit:
+    - [.runtime/eleven_asr_contradiction_reset_2026-06-26/call_01_selftest/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_asr_contradiction_reset_2026-06-26/call_01_selftest/finalization_audit.json:1)
+- Infra again stayed clean:
+  - transport = `local_relay`
+  - expected branch/version matched
+- Этот live test показал:
+  - contradiction-reset defect в этот раз не воспроизвёлся буквально;
+  - но surfaced другой реальный remaining defect set:
+    - bracket stage tag leaks:
+      - `[calm]`
+    - слишком длинный second turn after unclear acknowledgement;
+    - long user-to-agent gap до `10s`;
+    - повтор qualification после слабого `Ага.`
+- То есть `3301...` не стал winner, но очень хорошо локализовал следующий слой problem-shape:
+  - unclear / garbled acknowledgement handling;
+  - absolute no-bracket enforcement.
+
+### Новая правка
+- Под этот live signal добавлен новый узкий builder:
+  - [scripts/prepare_eleven_unclear_ack_short_question_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_unclear_ack_short_question_variant.sh:1)
+- Что именно он делает:
+  - после vague / garbled ack типа:
+    - `да`
+    - `ага`
+    - `хорошо`
+    - noisy mixed phrase without stable meaning
+  - agent должен делать:
+    - только один короткий clarifying business question
+    - без длинной value-реплики перед ним
+- Тот же builder добавляет absolute plain-text block:
+  - любые bracket tags вида `[calm]`, `[pause]`, `[thinking]` запрещены как spoken output.
+- Новый patch уже опубликован в lab:
+  - new lab head:
+    - `agtvrsn_1401kw1qv5dee36a8gyrvbqh72ws`
+- verify:
+  - [.runtime/eleven_unclear_ack_short_question_2026-06-26/verify/summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_unclear_ack_short_question_2026-06-26/verify/summary.json:1)
+
+### На чем остановились
+- Current best next lab candidate is now:
+  - `agtvrsn_1401kw1qv5dee36a8gyrvbqh72ws`
+- `3301...` остаётся полезной контрольной точкой, но уже не текущей вершиной.
+
+### Что делать дальше
+1. Следующий controlled live self-test делать уже на `1401...`.
+2. На нём проверять в таком порядке:
+   - исчез ли `[calm]`;
+   - сократился ли второй turn после vague ack;
+   - исчез ли повтор qualification после `ага/угу`;
+   - только потом — можно ли снова добраться до SMS-final-close path.
+
+## 1.21) Обновление 2026-06-26: manual disconnect clarified, word-fill polish published, but plaintext-finalclose patch exposed a deeper lab regression
+
+### Сделано
+- Уточнён последний спорный self-test case:
+  - пользователь подтвердил, что один из недавних ранних disconnect был ручным с его стороны, а не agent-side hangup.
+- Снят свежий snapshot актуального strongest candidate:
+  - [.runtime/eleven_verify_4401_2026-06-26/summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_verify_4401_2026-06-26/summary.json:1)
+  - confirmed:
+    - `version_id = agtvrsn_4401kw1mty9qed7thk4bdwwnpetf`
+    - `llm = gpt-5-mini`
+    - `tts = eleven_v3_conversational`
+    - `turn_timeout = 2.3`
+    - `soft_timeout_seconds = 3.2`
+- Выпущен узкий word-fill patch:
+  - helper:
+    - [scripts/prepare_eleven_wordfill_pause_polish_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_wordfill_pause_polish_variant.sh:1)
+  - published version:
+    - `agtvrsn_4701kw1naqy6f56vhp2n4949nf4w`
+  - snapshot:
+    - [.runtime/eleven_verify_4701_2026-06-26/summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_verify_4701_2026-06-26/summary.json:1)
+  - смысл patch:
+    - fallback `soft_timeout_config.message = "Да..."`
+    - LLM filler prompt теперь запрещает:
+      - `Да, я на линии`
+      - `Я на линии`
+      - `Секунду...`
+      - `Момент...`
+      - line-check phrases
+    - разрешены только короткие neutral fillers:
+      - `Да...`
+      - `Угу...`
+      - `Так...`
+- Self-test на `4701...`:
+  - [.runtime/eleven_wordfill_pause_polish_selftest_2026-06-26_call_01/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_wordfill_pause_polish_selftest_2026-06-26_call_01/finalization_audit.json:1)
+  - showed:
+    - word-fill patch applied successfully;
+    - но remaining defects были уже не про filler, а про finalization / dialogue flow:
+      - `bracketed_stage_direction`
+      - `duplicate_close_before_end_call`
+      - `normal_assistant_speech_after_call_log`
+      - long tool-path close gap
+- После этого выпущен ещё один узкий lab-step:
+  - published version:
+    - `agtvrsn_2401kw1nhasnf6hv8nhf9t6keg32`
+  - payload built from:
+    - `prepare_eleven_plaintext_finalclose_variant.sh`
+    - `prepare_eleven_terminal_finalization_gate_variant.sh`
+- Self-test на `2401...`:
+  - [.runtime/eleven_plaintext_finalclose_selftest_2026-06-26_call_02/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_plaintext_finalclose_selftest_2026-06-26_call_02/finalization_audit.json:1)
+  - exposed a deeper regression:
+    - early `call_log` appeared before the normal opener path in transcript;
+    - `[calm]` still leaked into spoken text;
+    - filler `...` still surfaced during finalization;
+    - normal spoken close still happened after `call_log`.
+
+### Что важно сейчас
+- `4701...` improved word-fill masking, but did not solve finalization sequencing.
+- `2401...` is not a safe winner and must be treated as a regression candidate, not a promotion candidate.
+- Important factual mismatch discovered:
+  - payloads for non-interruptible tool finalization were built with:
+    - `call_log.disable_interruptions = true`
+    - `end_call.disable_interruptions = true`
+  - but fresh live snapshots still show:
+    - `disable_interruptions = false`
+  - so current tool-level non-interruptibility is not actually sticking in live branch state.
+
+### На чем остановились
+- После фиксации regression-run branch был возвращён на word-fill state:
+  - revert publish:
+    - `agtvrsn_2201kw1nqdxdekhayx21qtwk6j7r`
+  - snapshot:
+    - [.runtime/eleven_verify_revert_2201_2026-06-26/summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_verify_revert_2201_2026-06-26/summary.json:1)
+- По содержанию `2201...` это возврат к word-fill polish state from `4701...`.
+- That means:
+  - current branch head is no longer the regressed `2401...`;
+  - current branch head again keeps the useful pause-masking gain, but not the broken finalclose experiment.
+
+### Что делать дальше
+1. Do not promote `2401...`.
+2. For the next lab cycle, focus on one root cause only:
+  - why `call_log` can surface too early in callback/finalization flow.
+3. Separately verify whether ElevenLabs ignores tool-level `disable_interruptions` for these tool types, because live snapshots currently contradict the built payloads.
+4. Keep using the word-fill polish as a useful sub-fix, but do not confuse it with a full close-path fix.
+
+## 1.22) Обновление 2026-06-26: direct Tools API подтвердил, что call_log можно реально сделать non-interruptible вне branch PATCH
+
+### Сделано
+- Добавлен новый helper:
+  - [scripts/patch_eleven_tool_flags_via_server_env.sh](/home/max/n8n_ai_call_center/scripts/patch_eleven_tool_flags_via_server_env.sh:1)
+- Его задача:
+  - patch selected `tool_config` flags directly through Eleven Tools API;
+  - keep backup/after snapshots per tool.
+- Before patch was re-verified через `GET /v1/convai/tools`:
+  - active shared custom tool:
+    - `tool_5701ktec2x6wfnj8t5b1rwhtw51p` -> `call_log`
+  - factual state before:
+    - `disable_interruptions = false`
+- Then direct patch was applied:
+  - artifact:
+    - [.runtime/eleven_calllog_disable_interruptions_2026-06-26/summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_calllog_disable_interruptions_2026-06-26/summary.json:1)
+  - factual result after:
+    - `disable_interruptions = true`
+- Re-check after patch:
+  - direct `GET /v1/convai/tools/tool_5701ktec2x6wfnj8t5b1rwhtw51p`
+  - confirmed:
+    - `disable_interruptions = true`
+
+### Что важно сейчас
+- This is the first hard proof in the current cycle that:
+  - branch-level `PATCH /agents?...` is not a reliable carrier for `disable_interruptions` on our current tool path;
+  - direct `PATCH /tools/{tool_id}` does persist the flag at least for active custom `call_log`.
+- That means the real engineering path for finalization hardening is now clearer:
+  - custom webhook tools should be hardened via direct Tools API when branch PATCH normalizes them away.
+
+### Ограничение проверки в этом ходе
+- Two immediate validation self-tests after the direct tool patch did not produce usable dialogue evidence because telephony failed before transcript start:
+  - [.runtime/eleven_calllog_directpatch_selftest_2026-06-26_call_03/conversation_poll_final.json](/home/max/n8n_ai_call_center/.runtime/eleven_calllog_directpatch_selftest_2026-06-26_call_03/conversation_poll_final.json:1)
+    - `INVITE failed: sip status: 404: Not Found (SIP 404)`
+  - [.runtime/eleven_calllog_directpatch_selftest_2026-06-26_call_04_retry/conversation_poll_final.json](/home/max/n8n_ai_call_center/.runtime/eleven_calllog_directpatch_selftest_2026-06-26_call_04_retry/conversation_poll_final.json:1)
+    - `max auth retry attempts reached for SIP invite`
+- Therefore:
+  - the direct patch itself is verified technically;
+  - but the behavioural effect on `call_log -> end_call` sequencing is still unproven in a fresh valid call transcript.
+
+### На чем остановились
+- Current branch head remains:
+  - `agtvrsn_2201kw1nqdxdekhayx21qtwk6j7r`
+- Active shared `call_log` tool is now directly patched to:
+  - `disable_interruptions = true`
+- No new behavioural winner is claimed yet because the two validation calls died on SIP before conversation start.
+
+### Что делать дальше
+1. On the next valid live/self-test, verify only one thing:
+  - whether `normal_assistant_speech_after_call_log` decreases or disappears.
+2. If it helps, consider applying the same direct-tool hardening carefully to the other active shared webhook tools only when needed:
+  - `send_sms_info`
+  - `context_fetch`
+3. Keep treating system tool `end_call` as unresolved separately, because it is not exposed through the same custom tools list.
+
+## 1.18) Обновление 2026-06-26: turn-taking улучшен, tool-music убран, terminal-tool patch признан регрессией и откатан
+
+### Сделано
+- После no-tool-music цикла были сделаны три последовательных engineering-шага:
+  1. `agtvrsn_6201kw1jmfrdejz8e0gk5b8x7xn5`
+     - spoken fillers вместо старого `Так...`
+     - separate fix для tool-music
+  2. `agtvrsn_4301kw1k3xn8ftkbp9nn5xf1sqh9`
+     - `turn_timeout = 2.3`
+     - `turn_eagerness = normal`
+     - `interruption` добавлен в `client_events`
+  3. `agtvrsn_4501kw1k95s4fkt9ygmcd9dqjw0n`
+     - попытка дожать terminal tool sequencing и binding
+- Self-test на `6201...`:
+  - [.runtime/eleven_no_tool_music_selftest_2026-06-26_call_01/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_no_tool_music_selftest_2026-06-26_call_01/finalization_audit.json:1)
+  показал:
+  - music-layer уже не главный bottleneck;
+  - primary bottleneck = `turn_taking_or_dialogue_flow`;
+  - long gaps `3s / 7s / 8s`
+- Self-test на `4301...`:
+  - [.runtime/eleven_interruptible_balanced_selftest_2026-06-26_call_02/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_interruptible_balanced_selftest_2026-06-26_call_02/finalization_audit.json:1)
+  показал:
+  - first opener path improved:
+    - `3s -> 2s`
+  - но остались:
+    - refusal gap `10s`
+    - duplicate close
+    - normal speech after `call_log`
+- Первый test `4501...` невалидный как product-check:
+  - [.runtime/eleven_terminal_tool_and_binding_selftest_2026-06-26_call_03/runtime_diagnosis.json](/home/max/n8n_ai_call_center/.runtime/eleven_terminal_tool_and_binding_selftest_2026-06-26_call_03/runtime_diagnosis.json:1)
+  - reason:
+    - `max auth retry attempts reached for SIP invite`
+- Второй test `4501...` валидный и показал regression:
+  - [.runtime/eleven_terminal_tool_and_binding_selftest_2026-06-26_call_04/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_terminal_tool_and_binding_selftest_2026-06-26_call_04/finalization_audit.json:1)
+  - transcript:
+    - agent literally pronounced:
+      - `silent call_log with payload...`
+  - plus:
+    - `normal_assistant_speech_after_call_log`
+    - `helpdesk_tail_in_outbound_close`
+  - therefore `4501...` is rejected as a working head.
+- После этого выполнен safe revert to current working configuration:
+  - new published revert version:
+    - `agtvrsn_6001kw1kg3d5fceajadfb0as0vnw`
+  - snapshot:
+    - [.runtime/eleven_revert_to_4301_2026-06-26/post_apply_snapshot/summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_revert_to_4301_2026-06-26/post_apply_snapshot/summary.json:1)
+
+### Что важно сейчас
+- `4501...` не использовать как rollback point и не считать candidate winner.
+- Current safe head for the branch now:
+  - `agtvrsn_6001kw1kg3d5fceajadfb0as0vnw`
+- Его factual state:
+  - `gpt-5-mini`
+  - `eleven_v3_conversational`
+  - `turn_timeout = 2.3`
+  - `turn_eagerness = normal`
+  - `soft_timeout_seconds = 2.4`
+  - spoken filler enabled
+  - `interruption` present in `client_events`
+
+### Практический вывод
+- Music/tool-sound issue сейчас уже не центральная проблема; она закрыта.
+- Основной remaining backlog:
+  1. pre-opener / early-turn behavior на кейсах с `...`
+  2. long human-answer gap after refusal or ambiguous reply
+  3. callback/refusal finalization tail
+- Следующий шаг надо делать от `6001...`, а не от `4501...`.
+
+## 1.19) Обновление 2026-06-26: pre-opener и callback-schedule цикл дал лучший refusal result, но latest single-close patch остался непроверенным и branch возвращён на последний доказанный head
+
+### Сделано
+- Выпущены три последовательные узкие версии:
+  - `agtvrsn_3501kw1kqpnzetdanyzdseh2znwq`
+    - pre-opener hard gate
+    - negative fast-path
+  - `agtvrsn_9201kw1kz7hwepd9zfsc3fqgej2s`
+    - callback schedule gate
+    - no late line-check after meaningful post-opener replies
+  - `agtvrsn_1401kw1m36vgfv88qvqfeckn8xmg`
+    - single-close refusal
+    - no fake `conv_*` placeholders in drafted `call_log`
+- Self-test `3501...`:
+  - [.runtime/eleven_preopener_fastpath_selftest_2026-06-26_call_05/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_preopener_fastpath_selftest_2026-06-26_call_05/finalization_audit.json:1)
+  - confirmed:
+    - pre-opener `Алло?` path improved
+  - but still noisy callback/finalization behavior remained
+- Self-test `9201...`:
+  - [.runtime/eleven_callback_schedule_gate_selftest_2026-06-26_call_06/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_callback_schedule_gate_selftest_2026-06-26_call_06/finalization_audit.json:1)
+  - became the best refusal/callback checkpoint of this cycle:
+    - issues count fell to `4`
+  - remaining issues:
+    - `duplicate_close_before_end_call`
+    - `normal_assistant_speech_after_call_log`
+    - `placeholder_conversation_id_in_tool_call`
+    - one `tool_path` final gap
+- `1401...` got two non-conclusive tests:
+  - one SIP auth failure:
+    - `.runtime/eleven_single_close_binding_prompt_selftest_2026-06-26_call_07/`
+  - one provider-side stuck in-progress with zero transcript even after the user manually hung up:
+    - `.runtime/eleven_single_close_binding_prompt_selftest_2026-06-26_call_08/`
+- Therefore `1401...` was not accepted as a proven new head.
+- Branch was returned to the last proven content state from `9201...`:
+  - new revert version:
+    - `agtvrsn_7701kw1mc5wzek0sddghnsta5cpv`
+  - artifact:
+    - [.runtime/eleven_revert_to_9201_2026-06-26/apply_result/response.json](/home/max/n8n_ai_call_center/.runtime/eleven_revert_to_9201_2026-06-26/apply_result/response.json:1)
+
+### Что важно сейчас
+- Current safe published head for this branch:
+  - `agtvrsn_7701kw1mc5wzek0sddghnsta5cpv`
+- By content it equals the last proven better checkpoint `9201...`.
+- Do not promote `1401...` until a finished live transcript confirms it.
+
+### Что делать дальше
+1. Continue only from `7701...`.
+2. Next narrow engineering target:
+  - keep current pre-opener and callback-schedule gains
+  - remove only:
+    - duplicate close
+    - normal speech after `call_log`
+    - fake drafted `conv_*`
+3. Next live check should again be a short refusal path, because that path is now closest to clean behavior.
+
+## 1.20) Обновление 2026-06-26: fake drafted conv ids закрыты, non-interruptible finalization резко очистил refusal audit
+
+### Сделано
+- Выпущен refusal tool guard head:
+  - `agtvrsn_8701kw1mj08gfpd83djqpcmbzx8w`
+- Proof run:
+  - [.runtime/eleven_refusal_tool_guard_selftest_2026-06-26_call_10/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_refusal_tool_guard_selftest_2026-06-26_call_10/finalization_audit.json:1)
+- Он подтвердил:
+  - fake drafted `conv_*` исчез из `call_log` draft;
+  - `placeholder_conversation_id_in_tool_call` больше не возникает.
+- Затем выпущен ещё один tool-layer step:
+  - `agtvrsn_4401kw1mty9qed7thk4bdwwnpetf`
+- Его смысл:
+  - `call_log.disable_interruptions = true`
+  - `end_call.disable_interruptions = true`
+- Proof run:
+  - [.runtime/eleven_noninterruptible_finalization_selftest_2026-06-26_call_11/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_noninterruptible_finalization_selftest_2026-06-26_call_11/finalization_audit.json:1)
+- Analyzer result:
+  - `issues_count = 1`
+  - disappeared:
+    - `duplicate_close_before_end_call`
+    - `normal_assistant_speech_after_call_log`
+    - `filler_during_finalization`
+
+### Важная граница уверенности
+- `4401...` is now the strongest candidate.
+- But that run did not fully prove the finished callback/refusal close path, because the user side cut the call quickly after the callback line.
+- So `4401...` still needs one clean finished-case confirmation.
+
+### Что важно сейчас
+- Current strongest candidate:
+  - `agtvrsn_4401kw1mty9qed7thk4bdwwnpetf`
+- Current last fully proven safe fallback:
+  - `agtvrsn_7701kw1mc5wzek0sddghnsta5cpv`
+
+### Что делать дальше
+1. Continue from `4401...`.
+2. Run one more short refusal/callback self-test where the other side does not hang up immediately after `перезвоните позже`.
+3. If clean:
+  - promote `4401...` as the new safe head.
+
+## 1.17) Обновление 2026-06-26: убран musical tool-layer, spoken filler включён отдельно
+
+### Сделано
+- Снят свежий snapshot текущего рабочего lab-head:
+  - [.runtime/eleven_snapshot_2026-06-26_music_check/summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_snapshot_2026-06-26_music_check/summary.json:1)
+- Он подтвердил:
+  - `branch_id = agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+  - `version_id = agtvrsn_1501kw1hxryaed1rwdtxzq6stasm`
+  - `llm = gpt-5-mini`
+  - `tts = eleven_v3_conversational`
+  - `turn_timeout = 1.78`
+  - `soft_timeout_seconds = 2.4`
+- При этом was found точный источник "музыки":
+  - `background_sound = null`
+  - значит это не TTS background layer;
+  - у `context_fetch`, `call_log`, `send_sms_info` стояло:
+    - `tool_call_sound = elevator3`
+    - `tool_call_sound_behavior = always`
+- Также было подтверждено, что словесный filler фактически был выключен:
+  - `soft_timeout_config.message = "Так..."`
+  - `use_llm_generated_message = false`
+- Для узкого fix добавлен новый helper:
+  - [scripts/prepare_eleven_no_tool_music_softfill_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_no_tool_music_softfill_variant.sh:1)
+- Через него выпущена новая branch-version:
+  - `agtvrsn_6201kw1jmfrdejz8e0gk5b8x7xn5`
+  - артефакты:
+    - [.runtime/eleven_no_tool_music_2026-06-26/apply_result/response.json](/home/max/n8n_ai_call_center/.runtime/eleven_no_tool_music_2026-06-26/apply_result/response.json:1)
+- Её узкий смысл:
+  - не трогать voice stack, opener и machine-stop;
+  - включить short spoken soft-fill отдельно от tool-layer.
+- После patch новая версия получила:
+  - `soft_timeout_config.message = "Да..."`
+  - `use_llm_generated_message = true`
+  - `llm_generated_message_prompt_override` под короткие русские fillers
+- Отдельно расширен helper для direct tool patch:
+  - [scripts/patch_eleven_tool_call_sounds_via_server_env.sh](/home/max/n8n_ai_call_center/scripts/patch_eleven_tool_call_sounds_via_server_env.sh:1)
+  - он теперь умеет:
+    - `TOOL_CALL_SOUND=null`
+    - и записывает реальный JSON `null`, а не строку
+- Через него shared tools реально перепатчены:
+  - `context_fetch`
+  - `call_log`
+  - `send_sms_info`
+- Подтверждение:
+  - [.runtime/eleven_tool_sound_disable_2026-06-26/summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_tool_sound_disable_2026-06-26/summary.json:1)
+  - там у всех трёх:
+    - `before = elevator3 / always`
+    - `after = null / auto`
+
+### Важная техническая тонкость
+- После direct tool patch agent snapshot всё ещё может показывать старый embedded `elevator3` внутри `.conversation_config.agent.prompt.tools`.
+- Для tool-sound слоя это сейчас misleading representation.
+- Источником истины по фактическому sound-state считать:
+  - direct tool backup/after files из:
+    - `.runtime/eleven_tool_sound_disable_2026-06-26/`
+- А не только общий agent snapshot.
+
+### Практический вывод
+- На `2026-06-26` причина "музыки в паузе" больше не гипотеза:
+  - это был не background sound и не голос;
+  - это был отдельный webhook tool-call sound layer.
+- Теперь контур разведен на два разных механизма:
+  1. tool-music убран на shared tools;
+  2. spoken filler включён отдельно через `soft_timeout_config`.
+
+### Что делать дальше
+1. Сделать один короткий self-test.
+2. Проверить:
+  - исчезла ли музыка полностью;
+  - звучит ли пауза как короткое слово, а не как `Так...`;
+  - не появляется ли filler до opener.
+3. Если надо будет дожать naturalness дальше:
+  - править уже только:
+    - `soft_timeout_seconds`
+    - filler override prompt
+  - и не трогать больше tool-layer, если музыка реально ушла.
+
 ## 1.14) Обновление 2026-06-25: live relay снова поднят, workflow URL снова совпадает, текущий стоп-фактор только quota blocker
 
 ### Сделано

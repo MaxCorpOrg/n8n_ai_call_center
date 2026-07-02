@@ -30,6 +30,8 @@ ELEVEN_OUTBOUND_URL = os.getenv(
 RETRYABLE_PROVIDER_MESSAGES = {
     "max auth retry attemps reached",
     "max auth retry attempts reached",
+    "max auth retry attemps reached for sip invite",
+    "max auth retry attempts reached for sip invite",
 }
 HELP_REDIRECT_MARKERS = (
     "help.elevenlabs.io",

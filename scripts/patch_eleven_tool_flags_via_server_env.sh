@@ -2,30 +2,27 @@
 set -euo pipefail
 
 SERVER_ALIAS="${SERVER_ALIAS:-ai-core-prod-147}"
-REMOTE_ENV_CANDIDATES=(
-  "/home/aicore/n8n-server/.env.callcenter"
-  "/home/aicore/n8n-ai-clean/.env.callcenter"
-)
 
 usage() {
   cat <<'EOF' >&2
 Usage:
-  patch_eleven_tool_call_sounds_via_server_env.sh OUTPUT_DIR TOOL_ID [TOOL_ID...]
+  patch_eleven_tool_flags_via_server_env.sh OUTPUT_DIR TOOL_ID [TOOL_ID...]
 
 Reads ElevenLabs API key from remote .env.callcenter via SSH, backs up each tool,
-then patches:
-  tool_call_sound = ${TOOL_CALL_SOUND:-typing}
-  tool_call_sound_behavior = ${TOOL_CALL_SOUND_BEHAVIOR:-always}
+then patches selected tool_config flags directly through Eleven Tools API.
 
-Special case:
-  TOOL_CALL_SOUND=null  -> writes JSON null and disables the sound
+Optional environment overrides:
+  TOOL_DISABLE_INTERRUPTIONS=true|false
+  TOOL_PRE_TOOL_SPEECH=auto|none|<string>
+  TOOL_FORCE_PRE_TOOL_SPEECH=true|false
+  TOOL_CALL_SOUND=<value>|null
+  TOOL_CALL_SOUND_BEHAVIOR=auto|always|never
 
 Example:
-  scripts/patch_eleven_tool_call_sounds_via_server_env.sh \
-    .runtime/eleven_tool_sound_patch_2026-06-18 \
-    tool_1601km62rxpqegqr52m9gk9sftr3 \
-    tool_5701ktec2x6wfnj8t5b1rwhtw51p \
-    tool_1701km86jmcpek4rj2j1rbhxqtfr
+  TOOL_DISABLE_INTERRUPTIONS=true \
+  scripts/patch_eleven_tool_flags_via_server_env.sh \
+    .runtime/eleven_tool_flags_patch_2026-06-26 \
+    tool_5701ktec2x6wfnj8t5b1rwhtw51p
 EOF
   exit 1
 }
@@ -37,8 +34,6 @@ fi
 OUTPUT_DIR="$1"
 shift
 TOOL_IDS=("$@")
-TOOL_CALL_SOUND="${TOOL_CALL_SOUND:-typing}"
-TOOL_CALL_SOUND_BEHAVIOR="${TOOL_CALL_SOUND_BEHAVIOR:-always}"
 
 mkdir -p "$OUTPUT_DIR"
 
@@ -82,8 +77,8 @@ printf '[]\n' > "$SUMMARY_JSON"
 for tool_id in "${TOOL_IDS[@]}"; do
   BEFORE_JSON="$OUTPUT_DIR/${tool_id}_before.json"
   PATCH_JSON="$OUTPUT_DIR/${tool_id}_patch.json"
-  AFTER_JSON="$OUTPUT_DIR/${tool_id}_after.json"
   RESPONSE_JSON="$OUTPUT_DIR/${tool_id}_response.json"
+  AFTER_JSON="$OUTPUT_DIR/${tool_id}_after.json"
 
   curl -sS \
     "https://api.elevenlabs.io/v1/convai/tools/${tool_id}" \
@@ -91,20 +86,41 @@ for tool_id in "${TOOL_IDS[@]}"; do
     > "$BEFORE_JSON"
 
   jq '
-    {
-      tool_config:
-        (.tool_config
-         | if $tool_call_sound == "null" then
-             .tool_call_sound = null
-           else
-             .tool_call_sound = $tool_call_sound
-           end
-         | .tool_call_sound_behavior = $tool_call_sound_behavior)
-    }
-  ' \
-    --arg tool_call_sound "$TOOL_CALL_SOUND" \
-    --arg tool_call_sound_behavior "$TOOL_CALL_SOUND_BEHAVIOR" \
-    "$BEFORE_JSON" > "$PATCH_JSON"
+    .tool_config as $cfg
+    | {
+        tool_config:
+          (
+            $cfg
+            | if env.TOOL_DISABLE_INTERRUPTIONS != null and env.TOOL_DISABLE_INTERRUPTIONS != "" then
+                .disable_interruptions = (env.TOOL_DISABLE_INTERRUPTIONS == "true")
+              else
+                .
+              end
+            | if env.TOOL_PRE_TOOL_SPEECH != null and env.TOOL_PRE_TOOL_SPEECH != "" then
+                .pre_tool_speech =
+                  (if env.TOOL_PRE_TOOL_SPEECH == "null" then null else env.TOOL_PRE_TOOL_SPEECH end)
+              else
+                .
+              end
+            | if env.TOOL_FORCE_PRE_TOOL_SPEECH != null and env.TOOL_FORCE_PRE_TOOL_SPEECH != "" then
+                .force_pre_tool_speech = (env.TOOL_FORCE_PRE_TOOL_SPEECH == "true")
+              else
+                .
+              end
+            | if env.TOOL_CALL_SOUND != null and env.TOOL_CALL_SOUND != "" then
+                .tool_call_sound =
+                  (if env.TOOL_CALL_SOUND == "null" then null else env.TOOL_CALL_SOUND end)
+              else
+                .
+              end
+            | if env.TOOL_CALL_SOUND_BEHAVIOR != null and env.TOOL_CALL_SOUND_BEHAVIOR != "" then
+                .tool_call_sound_behavior = env.TOOL_CALL_SOUND_BEHAVIOR
+              else
+                .
+              end
+          )
+      }
+  ' "$BEFORE_JSON" > "$PATCH_JSON"
 
   curl -sS -X PATCH \
     "https://api.elevenlabs.io/v1/convai/tools/${tool_id}" \
@@ -124,10 +140,16 @@ for tool_id in "${TOOL_IDS[@]}"; do
       tool_id: $tool_id,
       name: ($after[0].tool_config.name // $before[0].tool_config.name // ""),
       before: {
+        disable_interruptions: ($before[0].tool_config.disable_interruptions // null),
+        pre_tool_speech: ($before[0].tool_config.pre_tool_speech // null),
+        force_pre_tool_speech: ($before[0].tool_config.force_pre_tool_speech // null),
         tool_call_sound: ($before[0].tool_config.tool_call_sound // null),
         tool_call_sound_behavior: ($before[0].tool_config.tool_call_sound_behavior // null)
       },
       after: {
+        disable_interruptions: ($after[0].tool_config.disable_interruptions // null),
+        pre_tool_speech: ($after[0].tool_config.pre_tool_speech // null),
+        force_pre_tool_speech: ($after[0].tool_config.force_pre_tool_speech // null),
         tool_call_sound: ($after[0].tool_config.tool_call_sound // null),
         tool_call_sound_behavior: ($after[0].tool_config.tool_call_sound_behavior // null)
       }

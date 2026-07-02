@@ -1,0 +1,164 @@
+# 2026-06-26: turn-taking цикл, tool-music fix и terminal regression
+
+## Сделано
+- Подтверждён и опубликован узкий no-tool-music fix:
+  - branch-version:
+    - `agtvrsn_6201kw1jmfrdejz8e0gk5b8x7xn5`
+  - spoken filler:
+    - `soft_timeout_seconds = 2.4`
+    - `message = "Да..."`
+    - `use_llm_generated_message = true`
+- Shared webhook tools реально перепатчены отдельно:
+  - `context_fetch`
+  - `call_log`
+  - `send_sms_info`
+  теперь:
+  - `tool_call_sound = null`
+  - `tool_call_sound_behavior = auto`
+- Первый self-test после no-tool-music:
+  - [.runtime/eleven_no_tool_music_selftest_2026-06-26_call_01/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_no_tool_music_selftest_2026-06-26_call_01/finalization_audit.json:1)
+  - версия:
+    - `agtvrsn_6201kw1jmfrdejz8e0gk5b8x7xn5`
+  - главный вывод:
+    - bottleneck уже не в музыкальном слое;
+    - bottleneck в `turn-taking / dialogue-flow`;
+    - observed gaps:
+      - `3s`
+      - `7s`
+      - `8s`
+- После этого выпущен interruptible-balanced head:
+  - published:
+    - `agtvrsn_4301kw1k3xn8ftkbp9nn5xf1sqh9`
+  - свойства:
+    - `turn_timeout = 2.3`
+    - `turn_eagerness = normal`
+    - `client_events` теперь содержит `interruption`
+- Controlled self-test на `4301...`:
+  - [.runtime/eleven_interruptible_balanced_selftest_2026-06-26_call_02/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_interruptible_balanced_selftest_2026-06-26_call_02/finalization_audit.json:1)
+  - что улучшилось:
+    - opener после `Алло!` стартовал сразу, без pre-opener `Алло?`
+    - first user-to-agent gap:
+      - `3s -> 2s`
+  - что осталось:
+    - long refusal gap до `10s`
+    - duplicate close
+    - normal assistant speech после `call_log`
+    - `not_target` на слишком раннем отказном path
+- Затем проверен узкий terminal-tool-and-binding patch:
+  - version:
+    - `agtvrsn_4501kw1k95s4fkt9ygmcd9dqjw0n`
+  - первый test этой версии упёрся в SIP auth failure и не считается продуктовой проверкой:
+    - [.runtime/eleven_terminal_tool_and_binding_selftest_2026-06-26_call_03/runtime_diagnosis.json](/home/max/n8n_ai_call_center/.runtime/eleven_terminal_tool_and_binding_selftest_2026-06-26_call_03/runtime_diagnosis.json:1)
+  - второй test уже показал явную regression:
+    - [.runtime/eleven_terminal_tool_and_binding_selftest_2026-06-26_call_04/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_terminal_tool_and_binding_selftest_2026-06-26_call_04/finalization_audit.json:1)
+    - transcript regression:
+      - agent literally said:
+        - `silent call_log with payload...`
+    - также остались:
+      - `normal_assistant_speech_after_call_log`
+      - `helpdesk_tail_in_outbound_close`
+      - long gaps `3s / 5s / 3s / 7s`
+- После этого branch сразу откатан на безопасный head с настройками `4301...`:
+  - новый published revert-version:
+    - `agtvrsn_6001kw1kg3d5fceajadfb0as0vnw`
+  - snapshot:
+    - [.runtime/eleven_revert_to_4301_2026-06-26/post_apply_snapshot/summary.json](/home/max/n8n_ai_call_center/.runtime/eleven_revert_to_4301_2026-06-26/post_apply_snapshot/summary.json:1)
+  - текущие свойства safe head:
+    - `gpt-5-mini`
+    - `eleven_v3_conversational`
+    - `turn_timeout = 2.3`
+    - `turn_eagerness = normal`
+    - `soft_timeout_seconds = 2.4`
+    - `use_llm_generated_message = true`
+  - `client_events` содержит `interruption`
+- Затем сделан ещё один узкий цикл поверх `6001...`:
+  - pre-opener / negative fast-path:
+    - `agtvrsn_3501kw1kqpnzetdanyzdseh2znwq`
+  - callback schedule gate:
+    - `agtvrsn_9201kw1kz7hwepd9zfsc3fqgej2s`
+  - single-close + no fake conv ids:
+    - `agtvrsn_1401kw1m36vgfv88qvqfeckn8xmg`
+- Self-test на `3501...`:
+  - [.runtime/eleven_preopener_fastpath_selftest_2026-06-26_call_05/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_preopener_fastpath_selftest_2026-06-26_call_05/finalization_audit.json:1)
+  показал:
+  - pre-opener `Алло?` действительно ушёл;
+  - но callback/finalization ещё была слишком шумной.
+- Self-test на `9201...`:
+  - [.runtime/eleven_callback_schedule_gate_selftest_2026-06-26_call_06/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_callback_schedule_gate_selftest_2026-06-26_call_06/finalization_audit.json:1)
+  показал лучший на сейчас refusal result:
+  - issues count:
+    - `18 -> 4`
+  - late line-check / call_log_without_end_call ушли;
+  - остались только:
+    - `duplicate_close_before_end_call`
+    - `normal_assistant_speech_after_call_log`
+    - `placeholder_conversation_id_in_tool_call`
+    - `tool_path` gap
+- Self-test на `1401...` не дал верифицируемого результата:
+  - [.runtime/eleven_single_close_binding_prompt_selftest_2026-06-26_call_07/conversation_poll_final.json](/home/max/n8n_ai_call_center/.runtime/eleven_single_close_binding_prompt_selftest_2026-06-26_call_07/conversation_poll_final.json:1)
+    - SIP auth failure
+  - [.runtime/eleven_single_close_binding_prompt_selftest_2026-06-26_call_08/conversation_poll_final.json](/home/max/n8n_ai_call_center/.runtime/eleven_single_close_binding_prompt_selftest_2026-06-26_call_08/conversation_poll_final.json:1)
+    - provider stall:
+      - `status = in-progress`
+      - `transcript_len = 0`
+- Поэтому `1401...` не признан новой рабочей точкой.
+- После этого branch откатан на последний доказанный head по содержанию `9201...`:
+  - новый revert-version:
+    - `agtvrsn_7701kw1mc5wzek0sddghnsta5cpv`
+  - артефакт:
+    - [.runtime/eleven_revert_to_9201_2026-06-26/apply_result/response.json](/home/max/n8n_ai_call_center/.runtime/eleven_revert_to_9201_2026-06-26/apply_result/response.json:1)
+- Затем сделан refusal-only tool-layer цикл поверх safe head:
+  - `agtvrsn_8701kw1mj08gfpd83djqpcmbzx8w`
+  - задача:
+    - убрать fake drafted `conv_*`
+    - усилить `call_log` / `end_call` descriptions
+- Self-test на `8701...`:
+  - [.runtime/eleven_refusal_tool_guard_selftest_2026-06-26_call_10/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_refusal_tool_guard_selftest_2026-06-26_call_10/finalization_audit.json:1)
+  - подтвердил:
+    - `placeholder_conversation_id_in_tool_call` исчез
+    - `call_log` draft больше не печатал fake `conversation_id` / `eleven_conv_id`
+- После этого выпущен ещё более узкий step:
+  - `agtvrsn_4401kw1mty9qed7thk4bdwwnpetf`
+  - задача:
+    - `call_log.disable_interruptions = true`
+    - `end_call.disable_interruptions = true`
+    - не давать late `алло` переоткрывать финализацию
+- Self-test на `4401...`:
+  - [.runtime/eleven_noninterruptible_finalization_selftest_2026-06-26_call_11/finalization_audit.json](/home/max/n8n_ai_call_center/.runtime/eleven_noninterruptible_finalization_selftest_2026-06-26_call_11/finalization_audit.json:1)
+  - analyzer result:
+    - `issues_count = 1`
+    - остался только `long_user_to_agent_gap`
+    - исчезли:
+      - `duplicate_close_before_end_call`
+      - `normal_assistant_speech_after_call_log`
+      - `filler_during_finalization`
+- Важная граница уверенности:
+  - `4401...` сейчас strongest candidate
+  - но этот run не дал полного finished callback/refusal close path в transcript, потому что собеседник быстро оборвал разговор после `Перезвони позже`
+  - значит final close path у `4401...` ещё нужно подтвердить отдельным чистым case
+
+## На чем остановились
+- Current strongest candidate для lab-branch now:
+  - `agtvrsn_4401kw1mty9qed7thk4bdwwnpetf`
+- Последний полностью доказанный safe fallback по finished refusal-case:
+  - `agtvrsn_7701kw1mc5wzek0sddghnsta5cpv`
+- Причины:
+  - `4501...` проговаривал tool-служебный текст;
+  - `1401...` не получил проверяемого live result из-за provider-side failures/stall.
+- Music/tool-sound проблема сейчас уже закрыта.
+- Pre-opener `Алло?` тоже улучшен отдельным циклом.
+- Главный remaining defect now:
+  - один turn-taking gap на ряде входов
+  - и отдельная finished-case проверка callback/refusal final close для `4401...`
+
+## Что делать дальше
+1. Не возвращаться на `4501...`.
+2. Не считать `1401...` рабочей точкой, пока нет валидного finished transcript.
+3. Следующий узкий шаг делать уже от `4401...`.
+4. Следующий controlled call вести по чистому refusal/callback сценарию и не сбрасывать сразу после фразы:
+  - `перезвоните позже`
+  чтобы проверить, проходит ли чистый close:
+  - `call_log`
+  - один `end_call`
+  - stop
+5. Если `4401...` подтверждает finished-case clean close, именно его закреплять как новый safe head.
