@@ -1,0 +1,611 @@
+{
+  "name": "ELEVEN_TOOL_SEND_SMS_AND_LOG_BRIDGE_LAB",
+  "nodes": [
+    {
+      "id": "9905bb09-401c-42ad-afa2-939581b77d2a",
+      "name": "Tool | Webhook Send SMS And Log",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1088,
+        256
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "eleven/tool/send-sms-and-log",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "f3a07206-11d4-4520-8c40-a21f8d4e16db"
+    },
+    {
+      "id": "44863d7d-802b-4aef-8106-3cacb5ea395a",
+      "name": "Tool | Normalize SMS+Log Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -832,
+        256
+      ],
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\nconst nowIso = new Date().toISOString();\n\nconst asText = (v) => {\n  if (v === null || v === undefined) return '';\n  return String(v).trim();\n};\n\nconst asBool = (v) => {\n  if (typeof v === 'boolean') return v;\n  const s = asText(v).toLowerCase();\n  return ['1', 'true', 'yes', 'да', 'y'].includes(s);\n};\n\nconst normalizeMultiline = (v) => String(v || '')\n  .replace(/\\r/g, '')\n  .split('\\n')\n  .map((line) => line.replace(/\\s+/g, ' ').trim())\n  .filter(Boolean)\n  .join('\\n')\n  .trim();\n\nconst normalizePhone = (input) => {\n  const digits = String(input || '').replace(/\\D/g, '');\n  if (!digits) return '';\n  if (digits.length === 11 && digits.startsWith('8')) return `+7${digits.slice(1)}`;\n  if (digits.length === 11 && digits.startsWith('7')) return `+${digits}`;\n  if (digits.length === 10) return `+7${digits}`;\n  if (digits.length >= 11 && digits.length <= 15) return `+${digits}`;\n  return '';\n};\n\nconst explicitPhoneRaw = asText(body.phone_target);\nconst explicitPhone = normalizePhone(explicitPhoneRaw);\nconst currentCallNumber = asText(body.current_call_number || body.system__called_number || body.caller || body.phone_primary);\nconst currentCallPhone = normalizePhone(currentCallNumber);\nconst otherPhoneRaw = asText(body.phone || body.client_phone);\nconst otherPhone = normalizePhone(otherPhoneRaw);\n\nconst phoneTarget = explicitPhone || currentCallPhone || otherPhone;\nconst phoneTargetRaw = explicitPhone ? explicitPhoneRaw : (currentCallPhone ? currentCallNumber : otherPhoneRaw);\n\nconst clientName = asText(body.client_name || body.contact_name);\nconst companyName = asText(body.company_name) || 'LipoLong';\nconst product = asText(body.product) || 'LipoLong';\nconst materialUrl = asText(body.material_url);\nconst callbackAt = asText(body.callback_at || body.next_call_at);\nconst replyPhone = normalizePhone(asText(body.reply_phone || body.manager_phone)) || '+79923298897';\nconst rawMessageIntent = asText(body.message_intent).toLowerCase() || 'short_info';\nconst messageIntent = rawMessageIntent === 'offer' ? 'product_intro' : rawMessageIntent;\nconst customSmsText = normalizeMultiline(body.sms_text);\nconst requestId = asText(body.request_id || body.tool_call_id || body.tool_request_id || body.session_id || body.conversation_id) || `smslog.${Date.now()}`;\n\nconst contactPackText = normalizeMultiline(`\nОтправляю контакты наших менеджеров для связи и консультации по направлению LipoLong:\nТелефон: 8 999 556-67-77\nTelegram: @Vorgesar_Peptides\nMessenger Max: @Vorgesar_Peptides\nСайт: lipolong.com\nЧаты Telegram: @MadCoreChat / @Peptides_shop / @vl26g_official / @Zhirotop_Shop\nУсловия оплаты: безналичный расчёт +6%\nРеквизиты: ИП Клочков Сергей Александрович, ИНН 645308371993\n`);\n\nconst productIntroText = normalizeMultiline(`\nКоротко про LipoLong:\nЛиполитик для косметологической практики по направлению коррекции фигуры.\nПочему его часто смотрят: мягкая и управляемая работа, понятный вход в направление, заказ от 1 шт.\nОриентир по стоимости: от 19 000 руб.\nДоставка: 3-4 дня. Оплата: безнал +6%, полная предоплата.\nДля консультации с менеджером: 8 999 556-67-77, Telegram/MAX @Vorgesar_Peptides, lipolong.com\n`);\n\nconst buildTemplate = () => {\n  if (messageIntent === 'callback_confirmation') {\n    return normalizeMultiline(`\nИнформацию отправила SMS.\n${callbackAt ? `Если удобно, свяжемся ${callbackAt}.` : ''}\n${replyPhone ? `Контакт для связи: ${replyPhone}` : ''}\n`);\n  }\n  if (messageIntent === 'product_intro') {\n    return productIntroText;\n  }\n  return contactPackText;\n};\n\nconst initialSmsText = customSmsText || buildTemplate();\nconst smsText = initialSmsText.length > 480\n  ? `${initialSmsText.slice(0, 477).trim()}...`\n  : initialSmsText;\n\nconst dryRun = asBool(body.dry_run);\nconst logDryRun = asBool(body.log_dry_run);\nconst warnings = [];\nconst errors = [];\nif (!phoneTarget) errors.push('phone_target is empty or invalid');\nif (!smsText) errors.push('sms_text is empty after normalization');\nif (materialUrl && !/^https?:\\/\\//i.test(materialUrl)) warnings.push('material_url does not look like http/https');\nif (!explicitPhone && currentCallPhone) warnings.push('phone_target not provided explicitly, used current_call_number fallback');\nif (explicitPhoneRaw && !explicitPhone && currentCallPhone) warnings.push('explicit phone_target invalid, used current_call_number fallback');\nif (rawMessageIntent === 'offer') warnings.push('message_intent offer mapped to product_intro for backward compatibility');\nif (dryRun) warnings.push('dry_run enabled: Mango SMS will not be sent');\nif (logDryRun) warnings.push('log_dry_run enabled: Google Sheet append will not run');\n\nreturn [{\n  received_at: nowIso,\n  tool: 'send_sms_and_log',\n  ok_to_send: errors.length === 0 && !dryRun,\n  dry_run: dryRun,\n  log_dry_run: logDryRun,\n  errors,\n  warnings,\n  request_id: requestId,\n  session_id: asText(body.session_id),\n  conversation_id: asText(body.conversation_id || body.eleven_conv_id),\n  lead_id: asText(body.lead_id || body.client_ref || body.source_record_key),\n  client_name: clientName,\n  company_name: companyName,\n  product,\n  material_url: materialUrl,\n  callback_at: callbackAt,\n  current_call_number: currentCallNumber,\n  phone_target: phoneTarget,\n  phone_target_raw: phoneTargetRaw,\n  reply_phone: replyPhone,\n  message_intent: messageIntent,\n  sms_text: smsText,\n  sms_length: smsText.length,\n  source_payload: body,\n}];"
+      }
+    },
+    {
+      "id": "5b52e0e1-7a6c-4596-aa3d-620f4dade5ef",
+      "name": "Mango | Build SMS Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -576,
+        256
+      ],
+      "parameters": {
+        "jsCode": "const req = $json || {};\nconst warningBase = [ ...(req.warnings || []), ...(req.errors || []) ].filter(Boolean).join('; ');\n\nif (req.dry_run) {\n  return [{\n    ...req,\n    should_send: false,\n    provider: 'mango_sms',\n    status: 'dry_run',\n    warning: warningBase,\n  }];\n}\n\nif (!req.ok_to_send) {\n  return [{\n    ...req,\n    should_send: false,\n    provider: 'mango_sms',\n    status: 'invalid_request',\n    warning: warningBase,\n  }];\n}\n\nconst apiKey = String($env.MANGO_VPBX_API_KEY || '').trim();\nconst apiSalt = String($env.MANGO_VPBX_API_SALT || '').trim();\nconst fromExtension = String($env.MANGO_VPBX_FROM_EXTENSION || '').trim();\nconst smsSender = String($env.MANGO_SMS_SENDER || '').trim();\n\nconst missing = [];\nif (!apiKey) missing.push('MANGO_VPBX_API_KEY');\nif (!apiSalt) missing.push('MANGO_VPBX_API_SALT');\nif (!fromExtension) missing.push('MANGO_VPBX_FROM_EXTENSION');\n\nif (missing.length) {\n  return [{\n    ...req,\n    should_send: false,\n    provider: 'mango_sms',\n    status: 'config_error',\n    warning: [warningBase, `Missing env: ${missing.join(', ')}`].filter(Boolean).join('; '),\n  }];\n}\n\nconst payload = {\n  command_id: req.request_id || `cmd.sms.${Date.now()}`,\n  from_extension: fromExtension,\n  text: String(req.sms_text || ''),\n  to_number: String(req.phone_target || '').replace(/^\\+/, ''),\n  sms_sender: smsSender,\n};\nconst jsonPayload = JSON.stringify(payload);\nreturn [{\n  ...req,\n  should_send: true,\n  provider: 'mango_sms',\n  provider_command: payload,\n  api_key: apiKey,\n  sign_source: `${apiKey}${jsonPayload}${apiSalt}`,\n  json_payload: jsonPayload,\n  warning: warningBase,\n}];"
+      }
+    },
+    {
+      "id": "7361cc1a-dd8c-46b3-9f95-7329ec6d0113",
+      "name": "Mango | Send Decision",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -320,
+        256
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.should_send ? 'send' : 'skip' }}",
+                    "rightValue": "send",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Send"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.should_send ? 'send' : 'skip' }}",
+                    "rightValue": "skip",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Skip"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b4775329-af19-4037-a16d-0562ff38bf0a",
+      "name": "Mango | Sign SMS SHA256",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        144
+      ],
+      "parameters": {
+        "type": "SHA256",
+        "value": "={{ $json.sign_source }}",
+        "dataPropertyName": "sign"
+      }
+    },
+    {
+      "id": "347a20ff-683e-42f6-9c66-1d4a5a2de35f",
+      "name": "Mango | Build SMS Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        144
+      ],
+      "parameters": {
+        "jsCode": "return [{\n  ...$json,\n  sign: String($json.sign || '').toLowerCase(),\n}];"
+      }
+    },
+    {
+      "id": "c74ea286-30fd-42b5-9f05-c206661d9fca",
+      "name": "Mango | Send SMS HTTP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        448,
+        144
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.mango-office.ru/vpbx/commands/sms",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "vpbx_api_key",
+              "value": "={{ $json.api_key }}"
+            },
+            {
+              "name": "sign",
+              "value": "={{ $json.sign }}"
+            },
+            {
+              "name": "json",
+              "value": "={{ $json.json_payload }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "9d2fdcea-61ac-4483-a278-c2dca22df7db",
+      "name": "Tool | Build SMS Provider Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        144
+      ],
+      "parameters": {
+        "jsCode": "const req = $('Mango | Build SMS Request').item.json || {};\nconst providerResponse = $json || {};\nconst hasNumericResult = providerResponse.result !== undefined && providerResponse.result !== null && providerResponse.result !== '' && !Number.isNaN(Number(providerResponse.result));\nconst numericResult = hasNumericResult ? Number(providerResponse.result) : null;\nconst hasExplicitError = Boolean(providerResponse.error_code || providerResponse.error || providerResponse.message);\nconst looksAccepted = !hasExplicitError && (!hasNumericResult || numericResult >= 1000);\nconst fail = !looksAccepted;\nconst warning = [req.warning || '', fail ? JSON.stringify(providerResponse).slice(0, 300) : ''].filter(Boolean).join('; ');\n\nreturn [{\n  ok: !fail,\n  tool: 'send_sms_and_log',\n  sms_status: fail ? 'send_error' : 'sent',\n  provider: 'mango_sms',\n  request_id: req.request_id || '',\n  lead_id: req.lead_id || '',\n  conversation_id: req.conversation_id || '',\n  phone_target: req.phone_target || '',\n  sms_length: req.sms_length || 0,\n  message_intent: req.message_intent || '',\n  sms_preview: req.sms_text || '',\n  warning,\n  provider_response: JSON.stringify(providerResponse).slice(0, 500),\n  source_payload: req.source_payload || {},\n  log_dry_run: !!req.log_dry_run,\n  received_at: req.received_at || '',\n}];"
+      }
+    },
+    {
+      "id": "cdb1c53f-df75-4b64-999e-c6e642cf7468",
+      "name": "Tool | Build SMS Skip Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        368
+      ],
+      "parameters": {
+        "jsCode": "return [{\n  ok: false,\n  tool: 'send_sms_and_log',\n  sms_status: $json.status || 'invalid_request',\n  provider: 'mango_sms',\n  request_id: $json.request_id || '',\n  lead_id: $json.lead_id || '',\n  conversation_id: $json.conversation_id || '',\n  phone_target: $json.phone_target || '',\n  sms_length: $json.sms_length || 0,\n  message_intent: $json.message_intent || '',\n  sms_preview: $json.sms_text || '',\n  warning: $json.warning || '',\n  provider_response: '',\n  source_payload: $json.source_payload || {},\n  log_dry_run: !!$json.log_dry_run,\n  received_at: $json.received_at || '',\n}];"
+      }
+    },
+    {
+      "id": "ec5f13b9-7fbf-4cd6-880d-559cbbae1d63",
+      "name": "Tool | Build Call Log Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        256
+      ],
+      "parameters": {
+        "jsCode": "const sms = $json || {};\nconst body = sms.source_payload || {};\nconst nowIso = new Date().toISOString();\nconst placeholderValues = new Set([\n  'system__called_number',\n  'system__conversation_id',\n  'system__caller_id',\n  '{{lead_id}}',\n  '{{caller}}',\n  '{{phone_primary}}',\n  '{{source_record_key}}',\n  '{{eleven_conv_id}}',\n  '{{conversation_id}}',\n  '{{company_name}}',\n  '{{contact_name}}',\n  '{{request_id}}',\n]);\n\nconst asText = (v) => {\n  if (v === null || v === undefined) return '';\n  const s = String(v).trim();\n  return placeholderValues.has(s) ? '' : s;\n};\n\nconst asBoolText = (v) => {\n  if (typeof v === 'boolean') return v ? 'true' : 'false';\n  const s = asText(v).toLowerCase();\n  if (!s) return '';\n  if (['1','true','yes','да'].includes(s)) return 'true';\n  if (['0','false','no','нет'].includes(s)) return 'false';\n  return s;\n};\n\nconst numText = (v, def='') => {\n  if (v === null || v === undefined || v === '') return def;\n  const n = Number(v);\n  return Number.isFinite(n) ? String(n) : def;\n};\n\nconst isMalformedConvId = (value) => {\n  const s = asText(value);\n  if (!s) return true;\n  if (!s.startsWith('conv_')) return true;\n  const suffix = s.slice(5);\n  if (suffix.length < 12) return true;\n  if (/^\\d+$/.test(suffix)) return true;\n  if (/^(?:[0-9a-f]{2}){8,}$/i.test(suffix)) return true;\n  return false;\n};\n\nconst normalizeConvId = (...values) => {\n  for (const value of values) {\n    const s = asText(value);\n    if (!s) continue;\n    if (!isMalformedConvId(s)) return s;\n  }\n  return '';\n};\n\nconst caller = asText(body.caller) || asText(body.phone_primary) || asText(sms.phone_target);\nconst phonePrimary = asText(body.phone_primary) || caller || asText(sms.phone_target);\nconst conversationId = normalizeConvId(body.conversation_id, sms.conversation_id);\nconst elevenConvId = normalizeConvId(body.eleven_conv_id, conversationId);\nconst sourceRecordKey = asText(body.source_record_key)\n  || asText(body.request_id)\n  || asText(sms.request_id)\n  || conversationId\n  || elevenConvId\n  || phonePrimary\n  || asText(body.session_id);\nconst leadId = asText(body.lead_id)\n  || asText(body.client_ref)\n  || asText(sms.lead_id)\n  || sourceRecordKey\n  || phonePrimary\n  || asText(body.session_id);\n\nconst callResult = asText(body.call_result) || (sms.ok ? 'send_kp_pending_callback' : 'refusal_soft');\nconst nextStep = asText(body.next_step) || (sms.ok ? 'callback' : 'manual_review');\nconst notesBase = asText(body.notes_short)\n  || (sms.ok\n    ? 'Клиент согласился получить SMS, SMS отправлена, нужен дальнейший контакт менеджера.'\n    : `Клиент согласился получить SMS, но отправка не подтверждена: ${sms.sms_status || 'unknown'}.`);\n\nconst row = {\n  created_at: asText(body.created_at) || nowIso,\n  updated_at: nowIso,\n  lead_id: leadId,\n  source_system: asText(body.source_system) || 'elevenlabs',\n  source_record_key: sourceRecordKey,\n  company_name: asText(body.company_name),\n  contact_name: asText(body.contact_name || body.client_name),\n  phone_primary: phonePrimary,\n  phone_secondary: asText(body.phone_secondary),\n  city: asText(body.city),\n  segment: asText(body.segment),\n  lpr_role: asText(body.lpr_role),\n  lpr_confirmed: asBoolText(body.lpr_confirmed),\n  current_supplier: asText(body.current_supplier),\n  current_product: asText(body.current_product),\n  current_price: asText(body.current_price),\n  pain_points: asText(body.pain_points),\n  objection_code: asText(body.objection_code),\n  objection_text: asText(body.objection_text),\n  interest_level: asText(body.interest_level),\n  call_result: callResult,\n  next_step: nextStep,\n  next_call_at: asText(body.next_call_at || body.callback_at),\n  preferred_channel: asText(body.preferred_channel) || 'sms',\n  manager_owner: asText(body.manager_owner),\n  expected_volume: asText(body.expected_volume),\n  expected_budget: asText(body.expected_budget),\n  material_sent: asBoolText(body.material_sent || sms.ok),\n  followup_count: numText(body.followup_count, '0'),\n  max_touch_limit: numText(body.max_touch_limit, ''),\n  do_not_call: asBoolText(body.do_not_call),\n  final_reason: asText(body.final_reason) || (sms.ok ? 'sms_sent' : `sms_${sms.sms_status || 'error'}`),\n  notes_short: notesBase,\n  notes_redacted: asText(body.notes_redacted),\n  call_record_url: asText(body.call_record_url),\n  eleven_conv_id: elevenConvId,\n  n8n_execution_id: asText(body.n8n_execution_id) || asText(body.execution_id),\n  agent_version: asText(body.agent_version),\n  last_updated_by: asText(body.last_updated_by) || 'ai_agent_lab_fastpath',\n};\n\nconst row_values = [\n  row.created_at,\n  row.updated_at,\n  row.lead_id,\n  row.source_system,\n  row.source_record_key,\n  row.company_name,\n  row.contact_name,\n  row.phone_primary,\n  row.phone_secondary,\n  row.city,\n  row.segment,\n  row.lpr_role,\n  row.lpr_confirmed,\n  row.current_supplier,\n  row.current_product,\n  row.current_price,\n  row.pain_points,\n  row.objection_code,\n  row.objection_text,\n  row.interest_level,\n  row.call_result,\n  row.next_step,\n  row.next_call_at,\n  row.preferred_channel,\n  row.manager_owner,\n  row.expected_volume,\n  row.expected_budget,\n  row.material_sent,\n  row.followup_count,\n  row.max_touch_limit,\n  row.do_not_call,\n  row.final_reason,\n  row.notes_short,\n  row.notes_redacted,\n  row.call_record_url,\n  row.eleven_conv_id,\n  row.n8n_execution_id,\n  row.agent_version,\n  row.last_updated_by,\n];\n\nreturn [{\n  sms_result: sms,\n  row,\n  row_values,\n  source_payload: body,\n  log_dry_run: !!sms.log_dry_run,\n  identity_seed: {\n    lead_id: row.lead_id,\n    caller,\n    phone_primary: row.phone_primary,\n    source_record_key: row.source_record_key,\n    eleven_conv_id: row.eleven_conv_id,\n  },\n}];"
+      }
+    },
+    {
+      "id": "4f292ac1-2faf-4a5c-9803-8c79d49f9fe1",
+      "name": "Tool | Validate Identity",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1216,
+        256
+      ],
+      "parameters": {
+        "jsCode": "const payload = $json || {};\nconst row = payload.row || {};\nconst sourcePayload = payload.source_payload || {};\nconst sourceSystem = String(row.source_system || sourcePayload.source_system || 'elevenlabs').trim() || 'elevenlabs';\n\nconst identitySnapshot = {\n  lead_id: String(row.lead_id || '').trim(),\n  caller: String(sourcePayload.caller || row.phone_primary || '').trim(),\n  phone_primary: String(row.phone_primary || '').trim(),\n  source_record_key: String(row.source_record_key || '').trim(),\n  eleven_conv_id: String(row.eleven_conv_id || '').trim(),\n};\n\nconst requiredFields = sourceSystem === 'autodial_dispatcher'\n  ? ['lead_id', 'phone_primary', 'source_record_key']\n  : ['lead_id', 'caller', 'phone_primary', 'source_record_key', 'eleven_conv_id'];\n\nconst missingIdentityFields = requiredFields.filter((field) => !identitySnapshot[field]);\n\nreturn [{\n  ...payload,\n  source_system: sourceSystem,\n  identity_ok: missingIdentityFields.length === 0,\n  required_identity_fields: requiredFields,\n  missing_identity_fields: missingIdentityFields,\n  identity_snapshot: identitySnapshot,\n}];"
+      }
+    },
+    {
+      "id": "f5b2d74a-38eb-4ba0-aa01-9d4cf7bb2409",
+      "name": "Tool | Log Decision",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1472,
+        256
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ ($json.identity_ok && !$json.log_dry_run) ? 'append' : 'skip' }}",
+                    "rightValue": "append",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Append"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ ($json.identity_ok && !$json.log_dry_run) ? 'append' : 'skip' }}",
+                    "rightValue": "skip",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Skip"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "f88eeb20-cdb8-4cdc-817a-d531001d5017",
+      "name": "Google | Build Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1728,
+        144
+      ],
+      "parameters": {
+        "jsCode": "return [{\n  spreadsheet_id: '1SyoGWXrvLNevGzjWQjfSP7eRqVCMOzR0MzXeWSL7HOo',\n  sheet_name: 'Лиды_обзвон',\n  range_encoded: '%D0%9B%D0%B8%D0%B4%D1%8B_%D0%BE%D0%B1%D0%B7%D0%B2%D0%BE%D0%BD%21A%3AAM',\n  append_url: 'https://sheets.googleapis.com/v4/spreadsheets/1SyoGWXrvLNevGzjWQjfSP7eRqVCMOzR0MzXeWSL7HOo/values/%D0%9B%D0%B8%D0%B4%D1%8B_%D0%BE%D0%B1%D0%B7%D0%B2%D0%BE%D0%BD%21A%3AAM:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS',\n  oauth_url: 'https://oauth2.googleapis.com/token',\n  google_oauth_source: 'env',\n}];"
+      }
+    },
+    {
+      "id": "ee1a4e07-6ad6-4b86-ba9d-59a9c2e1a204",
+      "name": "Google | Refresh Access Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1984,
+        144
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $node[\"Google | Build Payload\"].json.oauth_url }}",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "client_id",
+              "value": "={{ $env.GOOGLE_CLIENT_ID || \"\" }}"
+            },
+            {
+              "name": "client_secret",
+              "value": "={{ $env.GOOGLE_CLIENT_SECRET || \"\" }}"
+            },
+            {
+              "name": "refresh_token",
+              "value": "={{ $env.GOOGLE_REFRESH_TOKEN || \"\" }}"
+            },
+            {
+              "name": "grant_type",
+              "value": "refresh_token"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "bc8eba8e-144c-41fb-bfb9-ce3bcec8c612",
+      "name": "Google | Append Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2240,
+        144
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $node[\"Google | Build Payload\"].json[\"append_url\"] }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ \"Bearer \" + ($node[\"Google | Refresh Access Token\"].json[\"access_token\"] || \"\") }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\"majorDimension\":\"ROWS\",\"values\":[ $node[\"Tool | Build Call Log Row\"].json[\"row_values\"] ] } }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "18b5eb75-1330-4964-b21d-784dfb61529a",
+      "name": "Tool | Build Combined Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2496,
+        256
+      ],
+      "parameters": {
+        "jsCode": "let payload = {};\ntry {\n  payload = $node['Tool | Validate Identity'].json || {};\n} catch (e) {\n  payload = $json || {};\n}\n\nconst row = payload.row || {};\nconst sms = payload.sms_result || {};\nlet tokenRes = {};\nlet append = {};\ntry { tokenRes = $node['Google | Refresh Access Token'].json || {}; } catch (e) {}\ntry { append = $node['Google | Append Row'].json || {}; } catch (e) {}\n\nconst tokenError = tokenRes.error || tokenRes.error_description || '';\nconst appendError = append.error?.message || append.error || '';\nconst identityOk = payload.identity_ok !== false;\nconst logSkippedDryRun = !!payload.log_dry_run;\nconst logOk = identityOk && (logSkippedDryRun || (!tokenError && !appendError));\nconst warnings = [\n  sms.warning || '',\n  identityOk ? '' : `missing_identity_package: ${(payload.missing_identity_fields || []).join(', ')}`,\n  logSkippedDryRun ? 'log_dry_run enabled: Google append skipped' : '',\n  tokenError || appendError || '',\n].filter(Boolean).join('; ');\n\nreturn [{\n  ok: Boolean(sms.ok) && logOk,\n  tool: 'send_sms_and_log',\n  sms: {\n    ok: Boolean(sms.ok),\n    status: sms.sms_status || '',\n    provider: sms.provider || '',\n    request_id: sms.request_id || '',\n    phone_target: sms.phone_target || '',\n    message_intent: sms.message_intent || '',\n    sms_length: sms.sms_length || 0,\n  },\n  call_log: {\n    ok: logOk,\n    skipped_dry_run: logSkippedDryRun,\n    source: logSkippedDryRun ? 'dry_run' : (logOk ? 'google_sheets' : 'error'),\n    spreadsheet_id: '1SyoGWXrvLNevGzjWQjfSP7eRqVCMOzR0MzXeWSL7HOo',\n    updated_range: append.updates?.updatedRange || '',\n    updated_rows: append.updates?.updatedRows ?? 0,\n    missing_identity_fields: payload.missing_identity_fields || [],\n    identity_snapshot: payload.identity_snapshot || {},\n  },\n  warning: warnings,\n  lead_id: row.lead_id || '',\n  source_record_key: row.source_record_key || '',\n  phone_primary: row.phone_primary || '',\n  eleven_conv_id: row.eleven_conv_id || '',\n  call_result: row.call_result || '',\n  next_step: row.next_step || '',\n  next_call_at: row.next_call_at || '',\n}];"
+      }
+    },
+    {
+      "id": "5311660e-d580-4339-b655-f7ecc77e3805",
+      "name": "Tool | Respond Send SMS And Log",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2752,
+        256
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Tool | Webhook Send SMS And Log": {
+      "main": [
+        [
+          {
+            "node": "Tool | Normalize SMS+Log Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool | Normalize SMS+Log Request": {
+      "main": [
+        [
+          {
+            "node": "Mango | Build SMS Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mango | Build SMS Command": {
+      "main": [
+        [
+          {
+            "node": "Mango | Send Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mango | Send Decision": {
+      "main": [
+        [
+          {
+            "node": "Mango | Sign SMS SHA256",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tool | Build SMS Skip Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mango | Sign SMS SHA256": {
+      "main": [
+        [
+          {
+            "node": "Mango | Build SMS Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mango | Build SMS Request": {
+      "main": [
+        [
+          {
+            "node": "Mango | Send SMS HTTP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mango | Send SMS HTTP": {
+      "main": [
+        [
+          {
+            "node": "Tool | Build SMS Provider Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool | Build SMS Provider Response": {
+      "main": [
+        [
+          {
+            "node": "Tool | Build Call Log Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool | Build SMS Skip Response": {
+      "main": [
+        [
+          {
+            "node": "Tool | Build Call Log Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool | Build Call Log Row": {
+      "main": [
+        [
+          {
+            "node": "Tool | Validate Identity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool | Validate Identity": {
+      "main": [
+        [
+          {
+            "node": "Tool | Log Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool | Log Decision": {
+      "main": [
+        [
+          {
+            "node": "Google | Build Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tool | Build Combined Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google | Build Payload": {
+      "main": [
+        [
+          {
+            "node": "Google | Refresh Access Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google | Refresh Access Token": {
+      "main": [
+        [
+          {
+            "node": "Google | Append Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google | Append Row": {
+      "main": [
+        [
+          {
+            "node": "Tool | Build Combined Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool | Build Combined Response": {
+      "main": [
+        [
+          {
+            "node": "Tool | Respond Send SMS And Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  }
+}

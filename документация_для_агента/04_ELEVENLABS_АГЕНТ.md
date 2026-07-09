@@ -1,5 +1,59 @@
 # ElevenLabs агент
 
+## Обновление 2026-07-09 13:48 MSK: lab fast-path `send_sms_and_log`, current head `9301...`
+
+### Сделано
+- Создан n8n lab workflow:
+  - `ELEVEN_TOOL_SEND_SMS_AND_LOG_BRIDGE_LAB`
+  - workflow ID: `LVYvGh5luQunORKh`
+  - webhook: `https://www.n-8-n.site/webhook/eleven/tool/send-sms-and-log`
+- Назначение:
+  - заменить SMS-consent хвост `send_sms_info -> call_log` на один backend tool;
+  - уменьшить мёртвую паузу после фразы клиента `да, отправьте SMS`.
+- Smoke-test endpoint:
+  - `dry_run=true`
+  - `log_dry_run=true`
+  - ответ `200 OK`
+  - identity complete.
+- Через официальный ElevenLabs Tools API создан global webhook tool:
+  - `send_sms_and_log`
+  - `tool_5701kx37g3qpf6caa4f09c9bfm8n`
+- В lab branch добавлен `tool_id` нового tool:
+  - current head: `agtvrsn_9301kx37gy6zft3te55dangks99m`
+- Добавлен prompt guard:
+  - никогда не произносить `call_log with`, `send_sms_and_log with`, JSON, `params_as_json`, `silent`, `skip_turn`.
+
+### Проверки
+- `conv_3401kx373nysfxzvf5qdx2nzmy2e` на `3001...`:
+  - плохой результат;
+  - agent произнёс `call_log with {...}`.
+- `conv_5201kx37hp0heyjab4rgkvszgw2f` на `9301...`:
+  - spoken tool text ушёл;
+  - `call_log` и `end_call` прошли успешно;
+  - но SMS-consent не было, поэтому `send_sms_and_log` ещё не проверен разговором.
+- `conv_8901kx37myfdef39cqh2n53bqnpf`:
+  - polling timeout;
+  - transcript пустой;
+  - не использовать для behavioral выводов.
+
+### На чем остановились
+- Current lab:
+  - branch: `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+  - head: `agtvrsn_9301kx37gy6zft3te55dangks99m`
+- Новый tool прикреплён и виден в response:
+  - `send_sms_and_log`
+- Боевой `Main` не трогался.
+
+### Что делать дальше
+1. Провести один self-test с явным SMS consent:
+   - клиент: `да, отправьте SMS`;
+   - ожидание: spoken ack -> `send_sms_and_log` -> one `end_call`.
+2. Если проходит:
+   - сравнить задержку с прежним SMS-tail `10-13s`.
+3. Если не проходит:
+   - не переносить в live;
+   - откатываться на `4701...` / payload-class `6201...`.
+
 ## Обновление 2026-07-09 13:18 MSK: текущий lab head `4701...`
 
 ### Сделано

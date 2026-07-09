@@ -1,5 +1,81 @@
 # 09. Состояние проекта и последние изменения
 
+## 1.39) Обновление 2026-07-09: lab fast-path `send_sms_and_log`, текущий head `9301...`
+
+### Сделано
+- Собран отдельный n8n workflow:
+  - `workflows/ELEVEN_TOOL_SEND_SMS_AND_LOG_BRIDGE_LAB_DRAFT.json`
+  - live workflow ID: `LVYvGh5luQunORKh`
+  - production webhook: `POST https://www.n-8-n.site/webhook/eleven/tool/send-sms-and-log`
+  - задача: одним backend-вызовом отправить SMS через Mango и сразу записать `call_log`, чтобы убрать хвост `send_sms_info -> call_log`.
+- Перед import сделан backup n8n Postgres:
+  - `/home/aicore/n8n-backups/manual/n8n_prod_before_sms_log_fastpath_2026-07-09_10-29-32.sql.gz`
+- Локальный n8n API-key дал `401`, поэтому workflow опубликован через серверный путь:
+  - `n8n import:workflow`
+  - `n8n publish:workflow`
+  - `n8n update:workflow --active=true`
+  - точечный restart только `n8n-server-n8n-1`.
+- Smoke-test endpoint:
+  - `dry_run=true`, `log_dry_run=true`
+  - HTTP `200`
+  - identity complete
+  - без реальной SMS и без Google append.
+- По официальной документации ElevenLabs подтверждено:
+  - webhook tools создаются отдельным Tools API `POST /v1/convai/tools`;
+  - просто вставить новый tool object в `Update agent` payload недостаточно.
+- Создан ElevenLabs global webhook tool:
+  - name: `send_sms_and_log`
+  - tool_id: `tool_5701kx37g3qpf6caa4f09c9bfm8n`
+- Lab branch обновлён:
+  - previous attempted head: `agtvrsn_3001kx372f1besksd0cy9t80bq8x`
+  - current head: `agtvrsn_9301kx37gy6zft3te55dangks99m`
+  - tool list теперь реально содержит `send_sms_and_log`.
+- Добавлен hard-ban на spoken tool text:
+  - запрещено произносить `call_log with`, `send_sms_and_log with`, raw JSON, `params_as_json`, `silent`, `skip_turn`.
+
+### Проверки
+- `call_01_sms_fastpath_selftest`:
+  - conversation: `conv_3401kx373nysfxzvf5qdx2nzmy2e`
+  - head: `3001...`
+  - выявлена регрессия: agent вслух сказал `call_log with {...}`.
+- `call_02_sms_fastpath_tool_attached`:
+  - conversation: `conv_5201kx37hp0heyjab4rgkvszgw2f`
+  - head: `9301...`
+  - результат:
+    - spoken tool text исчез;
+    - `call_log` и `end_call` прошли успешно;
+    - repeated refusal корректно закрыт как `refusal_soft`;
+    - SMS consent не произошёл, поэтому `send_sms_and_log` ещё не проверен реальным согласием.
+- `call_03_sms_fastpath_consent`:
+  - conversation: `conv_8901kx37myfdef39cqh2n53bqnpf`
+  - head: `9301...`
+  - status на момент polling timeout: `in-progress`
+  - transcript пустой, поведенческие выводы не делаем.
+
+### На чем остановились
+- Git branch:
+  - `codex/eleven-naturalness-lab`
+- ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- Current lab head:
+  - `agtvrsn_9301kx37gy6zft3te55dangks99m`
+- Новый backend fast-path готов и smoke-проверен.
+- Новый ElevenLabs tool создан и прикреплён к lab.
+- Боевой `Main` не трогался.
+
+### Что делать дальше
+1. Сделать один короткий SMS-consent self-test на `9301...`:
+   - клиент явно говорит: `да, отправьте SMS`;
+   - ожидание: короткое `Да, отправляю.` -> `send_sms_and_log` -> один `end_call`.
+2. Проверить, что не используются старые два tool подряд:
+   - не должно быть `send_sms_info -> call_log` на SMS-consent path.
+3. Если `send_sms_and_log` проходит:
+   - сравнить SMS-tail с прежними `10-13s`;
+   - затем проверить machine/`абонент` и confused user.
+4. Если снова появится spoken tool text:
+   - откатить lab на `4701...` или `6201...` payload-class;
+   - не переносить в live.
+
 ## 1.38) Обновление 2026-07-09: текущий lab head `4701...`, soft-refusal восстановлен, SMS-tail остаётся
 
 ### Сделано

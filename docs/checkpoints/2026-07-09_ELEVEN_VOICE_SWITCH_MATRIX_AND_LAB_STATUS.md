@@ -1,5 +1,88 @@
 # 2026-07-09: Eleven voice switch matrix и текущий lab-статус
 
+## Актуальное обновление `2026-07-09 13:48 MSK`
+
+### Сделано
+- Создан новый n8n lab workflow для SMS-finalization:
+  - file: `workflows/ELEVEN_TOOL_SEND_SMS_AND_LOG_BRIDGE_LAB_DRAFT.json`
+  - live workflow ID: `LVYvGh5luQunORKh`
+  - webhook: `POST https://www.n-8-n.site/webhook/eleven/tool/send-sms-and-log`
+- Workflow делает один backend path:
+  - normalize SMS request;
+  - Mango SMS send/skip;
+  - build call_log row;
+  - validate identity;
+  - append Google Sheet;
+  - return one combined response.
+- Перед import сделан backup n8n Postgres:
+  - `/home/aicore/n8n-backups/manual/n8n_prod_before_sms_log_fastpath_2026-07-09_10-29-32.sql.gz`
+- Local n8n API-key дал `401`, поэтому deployment выполнен через SSH/server CLI:
+  - `n8n import:workflow`
+  - `n8n publish:workflow`
+  - `n8n update:workflow --active=true`
+  - restart only `n8n-server-n8n-1`
+- Dry-run smoke:
+  - HTTP `200`
+  - `dry_run=true`
+  - `log_dry_run=true`
+  - identity complete.
+- Попытка добавить `send_sms_and_log` простым agent payload дала head:
+  - `agtvrsn_3001kx372f1besksd0cy9t80bq8x`
+  - но ElevenLabs не прикрепил новый tool в response.
+- По official docs выбран правильный путь:
+  - `POST /v1/convai/tools`
+- Создан global tool:
+  - `send_sms_and_log`
+  - `tool_5701kx37g3qpf6caa4f09c9bfm8n`
+- Lab branch обновлён через `tool_ids`:
+  - current head: `agtvrsn_9301kx37gy6zft3te55dangks99m`
+  - tool list теперь содержит `send_sms_and_log`.
+- Добавлен hard-ban:
+  - не произносить tool names, JSON, `call_log with`, `send_sms_and_log with`, `params_as_json`, `silent`, `skip_turn`.
+
+### Проверки
+- `call_01_sms_fastpath_selftest`
+  - conversation: `conv_3401kx373nysfxzvf5qdx2nzmy2e`
+  - version: `agtvrsn_3001kx372f1besksd0cy9t80bq8x`
+  - дефект: spoken `call_log with {...}`.
+- `call_02_sms_fastpath_tool_attached`
+  - conversation: `conv_5201kx37hp0heyjab4rgkvszgw2f`
+  - version: `agtvrsn_9301kx37gy6zft3te55dangks99m`
+  - результат:
+    - spoken tool text ушёл;
+    - repeated refusal закрылся через `call_log` + `end_call`;
+    - `call_log` записал строку `'Лиды_обзвон'!A174:AM174`;
+    - SMS consent не было, `send_sms_and_log` разговором ещё не проверен.
+- `call_03_sms_fastpath_consent`
+  - conversation: `conv_8901kx37myfdef39cqh2n53bqnpf`
+  - status: `in-progress` на polling timeout;
+  - transcript пустой;
+  - не засчитывать.
+
+### На чем остановились
+- Git branch:
+  - `codex/eleven-naturalness-lab`
+- ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- Current lab head:
+  - `agtvrsn_9301kx37gy6zft3te55dangks99m`
+- Новый tool:
+  - `send_sms_and_log`
+  - `tool_5701kx37g3qpf6caa4f09c9bfm8n`
+- Боевой `Main` не трогался.
+
+### Что делать дальше
+1. Следующий одинарный self-test должен быть только SMS-consent:
+   - user: `да, отправьте SMS`;
+   - expected: `Да, отправляю.` -> `send_sms_and_log` -> one `end_call`.
+2. Если `send_sms_and_log` реально вызвался:
+   - сравнить latency с прежним `send_sms_info -> call_log` tail `10-13s`.
+3. Затем gates:
+   - machine/`абонент`;
+   - confused user;
+   - silence/no-answer.
+4. До прохождения gates не переносить в live `Main`.
+
 ## Актуальное обновление `2026-07-09 13:18 MSK`
 
 ### Сделано

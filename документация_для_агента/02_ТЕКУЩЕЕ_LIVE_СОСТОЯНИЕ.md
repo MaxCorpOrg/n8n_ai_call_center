@@ -1,5 +1,76 @@
 # Текущее live-состояние
 
+Обновление `2026-07-09 13:48 MSK` по ElevenLabs naturalness lab и SMS fast-path:
+- текущий Git branch:
+  - `codex/eleven-naturalness-lab`
+- текущая ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- current lab head:
+  - `agtvrsn_9301kx37gy6zft3te55dangks99m`
+- новый ElevenLabs tool:
+  - `send_sms_and_log`
+  - `tool_5701kx37g3qpf6caa4f09c9bfm8n`
+- новый n8n workflow:
+  - `ELEVEN_TOOL_SEND_SMS_AND_LOG_BRIDGE_LAB`
+  - workflow ID: `LVYvGh5luQunORKh`
+  - webhook: `POST /webhook/eleven/tool/send-sms-and-log`
+- боевой `Main` не трогался.
+
+## Сделано
+- Создан отдельный backend fast-path для SMS:
+  - отправляет SMS через Mango;
+  - сразу готовит и пишет `call_log`;
+  - возвращает один combined JSON response.
+- n8n workflow опубликован на сервере через CLI, потому что локальный n8n API-key вернул `401`.
+- Перед импортом сделан backup:
+  - `/home/aicore/n8n-backups/manual/n8n_prod_before_sms_log_fastpath_2026-07-09_10-29-32.sql.gz`
+- Endpoint проверен dry-run:
+  - HTTP `200`;
+  - SMS не отправлялась;
+  - Google append не выполнялся;
+  - identity-package complete.
+- ElevenLabs tool сначала пытались добавить через `Update agent`, но API принял payload без нового tool.
+- После сверки с docs ElevenLabs tool создан правильно через Tools API:
+  - `POST /v1/convai/tools`.
+- Lab head `9301...` теперь реально содержит:
+  - `context_fetch`
+  - `call_log`
+  - `send_sms_info`
+  - `send_sms_and_log`
+  - `end_call`
+  - `skip_turn`
+  - `voicemail_detection`
+- Исправлен регресс `spoken tool text`:
+  - на `3001...` agent сказал вслух `call_log with {...}`;
+  - на `9301...` это ушло.
+
+## На чем остановились
+- Текущий lab head:
+  - `agtvrsn_9301kx37gy6zft3te55dangks99m`
+- Проверено:
+  - repeated refusal больше не говорит tool payload вслух;
+  - `call_log` пишет реальный conversation id;
+  - `end_call` срабатывает.
+- Не проверено до конца:
+  - реальный SMS-consent через новый `send_sms_and_log`.
+- Последние разговоры:
+  - `conv_3401kx373nysfxzvf5qdx2nzmy2e` - bad на `3001`, spoken `call_log with`;
+  - `conv_5201kx37hp0heyjab4rgkvszgw2f` - good refusal close на `9301`, но без SMS consent;
+  - `conv_8901kx37myfdef39cqh2n53bqnpf` - polling timeout, transcript пустой, не засчитывать.
+
+## Что делать дальше
+1. Один короткий self-test на `9301...` именно с явным согласием:
+   - `да, отправьте SMS`;
+   - ждать `Да, отправляю.` -> `send_sms_and_log` -> `end_call`.
+2. Если новый tool вызвался:
+   - сравнить хвост с прежними `10-13s`;
+   - проверить, что не было старой пары `send_sms_info -> call_log`.
+3. Потом отдельно проверить:
+   - machine/`абонент`;
+   - confused user;
+   - silence/no-answer.
+4. В live `Main` не переносить до прохождения этих gates.
+
 Обновление `2026-07-09 13:18 MSK` по ElevenLabs naturalness lab:
 - текущий Git branch:
   - `codex/eleven-naturalness-lab`
