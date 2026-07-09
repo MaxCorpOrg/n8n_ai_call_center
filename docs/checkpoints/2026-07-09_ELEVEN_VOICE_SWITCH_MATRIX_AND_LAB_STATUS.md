@@ -1,6 +1,40 @@
 # 2026-07-09: Eleven voice switch matrix и текущий lab-статус
 
 ## Сделано
+- Продолжение `2026-07-09` после checkpoint:
+  - self-test `4701...`:
+    - conversation: `conv_4201kx30pqcjexgvgrp1ca9qxcfm`
+    - single-close и `context_fetch_before_opener` ошибок не было;
+    - главный remaining issue: turn-taking gaps.
+  - опубликован faster turn-taking head:
+    - `agtvrsn_4501kx30v13eftetr3ngdc9v0nzy`
+    - `turn_timeout = 1.55`
+    - `soft_timeout = 1.8`
+  - self-test `4501...`:
+    - conversation: `conv_8401kx30vhakebh9ewa4xw5psnk2`
+    - первый ответ улучшился до `2s`;
+    - но вернулись:
+      - filler `Да...` перед terminal finalization;
+      - ordinary speech after `call_log`;
+      - duplicate close.
+  - усилен helper:
+    - `scripts/prepare_eleven_terminal_tool_and_binding_variant.sh`
+    - добавлен no-filler rule для terminal mode.
+  - опубликован terminal no-filler head:
+    - `agtvrsn_5601kx310j94f6s9ns1v48477v1w`
+  - self-test `5601...`:
+    - conversation: `conv_7201kx3112mkfhyt8fype6w392zk`
+    - single-close/ordinary-after-call-log ошибок в этом прогоне не было;
+    - но вернулся `context_fetch_before_opener`.
+  - добавлен helper:
+    - `scripts/prepare_eleven_context_fetch_after_opener_tool_variant.sh`
+  - опубликован current lab head:
+    - `agtvrsn_7201kx313sejen482kcvss6vy781`
+  - важное ограничение:
+    - Eleven Update Agent response не закрепил новое описание `context_fetch` tool;
+    - tool description в response остался старым;
+    - значит `7201...` сейчас держит no-context-before-opener только через prompt override, а не через tool-level description.
+
 - Проверена официальная документация ElevenLabs по:
   - conversation flow;
   - expressive mode;
@@ -78,8 +112,15 @@
 - ElevenLabs lab branch:
   - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
 - Current lab head:
-  - `agtvrsn_4701kx303bj4ftnrx6f7n4rdv9zn`
-- Этот head уже опубликован, но ещё не проверен звонком.
+  - `agtvrsn_7201kx313sejen482kcvss6vy781`
+- Этот head опубликован, но ещё не проверен звонком.
+- `7201...` содержит:
+  - `gpt-5-mini`
+  - `eleven_v3_conversational`
+  - `turn_timeout = 1.55`
+  - `soft_timeout = 1.8`
+  - terminal no-filler / single-close prompt guard
+  - prompt-only `context_fetch` after opener guard
 - Боевой `Main` не трогался.
 - Текущий рабочий подход:
   - базовая логика: `4401` family;
@@ -88,7 +129,7 @@
 
 ## Что делать дальше
 1. Сделать один self-test уже на:
-   - `agtvrsn_4701kx303bj4ftnrx6f7n4rdv9zn`
+   - `agtvrsn_7201kx313sejen482kcvss6vy781`
 2. Проверить только 4 gate:
    - нет `context_fetch` до opener;
    - opener начинается сразу exact opener, без `Алло...`;

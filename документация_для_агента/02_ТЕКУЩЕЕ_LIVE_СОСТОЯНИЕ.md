@@ -1,5 +1,65 @@
 # Текущее live-состояние
 
+Обновление `2026-07-09 11:55 MSK` по продолжению lab-цикла:
+- после `4701...` сделан self-test:
+  - `conv_4201kx30pqcjexgvgrp1ca9qxcfm`
+  - `context_fetch_before_opener` не было;
+  - single-close ошибок не было;
+  - проблема осталась в turn-taking gaps.
+- опубликован fast-turn head:
+  - `agtvrsn_4501kx30v13eftetr3ngdc9v0nzy`
+  - `turn_timeout = 1.55`
+  - `soft_timeout = 1.8`
+- self-test `4501...`:
+  - `conv_8401kx30vhakebh9ewa4xw5psnk2`
+  - первый ответ стал около `2s`;
+  - но вернулись:
+    - terminal filler `Да...`;
+    - ordinary speech after `call_log`;
+    - duplicate close.
+- усилен terminal tool helper:
+  - `scripts/prepare_eleven_terminal_tool_and_binding_variant.sh`
+  - terminal mode now forbids filler before `call_log` / `end_call`.
+- опубликован:
+  - `agtvrsn_5601kx310j94f6s9ns1v48477v1w`
+- self-test `5601...`:
+  - `conv_7201kx3112mkfhyt8fype6w392zk`
+  - single-close ошибок в этом прогоне не было;
+  - но снова появился `context_fetch_before_opener`.
+- добавлен helper:
+  - `scripts/prepare_eleven_context_fetch_after_opener_tool_variant.sh`
+- current lab head now:
+  - `agtvrsn_7201kx313sejen482kcvss6vy781`
+- важное ограничение:
+  - Eleven response не закрепил новое описание `context_fetch` tool;
+  - tool description остался старым;
+  - значит `7201...` сейчас держит no-context-before-opener через prompt override, а не через tool-level description.
+
+## Сделано
+- Быстрый turn-taking улучшил первый ответ до `2s` в одном тесте.
+- Terminal no-filler patch убрал single-close ошибки в последнем прогоне.
+- Current head `7201...` опубликован как следующий кандидат.
+
+## На чем остановились
+- `7201...` опубликован, но ещё не проверен звонком.
+- Последний цикл из 3 звонков завершён:
+  - `4701`
+  - `4501`
+  - `5601`
+- Новый звонок делать уже следующим циклом.
+
+## Что делать дальше
+1. Один self-test на:
+   - `agtvrsn_7201kx313sejen482kcvss6vy781`
+2. Проверить:
+   - не появился ли `context_fetch_before_opener`;
+   - нет ли `Да...` перед terminal `call_log`;
+   - нет ли ordinary speech after `call_log`;
+   - первый ответ остаётся около `2s`.
+3. Если `context_fetch_before_opener` снова появится:
+   - prompt-only guard недостаточен;
+   - tool-level правку планировать отдельно, потому что tool может быть shared между ветками.
+
 Обновление `2026-07-09` по Eleven naturalness lab и voice-switch matrix:
 - текущая Git-ветка:
   - `codex/eleven-naturalness-lab`

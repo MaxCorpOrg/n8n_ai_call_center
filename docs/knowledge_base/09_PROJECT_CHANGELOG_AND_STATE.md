@@ -1,5 +1,55 @@
 # 09. Состояние проекта и последние изменения
 
+## 1.30) Обновление 2026-07-09: fast turn + terminal no-filler + prompt-only context guard
+
+### Сделано
+- После `4701...` проведён self-test:
+  - `conv_4201kx30pqcjexgvgrp1ca9qxcfm`
+  - single-close ошибок не было;
+  - `context_fetch_before_opener` не было;
+  - remaining issue: turn-taking gaps.
+- Опубликован fast turn head:
+  - `agtvrsn_4501kx30v13eftetr3ngdc9v0nzy`
+  - `turn_timeout = 1.55`
+  - `soft_timeout = 1.8`
+- Self-test `4501...`:
+  - `conv_8401kx30vhakebh9ewa4xw5psnk2`
+  - первый ответ улучшился до `2s`;
+  - но вернулись terminal filler / ordinary speech after `call_log` / duplicate close.
+- Усилен helper:
+  - [scripts/prepare_eleven_terminal_tool_and_binding_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_terminal_tool_and_binding_variant.sh:1)
+  - добавлен запрет filler в terminal mode.
+- Опубликован:
+  - `agtvrsn_5601kx310j94f6s9ns1v48477v1w`
+- Self-test `5601...`:
+  - `conv_7201kx3112mkfhyt8fype6w392zk`
+  - single-close ошибок не было;
+  - но вернулся `context_fetch_before_opener`.
+- Добавлен helper:
+  - [scripts/prepare_eleven_turn_latency_allo_recovery_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_turn_latency_allo_recovery_variant.sh:1)
+  - [scripts/prepare_eleven_context_fetch_after_opener_tool_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_context_fetch_after_opener_tool_variant.sh:1)
+- Опубликован current lab head:
+  - `agtvrsn_7201kx313sejen482kcvss6vy781`
+- Важное ограничение:
+  - Eleven Update Agent не закрепил новое описание `context_fetch` tool в response;
+  - значит `7201...` пока держит no-context-before-opener только через prompt override.
+
+### На чем остановились
+- Current lab head:
+  - `agtvrsn_7201kx313sejen482kcvss6vy781`
+- Он опубликован, но ещё не проверен звонком.
+- Боевой `Main` не трогался.
+
+### Что делать дальше
+1. Один self-test на `agtvrsn_7201kx313sejen482kcvss6vy781`.
+2. Главный gate:
+   - появился ли снова `context_fetch_before_opener`.
+3. Если `context_fetch_before_opener` снова появится:
+   - prompt-only guard недостаточен;
+   - tool-level правку делать отдельным осторожным шагом, потому что tool descriptions могут быть shared.
+4. Если `context_fetch_before_opener` уйдёт:
+   - проверить terminal refusal и SMS path на single-close.
+
 ## 1.29) Обновление 2026-07-09: voice-switch matrix для Eleven lab и возврат к clean logic + V3
 
 ### Сделано
