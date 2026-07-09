@@ -1,5 +1,61 @@
 # ElevenLabs агент
 
+## Обновление 2026-07-09 14:13 MSK: handoff по `9301...`, SMS-consent ещё не доказан
+
+### Сделано
+- Повторно проверен пустой разговор:
+  - `conv_8901kx37myfdef39cqh2n53bqnpf`
+  - direct Eleven API:
+    - `status = in-progress`
+    - `transcript_len = 0`
+    - `duration = 0`
+    - `version_id = null`
+    - `branch_id = null`
+  - вывод: это не behavioral test.
+- Проведён ещё один одиночный SMS-consent self-test:
+  - `conv_5801kx384fh2e1c9d4je6f4z6j3j`
+  - expected version: `agtvrsn_9301kx37gy6zft3te55dangks99m`
+  - runtime diagnosis: `sip_pending_no_media`
+  - transcript `0`, duration `0`
+  - вывод: test не засчитывать как проверку агента.
+- Проведён simulation probe:
+  - `.runtime/eleven_sms_log_fastpath_2026-07-09/sim_sms_consent_probe`
+  - opener корректный.
+  - tool calls:
+    - `send_sms_info`
+    - `call_log`
+    - `end_call`
+  - `branch_ids_seen=[]`, `version_ids_seen=[]`.
+  - вывод: simulation helper сейчас не доказывает поведение lab head `9301...`.
+
+### На чем остановились
+- Current lab:
+  - branch: `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+  - head: `agtvrsn_9301kx37gy6zft3te55dangks99m`
+- Новый tool прикреплён и виден в response:
+  - `send_sms_and_log`
+  - `tool_5701kx37g3qpf6caa4f09c9bfm8n`
+- Backend endpoint жив:
+  - `POST /webhook/eleven/tool/send-sms-and-log`
+- Не доказано:
+  - реальный SMS-consent path через `send_sms_and_log`.
+- Боевой `Main` не трогался.
+
+### Что делать дальше
+1. Добиться валидного media self-test на `9301...`.
+2. Проверить сценарий:
+   - клиент говорит `да, отправьте SMS`;
+   - агент коротко отвечает `Да, отправляю.`;
+   - вызывается `send_sms_and_log`;
+   - затем один `end_call`.
+3. Если снова будет `sip_pending_no_media`, разбирать self-test/SIP path.
+4. Если нужна проверка без звонка, сначала доработать simulation runner, чтобы он гарантированно таргетил branch/version.
+5. Не переносить lab в live `Main`, пока не пройдены:
+   - SMS consent;
+   - machine/`абонент`;
+   - confused user;
+   - silence/no-answer.
+
 ## Обновление 2026-07-09 13:48 MSK: lab fast-path `send_sms_and_log`, current head `9301...`
 
 ### Сделано

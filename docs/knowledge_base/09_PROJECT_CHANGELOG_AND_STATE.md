@@ -1,5 +1,48 @@
 # 09. Состояние проекта и последние изменения
 
+## 1.40) Обновление 2026-07-09 14:13: handoff по `9301...`, SMS fast-path ещё не доказан live media
+
+### Сделано
+- Перепроверен `conv_8901kx37myfdef39cqh2n53bqnpf`:
+  - всё ещё `in-progress`;
+  - transcript `0`;
+  - duration `0`;
+  - `version_id/branch_id = null`.
+  - не считать behavioral-тестом.
+- Проведён один дополнительный self-test на `9301...`:
+  - `conv_5801kx384fh2e1c9d4je6f4z6j3j`
+  - runtime diagnosis: `sip_pending_no_media`
+  - outbound accepted, но media/transcript не появились.
+  - не считать проверкой агента.
+- Проведён simulation probe:
+  - `.runtime/eleven_sms_log_fastpath_2026-07-09/sim_sms_consent_probe`
+  - opener корректный;
+  - simulation вызвала старую пару `send_sms_info -> call_log -> end_call`;
+  - `branch_ids_seen=[]`, `version_ids_seen=[]`.
+  - вывод: helper simulation не доказывает поведение lab branch `9301...`, пока не умеет подтверждать branch/version.
+- Обновляется handoff:
+  - [документация_для_агента/10_ПРОМПТ_ДЛЯ_НОВОГО_ЧАТА.md](/home/max/n8n_ai_call_center/документация_для_агента/10_ПРОМПТ_ДЛЯ_НОВОГО_ЧАТА.md)
+
+### На чем остановились
+- Current Git branch:
+  - `codex/eleven-naturalness-lab`
+- Current lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- Current lab head:
+  - `agtvrsn_9301kx37gy6zft3te55dangks99m`
+- Новый tool:
+  - `send_sms_and_log`
+  - `tool_5701kx37g3qpf6caa4f09c9bfm8n`
+- Новый endpoint:
+  - `https://www.n-8-n.site/webhook/eleven/tool/send-sms-and-log`
+- Боевой `Main` не трогался.
+
+### Что делать дальше
+1. Следующий реальный шаг: валидный media self-test на `9301...` с явным `да, отправьте SMS`.
+2. Если снова будет `sip_pending_no_media`, сначала разбирать self-test/SIP path, а не prompt.
+3. Если нужен simulation proof, доработать simulation runner под branch/version targeting; текущий simulation без `branch_ids_seen` не является доказательством.
+4. Не переносить lab в live `Main`, пока не пройдены gates.
+
 ## 1.39) Обновление 2026-07-09: lab fast-path `send_sms_and_log`, текущий head `9301...`
 
 ### Сделано

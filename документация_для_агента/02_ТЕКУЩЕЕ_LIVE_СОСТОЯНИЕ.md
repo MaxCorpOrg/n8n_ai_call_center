@@ -1,5 +1,61 @@
 # Текущее live-состояние
 
+Обновление `2026-07-09 14:13 MSK` по handoff ElevenLabs lab:
+- текущий Git branch:
+  - `codex/eleven-naturalness-lab`
+- текущая ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- current lab head:
+  - `agtvrsn_9301kx37gy6zft3te55dangks99m`
+- новый ElevenLabs tool:
+  - `send_sms_and_log`
+  - `tool_5701kx37g3qpf6caa4f09c9bfm8n`
+- новый n8n workflow:
+  - `ELEVEN_TOOL_SEND_SMS_AND_LOG_BRIDGE_LAB`
+  - workflow ID: `LVYvGh5luQunORKh`
+  - webhook: `POST /webhook/eleven/tool/send-sms-and-log`
+- боевой `Main` не трогался.
+
+## Сделано
+- Повторно проверен `conv_8901kx37myfdef39cqh2n53bqnpf`:
+  - всё ещё `in-progress`;
+  - transcript `0`;
+  - duration `0`;
+  - `version_id/branch_id = null`.
+  - не считать behavioral-тестом.
+- Проведён дополнительный self-test:
+  - `conv_5801kx384fh2e1c9d4je6f4z6j3j`;
+  - expected version: `agtvrsn_9301kx37gy6zft3te55dangks99m`;
+  - runtime diagnosis: `sip_pending_no_media`;
+  - transcript `0`, duration `0`.
+  - не считать проверкой prompt/агента.
+- Проведён simulation probe:
+  - `.runtime/eleven_sms_log_fastpath_2026-07-09/sim_sms_consent_probe`;
+  - opener корректный;
+  - tool calls: `send_sms_info -> call_log -> end_call`;
+  - `branch_ids_seen=[]`, `version_ids_seen=[]`.
+  - вывод: текущий simulation helper не доказывает поведение lab head `9301...`, пока не умеет подтверждать branch/version.
+
+## На чем остановились
+- Lab head остаётся:
+  - `agtvrsn_9301kx37gy6zft3te55dangks99m`
+- Новый tool `send_sms_and_log` прикреплён и виден в agent response.
+- Backend endpoint dry-run жив и ранее дал HTTP `200`.
+- Не доказано:
+  - реальный SMS-consent path на live media;
+  - что при фразе `да, отправьте SMS` агент выбирает именно `send_sms_and_log`, а не старую пару `send_sms_info -> call_log`.
+
+## Что делать дальше
+1. Следующий реальный шаг: валидный media self-test на `9301...` с явным `да, отправьте SMS`.
+2. Ожидание:
+   - короткое `Да, отправляю.`;
+   - tool `send_sms_and_log`;
+   - один `end_call`;
+   - без старой пары `send_sms_info -> call_log`.
+3. Если снова будет `sip_pending_no_media`, сначала разбирать self-test/SIP path, а не prompt.
+4. Если нужен non-call proof, доработать simulation runner под branch/version targeting.
+5. Live `Main` не трогать до прохождения gates.
+
 Обновление `2026-07-09 13:48 MSK` по ElevenLabs naturalness lab и SMS fast-path:
 - текущий Git branch:
   - `codex/eleven-naturalness-lab`

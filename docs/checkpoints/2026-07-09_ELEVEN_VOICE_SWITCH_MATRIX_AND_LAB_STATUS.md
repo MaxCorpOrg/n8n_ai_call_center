@@ -1,5 +1,62 @@
 # 2026-07-09: Eleven voice switch matrix и текущий lab-статус
 
+## Актуальное обновление `2026-07-09 14:13 MSK`
+
+### Сделано
+- После checkpoint `13:48` повторно проверен последний пустой звонок:
+  - `conv_8901kx37myfdef39cqh2n53bqnpf`
+  - по direct Eleven API всё ещё:
+    - `status = in-progress`
+    - `transcript_len = 0`
+    - `duration = 0`
+    - `version_id = null`
+    - `branch_id = null`
+  - вывод: не behavioral test, а `sip_pending_no_media` / пустой SIP-хвост.
+- Сделан ещё один одиночный SMS-consent self-test:
+  - run dir: `.runtime/eleven_sms_log_fastpath_2026-07-09/call_04_sms_fastpath_consent_retry`
+  - conversation: `conv_5801kx384fh2e1c9d4je6f4z6j3j`
+  - expected version: `agtvrsn_9301kx37gy6zft3te55dangks99m`
+  - runtime diagnosis:
+    - `sip_pending_no_media`
+    - transcript `0`
+    - duration `0`
+    - outbound request accepted, но media не пошло.
+  - вывод: test не засчитывать как проверку агента.
+- Сделан simulation probe без live-звонка:
+  - run dir: `.runtime/eleven_sms_log_fastpath_2026-07-09/sim_sms_consent_probe`
+  - first agent message был корректный opener.
+  - tool calls в simulation:
+    - `send_sms_info`
+    - `call_log`
+    - `end_call`
+  - `branch_ids_seen = []`, `version_ids_seen = []`.
+  - вывод: simulation helper не доказывает поведение lab head `9301`, потому что не подтверждает branch/version targeting; использовать только как слабый ориентир.
+
+### На чем остановились
+- Current lab head всё ещё:
+  - `agtvrsn_9301kx37gy6zft3te55dangks99m`
+- Новый tool прикреплён и виден в agent response:
+  - `send_sms_and_log`
+  - `tool_5701kx37g3qpf6caa4f09c9bfm8n`
+- Backend endpoint жив:
+  - `POST /webhook/eleven/tool/send-sms-and-log`
+  - dry-run уже дал HTTP `200`.
+- Не доказано:
+  - реальный SMS-consent path на live media;
+  - что при фразе `да, отправьте SMS` агент выбирает именно `send_sms_and_log`, а не старую пару `send_sms_info -> call_log`.
+
+### Что делать дальше
+1. Не делать вывод по `call_03` и `call_04`: оба пустые/no-media.
+2. Следующий агент должен либо:
+   - добиться валидного media self-test на `9301...`, где человек явно говорит `да, отправьте SMS`;
+   - либо сначала починить/обойти причину повторяющегося `sip_pending_no_media` на ручных self-tests.
+3. Если нужен non-call proof, доработать simulation helper так, чтобы он гарантированно таргетил branch/version `agtbrch_3701...` / `9301...`; текущий simulation без `branch_ids_seen` не годится как доказательство.
+4. Live `Main` не трогать до прохождения gates:
+   - SMS consent через `send_sms_and_log`;
+   - machine/`абонент`;
+   - confused user;
+   - silence/no-answer.
+
 ## Актуальное обновление `2026-07-09 13:48 MSK`
 
 ### Сделано
