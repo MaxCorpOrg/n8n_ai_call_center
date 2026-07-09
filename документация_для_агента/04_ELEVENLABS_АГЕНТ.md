@@ -1,5 +1,55 @@
 # ElevenLabs агент
 
+## Обновление 2026-07-09 12:58 MSK: lab head `5701...`, opener без global softfill
+
+### Сделано
+- Ветка работы:
+  - Git: `codex/eleven-naturalness-lab`
+  - ElevenLabs lab branch: `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+  - боевой `Main` не трогался.
+- Проверка `7901...` показала, что global `soft_timeout_config` может вставить filler до opener:
+  - `conv_2901kx34bnwfesm8t15t0232tj6e`
+  - agent начал с `...`;
+  - затем был `Здравствуйте,...`.
+- Опубликован и валидно проверен `2001...`:
+  - version: `agtvrsn_2001kx34hhssf7zbe84p3k9y53z6`
+  - `soft_timeout_config.timeout_seconds = -1`
+  - opener первым прошёл в `conv_5801kx34j2x5ea08nxyqa3tkenbe`.
+- На `2001...` выявлен длинный SMS-tail:
+  - после согласия на SMS около `12s` до финальной spoken-фразы;
+  - `send_sms_info`, `call_log`, `end_call` реально отработали.
+- Опубликован текущий lab head:
+  - `agtvrsn_5701kx34qma3em39qcqzyrjjjba3`
+  - добавлено immediate SMS acknowledgement: `Да, отправляю.`
+  - порядок: `send_sms_info` -> silent `call_log` -> один `end_call`.
+- `call_20` на `5701...` невалиден:
+  - `conv_7701kx34r36je1vt5wqskthe2tst`
+  - `sip_pending_no_media`
+  - transcript пустой.
+- Advisor исправлен:
+  - no transcript / no timing / no termination reason = `no_behavioral_transcript`, не success.
+
+### На чем остановились
+- Current lab head:
+  - `agtvrsn_5701kx34qma3em39qcqzyrjjjba3`
+- Подтверждённый baseline:
+  - `agtvrsn_2001kx34hhssf7zbe84p3k9y53z6`
+- Правило:
+  - global softfill сейчас выключен, потому что ломал pre-opener.
+  - Fillers можно возвращать только после прохождения opener/SMS/machine gates и только post-opener.
+
+### Что делать дальше
+1. Повторить один валидный self-test на `5701...`.
+2. Проверить SMS consent:
+   - first spoken opener полный;
+   - после SMS consent сразу `Да, отправляю.`;
+   - после `call_log` нет обычной речи;
+   - final close один.
+3. Потом проверить:
+   - machine/`абонент`;
+   - confused user.
+4. В live не переносить, пока gates не пройдены.
+
 ## Обновление 2026-06-18: что сейчас реально мешает naturalness даже без новых звонков
 
 - Новый стабильный short-entrypoint без привязки к дате:

@@ -1,5 +1,57 @@
 # 09. Состояние проекта и последние изменения
 
+## 1.37) Обновление 2026-07-09: opener стабилизирован без global softfill, SMS ack head `5701...`
+
+### Сделано
+- `7901...` проверен на SMS-gate и отклонён как текущий head:
+  - `conv_2901kx34bnwfesm8t15t0232tj6e`
+  - первое сообщение агента было `...`;
+  - затем был micro-fragment `Здравствуйте,...`;
+  - вывод: global `soft_timeout_config` может вставлять filler до exact opener.
+- Собран и опубликован lab-вариант без global softfill:
+  - `agtvrsn_2001kx34hhssf7zbe84p3k9y53z6`
+  - `soft_timeout_config.timeout_seconds = -1`
+  - до opener запрещены `...`, fillers, partial greeting и line-check.
+- Валидный self-test:
+  - `conv_5801kx34j2x5ea08nxyqa3tkenbe`
+  - opener прошёл первым и полностью;
+  - SMS consent дошёл до `send_sms_info`, `call_log`, `end_call`;
+  - выявлен длинный SMS tool-tail около `12s`.
+- Опубликован следующий lab head:
+  - `agtvrsn_5701kx34qma3em39qcqzyrjjjba3`
+  - после явного согласия на SMS agent должен сразу сказать `Да, отправляю.`;
+  - затем `send_sms_info` -> silent `call_log` -> один `end_call`.
+- `call_20` на `5701...` не засчитан:
+  - `conv_7701kx34r36je1vt5wqskthe2tst`
+  - диагноз `sip_pending_no_media`;
+  - transcript пустой.
+- Обновлён [scripts/report_eleven_next_variant_advisor.py](/home/max/n8n_ai_call_center/scripts/report_eleven_next_variant_advisor.py:1):
+  - пустой/in-progress звонок без transcript/timing теперь блокируется как `no_behavioral_transcript`.
+
+### На чем остановились
+- Git branch:
+  - `codex/eleven-naturalness-lab`
+- ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- Current lab head:
+  - `agtvrsn_5701kx34qma3em39qcqzyrjjjba3`
+- Лучший подтверждённый behavioral baseline:
+  - `agtvrsn_2001kx34hhssf7zbe84p3k9y53z6`
+  - opener first работает;
+  - SMS-tail ещё был долгий.
+- Боевой `Main` не трогался.
+
+### Что делать дальше
+1. Повторить один валидный self-test на `5701...`, когда линия реально даст media/transcript.
+2. Проверить SMS consent:
+   - сразу ли звучит `Да, отправляю.`;
+   - нет ли обычной речи после `call_log`;
+   - финальный close один.
+3. После SMS gate:
+   - machine/`абонент`;
+   - confused user;
+   - затем только осторожно возвращать post-opener filler, не global pre-opener softfill.
+
 ## 1.36) Обновление 2026-07-09: pre-opener skip-turn gate, текущий лучший lab head `7901...`
 
 ### Сделано

@@ -83,6 +83,21 @@ def detect_signals(complaints: list[str], audit: dict | None) -> tuple[set[str],
             "recommendation_codes": rec_codes,
             "primary_bottlenecks": bottlenecks,
         }
+        timing_summary = audit.get("timing_summary") or {}
+        has_any_timing = any(
+            timing_summary.get(key)
+            for key in (
+                "first_user_to_agent_gap_secs",
+                "user_to_agent_gap_stats_secs",
+                "known_path_stats_secs",
+                "llm_ttfb_stats_secs",
+                "tts_ttfb_stats_secs",
+            )
+        )
+        if not has_any_timing and not issue_types and not (audit.get("termination_reason") or "").strip():
+            details["issue_types"].append("no_behavioral_transcript")
+            signals.add("invalid_or_empty_call")
+            reasons.append("Audit не содержит transcript/timing и termination reason; это невалидный звонок для оценки агента.")
 
         if "focus_turn_taking" in rec_codes or "line_check_after_meaningful_post_opener_reply" in issue_types:
             signals.add("cannot_interrupt")
@@ -133,6 +148,13 @@ def build_action_plan(details: dict) -> tuple[list[dict], bool]:
             "Сначала дожать hard-stop по machine phrase",
             "Если агент разговаривает с service-style автоответчиком, крутить turn-taking variant раньше времени бесполезно.",
             "Ужесточить machine/message-service rule и только потом возвращаться к variant A/B.",
+        )
+    if "no_behavioral_transcript" in issue_types:
+        add(
+            "no_behavioral_transcript",
+            "Не засчитывать пустой/in-progress звонок",
+            "Если нет transcript, timing и причины завершения, это не тест поведения агента.",
+            "Повторить одиночный self-test или отдельно разбирать телефонию/SIP, но не делать выводы о prompt/voice.",
         )
     if "spoken_tool_pseudocode" in issue_types or "block_spoken_tool_pseudocode" in rec_codes:
         add(

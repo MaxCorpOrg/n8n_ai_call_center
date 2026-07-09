@@ -1,5 +1,61 @@
 # Текущее live-состояние
 
+Обновление `2026-07-09 12:58 MSK` по ElevenLabs naturalness lab:
+- текущий Git branch:
+  - `codex/eleven-naturalness-lab`
+- текущая ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- current lab head:
+  - `agtvrsn_5701kx34qma3em39qcqzyrjjjba3`
+- лучший подтверждённый behavioral baseline:
+  - `agtvrsn_2001kx34hhssf7zbe84p3k9y53z6`
+- боевой `Main` не трогался.
+
+## Сделано
+- `7901...` больше не считается текущим лучшим head:
+  - `conv_2901kx34bnwfesm8t15t0232tj6e`
+  - агент начал с `...`, затем сказал `Здравствуйте,...`;
+  - причина: global soft-timeout filler может сработать до opener.
+- Опубликован `2001...`:
+  - global `soft_timeout_config.timeout_seconds = -1`;
+  - до opener запрещены filler, `...`, partial greeting и line-check.
+- Проверен `2001...`:
+  - `conv_5801kx34j2x5ea08nxyqa3tkenbe`
+  - exact opener прошёл первым;
+  - SMS consent отработал, но был длинный tool-tail около `12s`.
+- Опубликован `5701...`:
+  - после явного согласия на SMS agent должен сразу сказать `Да, отправляю.`;
+  - затем `send_sms_info` -> silent `call_log` -> один `end_call`;
+  - global softfill остаётся выключенным.
+- `call_20` на `5701...` невалиден:
+  - `conv_7701kx34r36je1vt5wqskthe2tst`
+  - `sip_pending_no_media`
+  - transcript пустой, выводы по поведению агента не делаем.
+- Advisor исправлен:
+  - пустой/in-progress звонок теперь `no_behavioral_transcript`, а не успех.
+
+## На чем остановились
+- Current lab head:
+  - `agtvrsn_5701kx34qma3em39qcqzyrjjjba3`
+- Подтверждённое:
+  - `2001...` чинит opener first.
+- Неподтверждённое:
+  - `5701...` должен чинить SMS pause, но нужен валидный self-test.
+- Нельзя переносить lab в live, пока не пройдены gates:
+  - SMS consent;
+  - machine/`абонент`;
+  - confused user.
+
+## Что делать дальше
+1. Повторить один self-test на `5701...` и убедиться, что звонок реально имеет transcript/media.
+2. Если SMS-gate проходит:
+   - проверить `абонент`/machine hard-stop;
+   - проверить confused user;
+   - потом отдельно решать post-opener filler без возвращения global pre-opener softfill.
+3. Если снова `sip_pending_no_media`:
+   - чинить телефонию/SIP отдельно;
+   - не считать это prompt-регрессией.
+
 Обновление `2026-07-09 12:43 MSK` по pre-opener skip-turn gate:
 - текущий Git branch:
   - `codex/eleven-naturalness-lab`

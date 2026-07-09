@@ -1,5 +1,72 @@
 # 2026-07-09: Eleven voice switch matrix и текущий lab-статус
 
+## Актуальное обновление `2026-07-09 12:58 MSK`
+
+### Сделано
+- Зафиксирован и запушен checkpoint по `7901`:
+  - commit: `bb5ff2b`
+  - `agtvrsn_7901kx34220qfm4atb2vvagne10q`
+  - pre-opener skip-turn gate убрал late line-check, но в следующем тесте проявил pre-opener filler.
+- Self-test `call_18_sms_consent_gate`:
+  - conversation: `conv_2901kx34bnwfesm8t15t0232tj6e`
+  - результат: bad gate;
+  - первое сообщение агента было `...`;
+  - затем был micro-fragment `Здравствуйте,...`;
+  - вывод: global `soft_timeout_config` может срабатывать до полного opener и ломает правило “opener первым”.
+- Опубликован lab-вариант без global softfill:
+  - version: `agtvrsn_2001kx34hhssf7zbe84p3k9y53z6`
+  - `soft_timeout_config.timeout_seconds = -1`
+  - prompt hard-off: до opener запрещены `...`, fillers, partial greeting, line-check.
+- Self-test `call_19_no_global_softfill_opener_gate`:
+  - conversation: `conv_5801kx34j2x5ea08nxyqa3tkenbe`
+  - opener прошёл правильно первым сообщением;
+  - pre-opener `...` и `Здравствуйте,...` ушли;
+  - SMS consent дошёл до `send_sms_info`, `call_log`, `end_call`;
+  - call_log body получил реальный `conversation_id`/`eleven_conv_id`;
+  - остались проблемы:
+    - tool draft всё ещё может содержать placeholder `conv_current_...`, хотя webhook body заменяет его на реальный id;
+    - после согласия на SMS был длинный хвост около `12s` до финального spoken close.
+- Опубликован следующий lab head для SMS-ветки:
+  - version: `agtvrsn_5701kx34qma3em39qcqzyrjjjba3`
+  - добавлено: после явного SMS consent сразу сказать `Да, отправляю.`;
+  - затем `send_sms_info` -> silent `call_log` -> `end_call("SMS отправила, хорошего дня.")`;
+  - global softfill остаётся выключенным.
+- Self-test `call_20_sms_ack_singleclose_gate`:
+  - conversation: `conv_7701kx34r36je1vt5wqskthe2tst`
+  - невалиден для оценки агента;
+  - диагноз: `sip_pending_no_media`;
+  - transcript пустой, timing нет, звонок не подтверждает и не опровергает `5701`.
+- `scripts/report_eleven_next_variant_advisor.py` исправлен:
+  - пустой/in-progress звонок без transcript/timing теперь считается `no_behavioral_transcript`;
+  - `ready_for_variant_testing=false`, чтобы не засчитывать SIP/no-media как успешный тест.
+
+### На чем остановились
+- Git branch:
+  - `codex/eleven-naturalness-lab`
+- ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- Current lab head:
+  - `agtvrsn_5701kx34qma3em39qcqzyrjjjba3`
+- Лучший подтверждённый behavioral результат:
+  - `agtvrsn_2001kx34hhssf7zbe84p3k9y53z6`
+  - opener first стабилен в `call_19`;
+  - но SMS-tail ещё был долгий.
+- `5701` опубликован, но ещё ждёт валидного разговора, потому что `call_20` был SIP/no-media.
+- Боевой ElevenLabs `Main` не трогался.
+
+### Что делать дальше
+1. Повторить один валидный self-test на `5701`:
+   - сценарий: `Алло` -> интерес -> согласие на SMS;
+   - проверить, что сразу звучит `Да, отправляю.`;
+   - проверить, что нет обычной речи после `call_log`;
+   - проверить, что final close только один.
+2. Если `5701` проходит SMS gate:
+   - проверить machine/`абонент`;
+   - проверить confused user;
+   - только потом думать о возвращении post-opener filler, но не global pre-opener softfill.
+3. Если повторится `sip_pending_no_media`:
+   - разбирать телефонию/SIP отдельно, не считать это prompt-регрессией.
+
 ## Актуальное обновление `2026-07-09 12:43 MSK`
 
 ### Сделано
