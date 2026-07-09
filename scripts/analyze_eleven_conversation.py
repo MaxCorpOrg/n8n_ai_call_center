@@ -73,6 +73,8 @@ SELF_TALK_LINECHECK_PATTERNS = [
 ]
 
 DEFAULT_LONG_GAP_SECONDS = 2.0
+EXPECTED_OPENER_SNIPPET = "здравствуйте, я официальный представитель липолитика липолонг"
+EXPECTED_OPENER_START = "здравствуйте, я официальный"
 
 
 def strip_stage_directions(text: str) -> str:
@@ -284,6 +286,24 @@ def build_recommendations(issues, bottleneck_counts):
             "Вернуть actual platform tool calls: assistant message empty, tool_calls populated, no JSON/tool names in spoken text.",
         )
 
+    if "opener_not_first_agent_message" in issue_types or "missing_exact_opener" in issue_types:
+        add(
+            "restore_exact_opener_first",
+            10,
+            "Вернуть exact opener первым сообщением",
+            "Первое сообщение агента не началось с обязательного представления ЛипоЛонг.",
+            "До context/tools/qualification агент должен сказать exact opener; на раннее пользовательское слово нельзя отвечать как на продолжение диалога.",
+        )
+
+    if "opener_micro_fragment_before_full_opener" in issue_types:
+        add(
+            "polish_opener_micro_cut",
+            7,
+            "Отполировать micro-cut opener",
+            "Первый opener начался правильными словами, но был оборван и полный opener прозвучал следующим turn.",
+            "Это не semantic wrong-start, но нужно уменьшать ранний barge-in/cut или терпимее относиться к первому короткому overlap.",
+        )
+
     if "context_fetch_before_opener" in issue_types:
         add(
             "ban_preopener_context_fetch",
@@ -369,6 +389,7 @@ def analyze(path: Path):
     first_post_opener_user_reply_index = None
     first_call_log_index = None
     first_end_call_index = None
+    first_agent_message_index = None
     end_call_message = extract_end_call_message(turns)
     normal_close_messages = []
     user_to_agent_gaps = []
@@ -387,7 +408,10 @@ def analyze(path: Path):
         msg_norm = norm(msg)
         current_time = turn_time(turn)
 
-        if role == "agent" and opener_index is None and "Здравствуйте, я официальный представитель липолитика Липолонг." in msg:
+        if role == "agent" and msg and first_agent_message_index is None:
+            first_agent_message_index = i
+
+        if role == "agent" and opener_index is None and EXPECTED_OPENER_SNIPPET in msg_norm:
             opener_index = i
 
         if opener_index is not None and i > opener_index and first_post_opener_user_reply_index is None:
@@ -473,6 +497,25 @@ def analyze(path: Path):
         elif role != "agent" or tool_name or (turn.get("tool_calls") or []):
             append_agent_streak_issues(issues, agent_only_streak)
             agent_only_streak = []
+
+    if first_agent_message_index is not None:
+        first_agent_msg = turns[first_agent_message_index].get("message") or ""
+        first_agent_msg_norm = norm(first_agent_msg)
+        if EXPECTED_OPENER_SNIPPET not in first_agent_msg_norm:
+            issue_type = "opener_not_first_agent_message"
+            if first_agent_msg_norm.startswith(EXPECTED_OPENER_START) and opener_index is not None:
+                issue_type = "opener_micro_fragment_before_full_opener"
+            issues.append({
+                "type": issue_type,
+                "time_in_call_secs": turns[first_agent_message_index].get("time_in_call_secs"),
+                "first_agent_message": first_agent_msg,
+                "opener_index": opener_index,
+            })
+    elif turns:
+        issues.append({
+            "type": "missing_exact_opener",
+            "message": "Conversation has transcript turns, but no agent opener message was found.",
+        })
 
     gap_breakdown = []
     for gap in user_to_agent_gaps:

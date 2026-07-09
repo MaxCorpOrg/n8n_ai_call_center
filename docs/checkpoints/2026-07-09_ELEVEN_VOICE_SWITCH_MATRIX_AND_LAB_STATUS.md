@@ -1,5 +1,55 @@
 # 2026-07-09: Eleven voice switch matrix и текущий lab-статус
 
+## Актуальное обновление `2026-07-09 12:16 MSK`
+
+### Сделано
+- После восстановления на `agtvrsn_7701kx31xdq3fnxvq5c2a8mwnxkj` сделан self-test:
+  - `conv_4201kx326rm4exdt6zb5b2hmj79h`
+  - дефект: агент начал не с opener, а ответил на первое слово пользователя `Полная.`;
+  - audit теперь ловит это как `opener_not_first_agent_message`.
+- Добавлен новый audit gate:
+  - `opener_not_first_agent_message`
+  - `opener_micro_fragment_before_full_opener`
+  - теперь semantic wrong-start и micro-cut opener не смешиваются в один дефект.
+- Опубликован opener-first hard gate:
+  - `agtvrsn_3601kx32d39nejw8t9jtkx510yve`
+  - self-test: `conv_0301kx32djxxe6hregex42hjdzf9`
+  - результат: агент начал opener, но первый turn был micro-cut, затем полный opener;
+  - real `call_log` и `end_call` tool calls сработали;
+  - остались duplicate close / normal speech after `call_log`.
+- Поверх `3601...` применён terminal single-close binding helper.
+- Current lab head:
+  - `agtvrsn_4001kx32hsrbfxxtahfkabsd3a5w`
+  - self-test: `conv_6201kx32j8gmec6t1k7bhbs3es8f`
+  - результат:
+    - `Да.` -> через 2s полный exact opener;
+    - `spoken_tool_pseudocode` нет;
+    - real `call_log` и `end_call` есть;
+    - `eleven_conv_id` и `conversation_id` в call_log заполнены реальным `conv_6201kx32j8gmec6t1k7bhbs3es8f`;
+    - остаются `duplicate_close_before_end_call`, `normal_assistant_speech_after_call_log`, long gaps.
+
+### На чем остановились
+- Git branch:
+  - `codex/eleven-naturalness-lab`
+- ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- Current lab head:
+  - `agtvrsn_4001kx32hsrbfxxtahfkabsd3a5w`
+- Боевой `Main` не трогался.
+- `4001...` лучше `7701...` по opener-first gate, но ещё не готов к live.
+
+### Что делать дальше
+1. Не трогать voice/LLM: оставить `gpt-5-mini + eleven_v3_conversational`.
+2. Следующий фокус:
+   - убрать normal assistant speech после `call_log`;
+   - понять, является ли close перед `end_call` реальным дублем или особенностью отображения `end_call.system__message_to_speak`;
+   - уменьшить long gaps / turn-taking overhead.
+3. Перед live нужен ещё один test-set:
+   - normal hello;
+   - refusal/not_target;
+   - SMS consent;
+   - machine/`абонент`.
+
 ## Актуальное обновление `2026-07-09 12:07 MSK`
 
 ### Сделано

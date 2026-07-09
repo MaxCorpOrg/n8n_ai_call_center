@@ -1,5 +1,55 @@
 # Текущее live-состояние
 
+Обновление `2026-07-09 12:16 MSK` по текущей ElevenLabs lab-ветке:
+- текущий Git branch:
+  - `codex/eleven-naturalness-lab`
+- текущая ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- current lab head:
+  - `agtvrsn_4001kx32hsrbfxxtahfkabsd3a5w`
+- боевой `Main` не трогался.
+
+## Сделано
+- Проверен `agtvrsn_7701kx31xdq3fnxvq5c2a8mwnxkj`:
+  - `conv_4201kx326rm4exdt6zb5b2hmj79h`
+  - проблема: агент ответил на первое слово пользователя `Полная.`, а не начал exact opener.
+- В анализатор добавлены новые проверки:
+  - `opener_not_first_agent_message`
+  - `opener_micro_fragment_before_full_opener`
+- Опубликован и проверен `agtvrsn_3601kx32d39nejw8t9jtkx510yve`:
+  - opener-first hard gate;
+  - real tool calls сохранились;
+  - остались micro-cut и single-close проблемы.
+- Опубликован и проверен `agtvrsn_4001kx32hsrbfxxtahfkabsd3a5w`:
+  - `conv_6201kx32j8gmec6t1k7bhbs3es8f`
+  - после `Да.` агент сказал полный exact opener;
+  - `spoken_tool_pseudocode` нет;
+  - real `call_log` и `end_call` есть;
+  - `eleven_conv_id` / `conversation_id` заполнены реальным conversation id.
+
+## На чем остановились
+- Лучший текущий lab-кандидат:
+  - `agtvrsn_4001kx32hsrbfxxtahfkabsd3a5w`
+- Он пока не готов к live:
+  - после `call_log` всё ещё появляется spoken close как обычная реплика;
+  - audit видит `duplicate_close_before_end_call`;
+  - есть long gaps / turn-taking overhead.
+
+## Что делать дальше
+1. Не менять сейчас голос и LLM:
+   - `gpt-5-mini`
+   - `eleven_v3_conversational`
+2. Следующий фокус:
+   - single-close / finalization;
+   - проверить реальное аудио: close звучит один раз или дважды;
+   - если звучит дважды, чинить tool finalization.
+3. Потом прогнать маленький набор self-tests:
+   - normal hello;
+   - refusal / not_target;
+   - SMS consent;
+   - machine / `абонент`.
+4. В боевой `Main` не переносить до прохождения test-set.
+
 Обновление `2026-07-09 12:07 MSK` по восстановлению lab-контура после регрессии tool calls:
 - Проверены версии:
   - `agtvrsn_7201kx313sejen482kcvss6vy781`

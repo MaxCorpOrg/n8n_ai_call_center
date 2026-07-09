@@ -1,5 +1,57 @@
 # 09. Состояние проекта и последние изменения
 
+## 1.32) Обновление 2026-07-09: opener-first gate и текущий lab head `4001...`
+
+### Сделано
+- Проведён self-test восстановленного `7701...`:
+  - `conv_4201kx326rm4exdt6zb5b2hmj79h`
+  - дефект: первое сообщение агента было ответом на слово `Полная.`, а не exact opener.
+- Обновлён анализатор:
+  - [scripts/analyze_eleven_conversation.py](/home/max/n8n_ai_call_center/scripts/analyze_eleven_conversation.py:1)
+  - добавлены проверки:
+    - `opener_not_first_agent_message`
+    - `opener_micro_fragment_before_full_opener`
+- Опубликован opener-first hard gate:
+  - `agtvrsn_3601kx32d39nejw8t9jtkx510yve`
+  - `conv_0301kx32djxxe6hregex42hjdzf9`
+  - улучшение: агент уже начал opener, а не semantic wrong-start;
+  - остаток: micro-cut opener и single-close проблемы.
+- Опубликован current lab head:
+  - `agtvrsn_4001kx32hsrbfxxtahfkabsd3a5w`
+  - `conv_6201kx32j8gmec6t1k7bhbs3es8f`
+  - улучшение:
+    - первое полноценное сообщение после `Да.` стало exact opener;
+    - real `call_log` / `end_call` есть;
+    - `spoken_tool_pseudocode` нет;
+    - `eleven_conv_id` и `conversation_id` дошли реальными `conv_*`.
+  - остаток:
+    - normal assistant close после `call_log`;
+    - duplicate close по audit;
+    - long gaps / turn-taking overhead.
+
+### На чем остановились
+- Git branch:
+  - `codex/eleven-naturalness-lab`
+- ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- Current lab head:
+  - `agtvrsn_4001kx32hsrbfxxtahfkabsd3a5w`
+- Боевой `Main` не трогался.
+
+### Что делать дальше
+1. Не менять голос и LLM без причины:
+   - `gpt-5-mini`
+   - `eleven_v3_conversational`
+2. Добить single-close/finalization:
+   - проверить, звучит ли close дважды реально или audit видит transcript-представление `end_call.system__message_to_speak`;
+   - убрать обычную речь после `call_log`, если это реальный spoken turn.
+3. После этого прогнать маленький test-set:
+   - opener;
+   - refusal/not_target;
+   - SMS consent;
+   - machine/`абонент`.
+4. В live не переносить, пока `4001...` не пройдёт этот набор.
+
 ## 1.31) Обновление 2026-07-09: откат lab на real tool calls и защита от spoken pseudo-code
 
 ### Сделано
