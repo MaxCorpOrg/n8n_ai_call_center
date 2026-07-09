@@ -1,5 +1,52 @@
 # 2026-07-09: Eleven voice switch matrix и текущий lab-статус
 
+## Актуальное обновление `2026-07-09 12:29 MSK`
+
+### Сделано
+- От безопасного rollback payload `6301/4001` собран controlled вариант:
+  - `turn_timeout = 1.4`
+  - `turn_eagerness = normal`
+  - LLM/voice/prompt не менялись.
+- Опубликован lab head:
+  - `agtvrsn_5301kx337pqxf01s7m9jkfbspfhs`
+- Self-test:
+  - `conv_2401kx3387pvf3m9pc6kab9ndr42`
+  - результат:
+    - opener-first проходит;
+    - `spoken_tool_pseudocode` нет;
+    - real `call_log` / `end_call` есть;
+    - `end_call tool was called`;
+    - gap после short negative улучшился:
+      - было на `4001`: max `6s`, avg `4.33s`;
+      - стало на `5301`: max `4s`, avg `3.0s`.
+- Transcript `5301`:
+  - `Да.` -> exact opener через `2s`;
+  - `Нет.` -> уточнение через `4s`;
+  - `Совсем.` -> short filler `Да...`, затем `call_log`, close, `end_call`.
+
+### На чем остановились
+- Current lab head:
+  - `agtvrsn_5301kx337pqxf01s7m9jkfbspfhs`
+- Это лучший текущий lab-кандидат по сравнению с `4001/6301`:
+  - latency лучше;
+  - opener/tools не сломаны;
+  - `eager`-регрессии нет.
+- Всё ещё не live-ready:
+  - gap после `Нет.` всё ещё `4s`, целимся ниже;
+  - нужно проверить SMS consent и machine/`абонент`;
+  - нужно на слух оценить, нормально ли воспринимается filler `Да...` перед terminal tool-path.
+
+### Что делать дальше
+1. Не трогать `turn_eagerness=eager`.
+2. Следующий безопасный latency-шаг:
+   - либо попробовать `turn_timeout = 1.3` с `turn_eagerness = normal`;
+   - либо оставить `1.4` и проверять SMS/machine gates.
+3. Перед переносом в live обязательно mini test-set:
+   - hello/opener;
+   - short negative;
+   - SMS consent;
+   - machine/`абонент`.
+
 ## Актуальное обновление `2026-07-09 12:24 MSK`
 
 ### Сделано

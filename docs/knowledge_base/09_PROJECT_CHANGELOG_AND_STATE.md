@@ -1,5 +1,49 @@
 # 09. Состояние проекта и последние изменения
 
+## 1.34) Обновление 2026-07-09: `turn_timeout=1.4/normal` улучшил latency без eager-регрессии
+
+### Сделано
+- После отката с плохого `eager`-варианта проверен мягкий latency patch:
+  - `turn_timeout = 1.4`
+  - `turn_eagerness = normal`
+  - prompt/voice/LLM не менялись.
+- Опубликован current lab head:
+  - `agtvrsn_5301kx337pqxf01s7m9jkfbspfhs`
+- Self-test:
+  - `conv_2401kx3387pvf3m9pc6kab9ndr42`
+- Результат:
+  - opener-first сохранён;
+  - `spoken_tool_pseudocode` нет;
+  - real `call_log` / `end_call` сохранены;
+  - после short negative latency улучшилась:
+    - `4001`: max `6s`, avg `4.33s`;
+    - `5301`: max `4s`, avg `3.0s`.
+- Остаток:
+  - после `Нет.` всё ещё `4s`;
+  - перед terminal tool-path прозвучал short filler `Да...`;
+  - SMS consent и machine/`абонент` на `5301` ещё не проверены.
+
+### На чем остановились
+- Git branch:
+  - `codex/eleven-naturalness-lab`
+- ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- Current lab head:
+  - `agtvrsn_5301kx337pqxf01s7m9jkfbspfhs`
+- Боевой `Main` не трогался.
+
+### Что делать дальше
+1. Не использовать `agtvrsn_6401kx32y00re3qsenk3ka8t1nea`.
+2. Для следующего latency шага не включать `eager`.
+3. Проверить либо:
+   - `turn_timeout = 1.3`, `turn_eagerness = normal`;
+   - либо сначала mini test-set на текущем `5301`.
+4. До live нужен проход:
+   - opener;
+   - short negative;
+   - SMS consent;
+   - machine/`абонент`.
+
 ## 1.33) Обновление 2026-07-09: single-close audit уточнён, eager-вариант отклонён
 
 ### Сделано

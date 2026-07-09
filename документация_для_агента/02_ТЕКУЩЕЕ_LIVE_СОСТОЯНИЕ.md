@@ -1,5 +1,59 @@
 # Текущее live-состояние
 
+Обновление `2026-07-09 12:29 MSK` по текущему лучшему lab-кандидату:
+- текущий Git branch:
+  - `codex/eleven-naturalness-lab`
+- текущая ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- current lab head:
+  - `agtvrsn_5301kx337pqxf01s7m9jkfbspfhs`
+- боевой `Main` не трогался.
+
+## Сделано
+- Проверен мягкий latency patch:
+  - `turn_timeout = 1.4`
+  - `turn_eagerness = normal`
+  - LLM/voice/prompt без изменений.
+- Self-test:
+  - `conv_2401kx3387pvf3m9pc6kab9ndr42`
+- Результат:
+  - opener-first работает;
+  - `spoken_tool_pseudocode` нет;
+  - real `call_log` и `end_call` есть;
+  - `end_call tool was called`;
+  - задержки лучше, чем на `4001`:
+    - max gap: `6s -> 4s`
+    - avg gap: `4.33s -> 3.0s`
+- `turn_eagerness=eager` до этого проверен и отклонён:
+  - `agtvrsn_6401kx32y00re3qsenk3ka8t1nea`
+  - вернул `spoken_tool_pseudocode`.
+
+## На чем остановились
+- Лучший текущий lab-кандидат:
+  - `agtvrsn_5301kx337pqxf01s7m9jkfbspfhs`
+- Хорошо:
+  - целевой стек `gpt-5-mini + eleven_v3_conversational`;
+  - opener не сломан;
+  - tools не сломаны;
+  - latency стала лучше.
+- Осталось:
+  - после короткого `Нет.` всё ещё около `4s`;
+  - нужно проверить SMS consent;
+  - нужно проверить machine/`абонент`;
+  - нужно решить, допустим ли filler `Да...` перед terminal close.
+
+## Что делать дальше
+1. Не использовать:
+   - `agtvrsn_6401kx32y00re3qsenk3ka8t1nea`
+2. Следующий вариант:
+   - либо `turn_timeout = 1.3`, `turn_eagerness = normal`;
+   - либо mini test-set на текущем `5301`.
+3. В live не переносить до прохождения:
+   - opener;
+   - short negative;
+   - SMS consent;
+   - machine/`абонент`.
+
 Обновление `2026-07-09 12:24 MSK` по текущей lab-ветке ElevenLabs:
 - текущий Git branch:
   - `codex/eleven-naturalness-lab`
