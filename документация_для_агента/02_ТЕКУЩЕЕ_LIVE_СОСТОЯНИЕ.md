@@ -1,5 +1,62 @@
 # Текущее live-состояние
 
+Обновление `2026-07-09 12:24 MSK` по текущей lab-ветке ElevenLabs:
+- текущий Git branch:
+  - `codex/eleven-naturalness-lab`
+- текущая ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- current lab head:
+  - `agtvrsn_6301kx331akffqtvrkyfpgz2kq8k`
+- боевой `Main` не трогался.
+
+## Сделано
+- Уточнён audit single-close:
+  - spoken close перед `end_call` больше не считается дублем, если это отображение `end_call.system__message_to_speak`;
+  - после этого `call_12` больше не ругается на duplicate close.
+- Проверен вариант `turn_eagerness=eager`:
+  - `agtvrsn_6401kx32y00re3qsenk3ka8t1nea`
+  - `conv_7101kx32yfjre6wr4r2me1sewdpm`
+  - результат плохой:
+    - агент снова произнёс `silent call_log with payload...`;
+    - opener снова сломался;
+    - latency лучше не стала.
+- Lab откатан на безопасный `4001`-payload:
+  - current head после rollback: `agtvrsn_6301kx331akffqtvrkyfpgz2kq8k`
+  - `turn_eagerness = normal`
+  - `turn_timeout = 1.55`
+  - `soft_timeout = 1.8`
+- Исправлен helper:
+  - `scripts/prepare_eleven_turn_latency_allo_recovery_variant.sh`
+  - теперь он не срезает последующие prompt override-блоки.
+- Усилен advisor:
+  - `scripts/report_eleven_next_variant_advisor.py`
+  - при `spoken_tool_pseudocode` или broken opener он блокирует variant testing.
+
+## На чем остановились
+- Лучший текущий lab-кандидат:
+  - `agtvrsn_6301kx331akffqtvrkyfpgz2kq8k`
+- Что в нём хорошо:
+  - opener-first сохранён;
+  - real `call_log/end_call` сохранены;
+  - `spoken_tool_pseudocode` нет в проверенном `4001`-классе;
+  - голос/модель остаются целевыми: `gpt-5-mini + eleven_v3_conversational`.
+- Что плохо:
+  - long gaps после коротких ответов;
+  - `eager` это не чинит и ломает поведение.
+
+## Что делать дальше
+1. Не использовать:
+   - `agtvrsn_6401kx32y00re3qsenk3ka8t1nea`
+2. Следующий шаг:
+   - работать от `agtvrsn_6301kx331akffqtvrkyfpgz2kq8k`;
+   - искать способ уменьшить pause/turn-taking без `turn_eagerness=eager`;
+   - после каждой правки проверять отсутствие `spoken_tool_pseudocode`.
+3. В live не переносить до mini test-set:
+   - opener;
+   - short negative;
+   - SMS consent;
+   - machine/`абонент`.
+
 Обновление `2026-07-09 12:16 MSK` по текущей ElevenLabs lab-ветке:
 - текущий Git branch:
   - `codex/eleven-naturalness-lab`

@@ -1,5 +1,55 @@
 # 09. Состояние проекта и последние изменения
 
+## 1.33) Обновление 2026-07-09: single-close audit уточнён, eager-вариант отклонён
+
+### Сделано
+- Уточнён [scripts/analyze_eleven_conversation.py](/home/max/n8n_ai_call_center/scripts/analyze_eleven_conversation.py:1):
+  - close-текст, который является отображением `end_call.system__message_to_speak`, больше не считается дублем;
+  - `duplicate_close_before_end_call` и `normal_assistant_speech_after_call_log` не ставятся, если spoken close является платформенной projection-строкой для `end_call`.
+- Повторный audit:
+  - `conv_6201kx32j8gmec6t1k7bhbs3es8f`
+  - ложные single-close флаги сняты;
+  - остались реальные long gaps.
+- Проверен `turn_eagerness=eager`:
+  - `agtvrsn_6401kx32y00re3qsenk3ka8t1nea`
+  - `conv_7101kx32yfjre6wr4r2me1sewdpm`
+  - результат плохой:
+    - `spoken_tool_pseudocode`;
+    - `opener_not_first_agent_message`;
+    - long gaps.
+- Lab откатан на безопасный payload-класс `4001`:
+  - current lab head: `agtvrsn_6301kx331akffqtvrkyfpgz2kq8k`
+- Исправлен [scripts/prepare_eleven_turn_latency_allo_recovery_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_turn_latency_allo_recovery_variant.sh:1):
+  - старый regex мог срезать все override-блоки после `Turn latency...`;
+  - теперь helper удаляет только свой блок.
+- Усилен [scripts/report_eleven_next_variant_advisor.py](/home/max/n8n_ai_call_center/scripts/report_eleven_next_variant_advisor.py:1):
+  - `spoken_tool_pseudocode` и broken opener теперь являются blocking fix-before-variant items.
+
+### На чем остановились
+- Git branch:
+  - `codex/eleven-naturalness-lab`
+- ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- Current lab head:
+  - `agtvrsn_6301kx331akffqtvrkyfpgz2kq8k`
+- Боевой `Main` не трогался.
+- Текущий лучший путь:
+  - не `eager`;
+  - сохранять `gpt-5-mini + eleven_v3_conversational`;
+  - чинить задержки через более точный turn/negative fast-path, не ломая tools/opener.
+
+### Что делать дальше
+1. Не использовать `agtvrsn_6401kx32y00re3qsenk3ka8t1nea`.
+2. Следующий controlled step:
+   - от `agtvrsn_6301kx331akffqtvrkyfpgz2kq8k`;
+   - уменьшать long gaps без `eager`;
+   - проверять, чтобы не вернулись `spoken_tool_pseudocode` и broken opener.
+3. После следующего улучшения прогнать 4 теста:
+   - hello/opener;
+   - short negative;
+   - SMS consent;
+   - machine/`абонент`.
+
 ## 1.32) Обновление 2026-07-09: opener-first gate и текущий lab head `4001...`
 
 ### Сделано

@@ -1,5 +1,68 @@
 # 2026-07-09: Eleven voice switch matrix и текущий lab-статус
 
+## Актуальное обновление `2026-07-09 12:24 MSK`
+
+### Сделано
+- Уточнён audit single-close:
+  - Eleven может показывать `end_call.system__message_to_speak` как отдельную spoken-строку прямо перед `end_call`;
+  - если spoken close совпадает с `end_call.system__message_to_speak` и относится к тому же end-call событию, это больше не считается `duplicate_close_before_end_call` и `normal_assistant_speech_after_call_log`.
+- Повторно проверены audits:
+  - `call_12_terminal_singleclose_from_3601`:
+    - `conv_6201kx32j8gmec6t1k7bhbs3es8f`
+    - после уточнения остались только long-gap issues;
+    - `spoken_tool_pseudocode` нет;
+    - opener-first проходит;
+    - real `call_log` / `end_call` есть.
+  - `call_11_opener_first_hard_gate`:
+    - теперь корректно классифицируется как `opener_micro_fragment_before_full_opener`, а не semantic wrong-start.
+  - `call_05_turn_latency_allo_recovery_selftest`:
+    - single-close ложные флаги сняты;
+    - остался latency issue.
+- Проверен вариант `turn_eagerness=eager`:
+  - version: `agtvrsn_6401kx32y00re3qsenk3ka8t1nea`
+  - self-test: `conv_7101kx32yfjre6wr4r2me1sewdpm`
+  - результат: регрессия;
+  - вернулись `spoken_tool_pseudocode` и `opener_not_first_agent_message`;
+  - этот head нельзя продолжать.
+- Lab-ветка откатана на безопасный `4001`-payload:
+  - current lab head after rollback: `agtvrsn_6301kx331akffqtvrkyfpgz2kq8k`
+  - `gpt-5-mini`
+  - `eleven_v3_conversational`
+  - `turn_timeout = 1.55`
+  - `turn_eagerness = normal`
+  - `soft_timeout = 1.8`
+- Исправлен helper:
+  - `scripts/prepare_eleven_turn_latency_allo_recovery_variant.sh`
+  - больше не срезает хвост prompt после блока `Turn latency and repeated allo recovery override`.
+- Усилен next-variant advisor:
+  - `spoken_tool_pseudocode` и `opener_not_first_agent_message` теперь блокируют дальнейшее A/B-тестирование ветки.
+
+### На чем остановились
+- Git branch:
+  - `codex/eleven-naturalness-lab`
+- ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- Current lab head:
+  - `agtvrsn_6301kx331akffqtvrkyfpgz2kq8k`
+- Боевой `Main` не трогался.
+- Лучший проверенный класс поведения остаётся `4001/6301`:
+  - opener нормальный;
+  - real tools есть;
+  - pseudo-code в голосе нет;
+  - остаток: long gaps / turn-taking overhead.
+
+### Что делать дальше
+1. Не использовать `agtvrsn_6401kx32y00re3qsenk3ka8t1nea`.
+2. Не включать `turn_eagerness=eager` как быстрый фикс: он дал регрессию.
+3. Следующий путь по latency:
+   - искать не агрессивный eagerness, а причину, почему `turn_v2 + normal` ждёт до `6s` после короткого `Нет`;
+   - рассмотреть `turn_timeout` маленьким шагом или prompt-level fast-path для short negative, но только без spoken pseudo-code.
+4. Перед live нужен mini test-set:
+   - opener;
+   - short negative/refusal;
+   - SMS consent;
+   - machine/`абонент`.
+
 ## Актуальное обновление `2026-07-09 12:16 MSK`
 
 ### Сделано

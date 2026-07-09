@@ -63,7 +63,7 @@ jq \
   | .conversation_config.turn.soft_timeout_config.randomize_fillers = false
   | .conversation_config.turn.soft_timeout_config.max_soft_timeouts_per_generation = 1
   | .conversation_config.agent.prompt.prompt |= (
-      sub("\\n\\nTurn latency and repeated allo recovery override:[\\s\\S]*$"; "")
+      sub("\\n\\nTurn latency and repeated allo recovery override:\\n(- [^\\n]*\\n)+"; "")
       + "\n\nTurn latency and repeated allo recovery override:\n- Phone dialogue must feel immediate. After short live-human replies like `да`, `алло`, `что такое`, `чё такое`, `слушаю`, answer quickly and do not wait for a long extra pause.\n- A repeated `Алло` right after the opener or during an interrupted opener usually means the human did not catch the phrase. Do not answer with line-checks like `Вы слышите меня?`, `Вы меня слышите?`, `Алло, меня слышно?`, or `Вы на линии?`.\n- If the opener was interrupted or cut off, calmly restart the exact opener once from the beginning.\n- If the opener was already fully delivered and the human asks `что это?` or `что за ЛипоЛонг?`, answer directly in one short sentence, then ask whether to send SMS or connect a manager.\n- Do not loop `Алло` / line-check phrases during a live-human conversation. Use line-check only for real silence, not for a human repeatedly trying to hear you.\n- Keep machine / voicemail / `абонент` hard-stop rules unchanged.\n- Keep SMS finalization ordering unchanged: acknowledgement before tools, then `send_sms_info`, silent `call_log`, spoken `end_call`, stop.\n"
     )
   | if $version_description != "" then

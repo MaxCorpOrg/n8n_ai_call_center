@@ -134,6 +134,24 @@ def build_action_plan(details: dict) -> tuple[list[dict], bool]:
             "Если агент разговаривает с service-style автоответчиком, крутить turn-taking variant раньше времени бесполезно.",
             "Ужесточить machine/message-service rule и только потом возвращаться к variant A/B.",
         )
+    if "spoken_tool_pseudocode" in issue_types or "block_spoken_tool_pseudocode" in rec_codes:
+        add(
+            "block_spoken_tool_pseudocode",
+            "Сначала убрать spoken tool pseudo-code",
+            "Если агент произносит call_log/end_call/payload как обычную речь, этот agent head нельзя сравнивать как conversational variant.",
+            "Откатиться к actual tool-call baseline или чинить tool binding так, чтобы tool_calls были реальными, а spoken text был чистым.",
+        )
+    if (
+        "opener_not_first_agent_message" in issue_types
+        or "missing_exact_opener" in issue_types
+        or "restore_exact_opener_first" in rec_codes
+    ):
+        add(
+            "restore_exact_opener_first",
+            "Сначала вернуть exact opener первым сообщением",
+            "Если первое сообщение агента не opener, остальные метрики разговора уже сняты с неправильного сценария.",
+            "Зафиксировать opener-first gate и повторить self-test до любых turn-taking или voice A/B.",
+        )
     if (
         "duplicate_close_before_end_call" in issue_types
         or "final_close_spoken_before_call_log" in issue_types

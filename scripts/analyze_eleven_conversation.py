@@ -381,6 +381,38 @@ def extract_end_call_message(turns):
     return None
 
 
+def is_end_call_spoken_projection(turns, message_index, first_end_call_index, end_call_message):
+    """Eleven may show end_call.system__message_to_speak as a prior spoken turn."""
+    if first_end_call_index is None or end_call_message is None:
+        return False
+    if message_index >= first_end_call_index:
+        return False
+    turn = turns[message_index]
+    msg = turn.get("message") or ""
+    if norm(msg) != norm(end_call_message):
+        return False
+    end_turn = turns[first_end_call_index]
+    if first_tool_name(end_turn) != "end_call":
+        return False
+
+    # The common platform shape is: assistant speaks message, then the very next
+    # transcript row carries the end_call tool call for that same source event.
+    if message_index == first_end_call_index - 1:
+        return True
+
+    message_event = turn.get("source_event_id")
+    end_event = end_turn.get("source_event_id")
+    if message_event is not None and message_event == end_event:
+        between = turns[message_index + 1:first_end_call_index]
+        return all(
+            not (item.get("message") or "")
+            and not (item.get("tool_calls") or [])
+            for item in between
+        )
+
+    return False
+
+
 def analyze(path: Path):
     data = load_json(path)
     turns = data.get("transcript") or []
@@ -582,6 +614,8 @@ def analyze(path: Path):
     if end_call_message:
         for item in normal_close_messages:
             if norm(item["message"]) == norm(end_call_message):
+                if is_end_call_spoken_projection(turns, item["index"], first_end_call_index, end_call_message):
+                    continue
                 issues.append({
                     "type": "duplicate_close_before_end_call",
                     "time_in_call_secs": item["time_in_call_secs"],
@@ -632,6 +666,8 @@ def analyze(path: Path):
                 continue
             msg = (turn.get("message") or "").strip()
             if not msg:
+                continue
+            if is_end_call_spoken_projection(turns, i, first_end_call_index, end_call_message):
                 continue
             issues.append({
                 "type": "normal_assistant_speech_after_call_log",
