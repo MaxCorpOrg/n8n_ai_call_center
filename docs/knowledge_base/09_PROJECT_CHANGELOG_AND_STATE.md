@@ -1,5 +1,62 @@
 # 09. Состояние проекта и последние изменения
 
+## 1.38) Обновление 2026-07-09: текущий lab head `4701...`, soft-refusal восстановлен, SMS-tail остаётся
+
+### Сделано
+- Проверен `5701...`:
+  - `conv_4201kx356xmveetawnn4zfjdxcwf`
+  - opener правильный;
+  - SMS отправилась;
+  - дефект: не было immediate spoken ack `Да, отправляю.`;
+  - tool-tail около `10s`.
+- Сверено с официальной документацией ElevenLabs:
+  - `soft_timeout` предназначен для filler при долгой генерации, recommended около `3.0s`;
+  - `pre_tool_speech` описан для MCP/tool configuration overrides, поэтому для webhook-tools через branch payload не считаем его надёжной опорой.
+- Проверен `1801...`:
+  - `conv_9901kx35dfzrfz9vzw5z41gn1wpv`
+  - регрессия: `Нет, не интересно` сразу ушло в `call_log(not_target)`.
+- Проверен `5401...`:
+  - `conv_5301kx35hp58f75b17e5dbn0ww77`
+  - soft-refusal rescue сработал;
+  - регрессия: pre-opener `Алло?` и spoken `skip_turn({...})`.
+- Проверен `6201...`:
+  - `conv_9801kx35ydp7f4wa48nca6284e7b`
+  - opener first прошёл;
+  - spoken tool pseudo-code нет;
+  - первый `Нет` не закрыл звонок;
+  - SMS отправилась;
+  - остаток: SMS/tool-tail около `13s`.
+- Проверен `6701...` с `soft_timeout=3.0`:
+  - `conv_4201kx3635jneqtap5sz4g5dfewh`
+  - регрессия: silent `skip_turn` вместо opener, клиент отключился.
+- Lab откатан на payload-класс `6201...`:
+  - current head: `agtvrsn_4701kx3652j2fcvt96htmxfp81h3`
+
+### На чем остановились
+- Git branch:
+  - `codex/eleven-naturalness-lab`
+- ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- Current lab head:
+  - `agtvrsn_4701kx3652j2fcvt96htmxfp81h3`
+- Лучший подтверждённый behavioral candidate:
+  - payload class `6201...`
+  - подтверждение: `conv_9801kx35ydp7f4wa48nca6284e7b`
+- Боевой `Main` не трогался.
+
+### Что делать дальше
+1. Не использовать heads с подтверждёнными регрессиями:
+   - `1801...`
+   - `5401...`
+   - `6701...`
+2. Следующий технический фокус:
+   - убрать длинный SMS/tool-tail без global soft-timeout;
+   - рассмотреть структурное объединение `send_sms_info + call_log` или другой backend/workflow fast-path.
+3. После этого проверить:
+   - machine/`абонент`;
+   - confused user;
+   - SMS consent.
+
 ## 1.37) Обновление 2026-07-09: opener стабилизирован без global softfill, SMS ack head `5701...`
 
 ### Сделано

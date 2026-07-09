@@ -1,5 +1,85 @@
 # 2026-07-09: Eleven voice switch matrix и текущий lab-статус
 
+## Актуальное обновление `2026-07-09 13:18 MSK`
+
+### Сделано
+- Валидно проверен `5701...` на SMS-сценарии:
+  - version: `agtvrsn_5701kx34qma3em39qcqzyrjjjba3`
+  - conversation: `conv_4201kx356xmveetawnn4zfjdxcwf`
+  - opener правильный;
+  - SMS отправилась;
+  - `call_log` записался с реальным `conversation_id`;
+  - дефект: перед `send_sms_info` не прозвучало `Да, отправляю.`;
+  - tool-tail до финальной фразы около `10s`.
+- Проверены документы ElevenLabs:
+  - `soft_timeout` действительно предназначен для filler при долгой генерации;
+  - рекомендуемый старт в docs: около `3.0s`;
+  - `pre_tool_speech` documented для MCP/tool configuration overrides; для наших webhook-tools через branch payload его нельзя считать надёжным.
+- Опубликован `1801...`:
+  - version: `agtvrsn_1801kx35czwsevk89sb016dthhjt`
+  - добавлены `post_tool_speech`, `pre_tool_speech=force`, system-bound ids.
+  - conversation: `conv_9901kx35dfzrfz9vzw5z41gn1wpv`
+  - результат плохой: на `Нет, не интересно` agent сразу сделал `call_log(not_target)` и закрыл.
+- Опубликован `5401...`:
+  - version: `agtvrsn_5401kx35h6wge41sm97fs0vpr79e`
+  - восстановлен soft-refusal rescue.
+  - conversation: `conv_5301kx35hp58f75b17e5dbn0ww77`
+  - дожим после `Нет, не интересно` сработал;
+  - дефект: до opener агент сказал `Алло?` и произнёс tool-pseudo text `skip_turn({...})`.
+- Опубликован `6201...`:
+  - version: `agtvrsn_6201kx35ptx2f7brc2b4dge4sjcv`
+  - добавлен pre-opener no-linecheck/no-tooltext guard.
+  - `call_24` был невалиден: `sip_pending/no media`.
+  - валидный self-test:
+    - conversation: `conv_9801kx35ydp7f4wa48nca6284e7b`
+    - opener правильный;
+    - spoken tool pseudo-code нет;
+    - первый `Нет` не закрыл звонок, agent сделал SMS-rescue;
+    - SMS отправилась;
+    - call_log записался;
+    - дефект остался: после SMS consent tool-tail около `13s`, pre-tool spoken ack всё ещё не сработал.
+- Опубликован `6701...` с `soft_timeout=3.0`:
+  - version: `agtvrsn_6701kx362nj4et2s1vpya63vzkht`
+  - conversation: `conv_4201kx3635jneqtap5sz4g5dfewh`
+  - результат плохой: agent сделал silent `skip_turn` вместо opener, клиент отключился.
+- После регрессии `6701...` lab откатан на payload-класс `6201...`:
+  - current lab head: `agtvrsn_4701kx3652j2fcvt96htmxfp81h3`
+  - это payload-equivalent проверенного `6201...`.
+
+### На чем остановились
+- Current lab head:
+  - `agtvrsn_4701kx3652j2fcvt96htmxfp81h3`
+- Лучший подтверждённый behavioral candidate:
+  - payload class `6201...`
+  - подтверждён на `conv_9801kx35ydp7f4wa48nca6284e7b`.
+- Что хорошо:
+  - opener first;
+  - нет spoken `skip_turn`;
+  - первый мягкий отказ не закрывает звонок;
+  - SMS реально отправляется;
+  - `call_log` получает реальный `conversation_id` в body.
+- Что плохо:
+  - нет немедленного spoken ack перед `send_sms_info`;
+  - SMS/tool-tail может быть около `13s`;
+  - `soft_timeout=3.0` как быстрый фикс отклонён, потому что сломал opener.
+- Боевой ElevenLabs `Main` не трогался.
+
+### Что делать дальше
+1. Не использовать:
+   - `agtvrsn_1801kx35czwsevk89sb016dthhjt`
+   - `agtvrsn_5401kx35h6wge41sm97fs0vpr79e`
+   - `agtvrsn_6701kx362nj4et2s1vpya63vzkht`
+2. Следующий шаг по SMS-tail:
+   - не возвращать global soft-timeout вслепую;
+   - искать структурное решение:
+     - либо backend объединяет `send_sms_info + call_log`;
+     - либо отдельная workflow/tool финализация делает логирование без второго LLM/tool-planning хвоста;
+     - либо ElevenLabs MCP/config override, если перевод tools с webhook на MCP будет оправдан.
+3. Следующие gates перед любым live merge:
+   - machine/`абонент`;
+   - confused user;
+   - SMS consent без длинной мёртвой паузы.
+
 ## Актуальное обновление `2026-07-09 12:58 MSK`
 
 ### Сделано

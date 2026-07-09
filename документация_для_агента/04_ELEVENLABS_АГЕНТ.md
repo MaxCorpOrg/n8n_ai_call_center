@@ -1,5 +1,62 @@
 # ElevenLabs агент
 
+## Обновление 2026-07-09 13:18 MSK: текущий lab head `4701...`
+
+### Сделано
+- Проверен `5701...`:
+  - `conv_4201kx356xmveetawnn4zfjdxcwf`
+  - opener был правильный;
+  - SMS отправилась;
+  - но `pre_tool_speech` на webhook-tool не дал spoken ack;
+  - SMS/tool-tail около `10s`.
+- Сверка с docs ElevenLabs:
+  - `soft_timeout` можно использовать для словесного filler при долгой генерации;
+  - default `-1`, recommended около `3.0s`;
+  - `pre_tool_speech` documented как MCP/tool configuration override, поэтому для текущих webhook tools не считать это гарантированным решением.
+- Проверен `1801...`:
+  - `conv_9901kx35dfzrfz9vzw5z41gn1wpv`
+  - плохой результат: первый `Нет, не интересно` сразу ушёл в `not_target`.
+- Проверен `5401...`:
+  - `conv_5301kx35hp58f75b17e5dbn0ww77`
+  - soft-refusal rescue сработал;
+  - плохой pre-opener: `Алло?` и spoken `skip_turn({...})`.
+- Проверен `6201...`:
+  - `conv_9801kx35ydp7f4wa48nca6284e7b`
+  - хороший текущий behavioral candidate:
+    - opener first;
+    - нет spoken tool pseudo-code;
+    - первый `Нет` дожимается;
+    - SMS отправляется.
+  - remaining defect: SMS/tool-tail около `13s`.
+- Проверен `6701...`:
+  - `conv_4201kx3635jneqtap5sz4g5dfewh`
+  - попытка `soft_timeout=3.0` отклонена: agent сделал silent `skip_turn` вместо opener.
+- Lab откатан на payload-класс `6201...`:
+  - current head: `agtvrsn_4701kx3652j2fcvt96htmxfp81h3`
+
+### На чем остановились
+- Current lab head:
+  - `agtvrsn_4701kx3652j2fcvt96htmxfp81h3`
+- Это не идеал, но лучший безопасный текущий кандидат.
+- Не использовать:
+  - `agtvrsn_1801kx35czwsevk89sb016dthhjt`
+  - `agtvrsn_5401kx35h6wge41sm97fs0vpr79e`
+  - `agtvrsn_6701kx362nj4et2s1vpya63vzkht`
+- Боевой `Main` не трогался.
+
+### Что делать дальше
+1. Не возвращать global soft-timeout как быстрый фикс: он может сломать opener.
+2. Следующий реальный узел:
+   - SMS/tool-tail.
+3. Вероятные правильные направления:
+   - объединить `send_sms_info` и `call_log` на backend/workflow уровне;
+   - сделать быстрый SMS-finalization endpoint;
+   - либо переводить relevant tools на MCP/config override, если нужен гарантированный `pre_tool_speech`.
+4. После этого снова прогнать:
+   - SMS consent;
+   - machine/`абонент`;
+   - confused user.
+
 ## Обновление 2026-07-09 12:58 MSK: lab head `5701...`, opener без global softfill
 
 ### Сделано

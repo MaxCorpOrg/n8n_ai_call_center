@@ -1,5 +1,65 @@
 # Текущее live-состояние
 
+Обновление `2026-07-09 13:18 MSK` по ElevenLabs naturalness lab:
+- текущий Git branch:
+  - `codex/eleven-naturalness-lab`
+- текущая ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- current lab head:
+  - `agtvrsn_4701kx3652j2fcvt96htmxfp81h3`
+- payload-класс:
+  - откат на проверенный `6201...`
+- боевой `Main` не трогался.
+
+## Сделано
+- `5701...` проверен:
+  - `conv_4201kx356xmveetawnn4zfjdxcwf`
+  - opener правильный, SMS отправилась;
+  - проблема: не было `Да, отправляю.` перед tools, SMS-tail около `10s`.
+- `1801...` отклонён:
+  - `conv_9901kx35dfzrfz9vzw5z41gn1wpv`
+  - сразу закрыл `Нет, не интересно` как `not_target`.
+- `5401...` отклонён:
+  - `conv_5301kx35hp58f75b17e5dbn0ww77`
+  - soft-refusal rescue сработал;
+  - но до opener были `Алло?` и spoken `skip_turn({...})`.
+- `6201...` принят как лучший текущий payload-класс:
+  - `conv_9801kx35ydp7f4wa48nca6284e7b`
+  - opener правильный;
+  - spoken tool pseudo-code нет;
+  - первый `Нет` не закрыл звонок;
+  - SMS отправилась.
+- `6701...` отклонён:
+  - `conv_4201kx3635jneqtap5sz4g5dfewh`
+  - попытка `soft_timeout=3.0` дала silent `skip_turn` вместо opener.
+- После этого lab откатан на `6201` payload:
+  - current head: `agtvrsn_4701kx3652j2fcvt96htmxfp81h3`.
+
+## На чем остановились
+- Лучший текущий проверенный кандидат:
+  - `agtvrsn_4701kx3652j2fcvt96htmxfp81h3`
+  - payload-equivalent `6201...`
+- Что уже хорошо:
+  - opener first;
+  - нет spoken tool pseudo-code;
+  - soft-refusal не закрывается сразу;
+  - SMS реально отправляется.
+- Что ещё плохо:
+  - длинный SMS/tool-tail около `13s`;
+  - immediate spoken ack перед `send_sms_info` через webhook/pre_tool_speech не доказан;
+  - global soft-timeout нельзя возвращать вслепую, он ломает opener.
+
+## Что делать дальше
+1. Не переносить lab в live.
+2. Следующий патч делать не через global soft-timeout, а структурно:
+   - объединить/ускорить `send_sms_info + call_log`;
+   - или сделать отдельный backend/workflow fast-path для SMS-finalization;
+   - или отдельно исследовать MCP/tool configuration overrides.
+3. После SMS-tail снова проверить:
+   - machine/`абонент`;
+   - confused user;
+   - SMS consent.
+
 Обновление `2026-07-09 12:58 MSK` по ElevenLabs naturalness lab:
 - текущий Git branch:
   - `codex/eleven-naturalness-lab`
