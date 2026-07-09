@@ -1,5 +1,55 @@
 # Текущее live-состояние
 
+Обновление `2026-07-09 12:43 MSK` по pre-opener skip-turn gate:
+- текущий Git branch:
+  - `codex/eleven-naturalness-lab`
+- текущая ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- current lab head:
+  - `agtvrsn_7901kx34220qfm4atb2vvagne10q`
+- боевой `Main` не трогался.
+
+## Сделано
+- Проверка `2101/5301` показала, что одного `1.4/normal` мало:
+  - `conv_5001kx33x5n9eaw9p5xryd0g4s80`
+  - agent сказал `Вы на...` до opener;
+  - позже вернулся к `Алло?` после осмысленных ответов.
+- Добавлен pre-opener skip-turn hard gate:
+  - описание `skip_turn` усилено;
+  - до opener запрещены `Вы на...`, `Вы на линии?`, `Алло?`, `Слышно?`, `Да?`;
+  - при `...`/шуме/обрывке agent должен молчать или использовать `skip_turn`.
+- Проверен новый head:
+  - `agtvrsn_7901kx34220qfm4atb2vvagne10q`
+  - `conv_9701kx342jkcf7tvq6reskjtf4p3`
+- Результат:
+  - pre-opener wrong-start ушёл;
+  - late line-check ушёл;
+  - `spoken_tool_pseudocode` нет;
+  - real `call_log` / `end_call` есть;
+  - остались только long gaps по `4s`.
+
+## На чем остановились
+- Лучший текущий lab-кандидат:
+  - `agtvrsn_7901kx34220qfm4atb2vvagne10q`
+- По смыслу:
+  - `gpt-5-mini + eleven_v3_conversational`
+  - `turn_timeout = 1.4`
+  - `turn_eagerness = normal`
+  - pre-opener skip-turn hard gate
+- Не использовать:
+  - `agtvrsn_6401kx32y00re3qsenk3ka8t1nea`
+  - `agtvrsn_3601kx33n8wme3rs4hb4tn1h1xgn`
+  - `agtvrsn_2101kx33s8ctfgwsx19m67hp3997`
+
+## Что делать дальше
+1. Mini test-set на `7901...`:
+   - SMS consent;
+   - machine/`абонент`;
+   - confused user.
+2. Если mini test-set проходит:
+   - дальше отдельно снижать perceived delay, но без `eager` и без timeout ниже `1.4`.
+3. В live не переносить до прохождения этих gates.
+
 Обновление `2026-07-09 12:37 MSK` по latency-проверке:
 - текущий Git branch:
   - `codex/eleven-naturalness-lab`

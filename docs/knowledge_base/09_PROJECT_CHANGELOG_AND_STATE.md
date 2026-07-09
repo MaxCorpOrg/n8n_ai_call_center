@@ -1,5 +1,53 @@
 # 09. Состояние проекта и последние изменения
 
+## 1.36) Обновление 2026-07-09: pre-opener skip-turn gate, текущий лучший lab head `7901...`
+
+### Сделано
+- Проверка `2101/5301` в более длинном mini-gate выявила:
+  - `conv_5001kx33x5n9eaw9p5xryd0g4s80`
+  - pre-opener line-check `Вы на...`;
+  - late line-check `Алло?` после осмысленного ответа;
+  - плохой self-talk после уже фактического отказа.
+- Собран patch:
+  - усилено описание `skip_turn`;
+  - добавлен `Pre-opener skip-turn hard gate override`;
+  - до opener любые line-check запрещены;
+  - при `...`/шуме/обрывке agent должен использовать `skip_turn` или молчать.
+- Опубликован current lab head:
+  - `agtvrsn_7901kx34220qfm4atb2vvagne10q`
+- Self-test:
+  - `conv_9701kx342jkcf7tvq6reskjtf4p3`
+- Результат:
+  - pre-opener wrong-start ушёл;
+  - late line-check ушёл;
+  - `spoken_tool_pseudocode` нет;
+  - real `call_log` / `end_call` есть;
+  - остались только `long_user_to_agent_gap` по `4s`.
+- Усилен [scripts/report_eleven_next_variant_advisor.py](/home/max/n8n_ai_call_center/scripts/report_eleven_next_variant_advisor.py:1):
+  - late line-check стал blocking fix-before-variant item.
+
+### На чем остановились
+- Git branch:
+  - `codex/eleven-naturalness-lab`
+- ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- Current lab head:
+  - `agtvrsn_7901kx34220qfm4atb2vvagne10q`
+- Боевой `Main` не трогался.
+
+### Что делать дальше
+1. Не использовать:
+   - `agtvrsn_6401kx32y00re3qsenk3ka8t1nea`
+   - `agtvrsn_3601kx33n8wme3rs4hb4tn1h1xgn`
+   - `agtvrsn_2101kx33s8ctfgwsx19m67hp3997`
+2. Следующий mini test-set на `7901...`:
+   - SMS consent;
+   - machine/`абонент`;
+   - confused user.
+3. Остаток после gates:
+   - long gaps около `4s`;
+   - решать без `eager` и без raw timeout ниже `1.4`.
+
 ## 1.35) Обновление 2026-07-09: `turn_timeout=1.3/normal` отклонён, lab откатан на `1.4/normal`
 
 ### Сделано

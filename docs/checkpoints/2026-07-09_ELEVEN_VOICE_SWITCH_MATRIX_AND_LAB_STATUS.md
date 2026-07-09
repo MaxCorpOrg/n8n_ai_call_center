@@ -1,5 +1,55 @@
 # 2026-07-09: Eleven voice switch matrix и текущий lab-статус
 
+## Актуальное обновление `2026-07-09 12:43 MSK`
+
+### Сделано
+- Mini-gate на восстановленном `2101/5301` показал реальный dialogue-flow дефект:
+  - version: `agtvrsn_2101kx33s8ctfgwsx19m67hp3997`
+  - self-test: `conv_5001kx33x5n9eaw9p5xryd0g4s80`
+  - агент сказал pre-opener line-check `Вы на...` после первого `...`;
+  - позже снова говорил `Алло?` / `Вы всё ещё на...` после осмысленных ответов;
+  - audit: `opener_not_first_agent_message`, `line_check_after_meaningful_post_opener_reply`.
+- Собран и опубликован pre-opener skip-turn hard gate:
+  - version: `agtvrsn_7901kx34220qfm4atb2vvagne10q`
+  - изменения:
+    - усилено описание `skip_turn`;
+    - добавлен prompt override: до opener любые `Вы на...`, `Алло?`, `Слышно?`, `Да?` запрещены;
+    - при `...`, шуме, дыхании, обрывках — `skip_turn` / молчание вместо spoken line-check.
+- Self-test:
+  - `conv_9701kx342jkcf7tvq6reskjtf4p3`
+  - результат:
+    - pre-opener wrong-start ушёл;
+    - late line-check ушёл;
+    - `spoken_tool_pseudocode` нет;
+    - real `call_log` / `end_call` есть;
+    - `end_call tool was called`;
+    - остались только two `long_user_to_agent_gap` по `4s`.
+- Next-variant advisor усилен:
+  - late line-check теперь blocking fix-before-variant item.
+
+### На чем остановились
+- Current lab head:
+  - `agtvrsn_7901kx34220qfm4atb2vvagne10q`
+- Это лучший текущий lab-кандидат:
+  - `gpt-5-mini`
+  - `eleven_v3_conversational`
+  - `turn_timeout = 1.4`
+  - `turn_eagerness = normal`
+  - pre-opener skip-turn hard gate
+- Не использовать:
+  - `agtvrsn_6401kx32y00re3qsenk3ka8t1nea`
+  - `agtvrsn_3601kx33n8wme3rs4hb4tn1h1xgn`
+  - `agtvrsn_2101kx33s8ctfgwsx19m67hp3997`
+
+### Что делать дальше
+1. Не крутить raw timeout ниже `1.4`.
+2. Mini test-set на `7901...`:
+   - SMS consent;
+   - machine/`абонент`;
+   - confused user.
+3. Если gates проходят:
+   - отдельно работать над remaining `4s` long gaps без `eager` и без снижения timeout ниже `1.4`.
+
 ## Актуальное обновление `2026-07-09 12:37 MSK`
 
 ### Сделано

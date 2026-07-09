@@ -152,6 +152,13 @@ def build_action_plan(details: dict) -> tuple[list[dict], bool]:
             "Если первое сообщение агента не opener, остальные метрики разговора уже сняты с неправильного сценария.",
             "Зафиксировать opener-first gate и повторить self-test до любых turn-taking или voice A/B.",
         )
+    if "line_check_after_meaningful_post_opener_reply" in issue_types or "remove_late_line_checks" in rec_codes:
+        add(
+            "remove_late_line_checks",
+            "Сначала убрать поздние line-check",
+            "Если после осмысленного ответа человека агент снова говорит Алло/Вы на линии, сценарий уже уехал в self-talk.",
+            "Закрепить: после любого meaningful post-opener reply rescue/line-check запрещены до конца звонка.",
+        )
     if (
         "duplicate_close_before_end_call" in issue_types
         or "final_close_spoken_before_call_log" in issue_types
