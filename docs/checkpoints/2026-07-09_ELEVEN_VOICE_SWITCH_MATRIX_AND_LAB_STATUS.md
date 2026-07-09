@@ -1,5 +1,57 @@
 # 2026-07-09: Eleven voice switch matrix и текущий lab-статус
 
+## Актуальное обновление `2026-07-09 12:07 MSK`
+
+### Сделано
+- Проверен опубликованный head `agtvrsn_7201kx313sejen482kcvss6vy781`.
+  - self-test: `conv_0701kx31a1exfaz9v9scm1qt4v9r`
+  - дефект: агент не сделал real tool call;
+  - вместо этого он произнёс служебный текст вида `silent call_log with payload...`;
+  - вывод: `7201...` нельзя считать рабочим кандидатом.
+- Проверены две попытки исправить terminal path prompt-only способом.
+  - `agtvrsn_5501kx31hea9ezzss60cwr6jb20y`
+    - self-test: `conv_8101kx31jd28f0gtdvkbqwmrjzq9`
+    - дефект: агент голосом произнёс `call_log({...})` и `end_call({...})`, real tool calls не появились.
+  - `agtvrsn_7901kx31rzbqeva9gqqbrd69j3cf`
+    - self-test: `conv_4701kx31sj7ffp4s2vkw0qw9pq80`
+    - дефект: агент снова произнёс `call_log({...})` как обычную речь.
+- Lab-ветка ElevenLabs откатана на actual-tool-call линию:
+  - current lab head: `agtvrsn_7701kx31xdq3fnxvq5c2a8mwnxkj`
+  - payload взят из `.runtime/eleven_voice_switch_matrix_2026-07-09/turn_latency_allo_recovery_patch/payload.json`
+  - это та же линия, где в `conv_8401kx30vhakebh9ewa4xw5psnk2` реальные `call_log` и `end_call` были именно tool calls, а не spoken text.
+- В анализатор добавлена защита от нового класса регрессии:
+  - `spoken_tool_pseudocode`
+  - ловит spoken `call_log(...)`, `end_call(...)`, `send_sms_info(...)`, JSON/payload/identity-поля в обычной реплике агента.
+- Опасные экспериментальные helper-скрипты с prompt-only terminal pseudo-code не оставлены в проекте.
+
+### На чем остановились
+- Git branch:
+  - `codex/eleven-naturalness-lab`
+- ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- Current lab head:
+  - `agtvrsn_7701kx31xdq3fnxvq5c2a8mwnxkj`
+- Боевой `Main` не трогался.
+- Важный вывод:
+  - prompt-only формулировки вокруг `call_log/end_call` опасны;
+  - если модель начинает произносить tool syntax, это хуже duplicate close;
+  - дальше нужно чинить финализацию структурно: через tool binding / workflow / platform tool behavior, а не через просьбы "напиши call_log".
+
+### Что делать дальше
+1. Следующий тест начинать только с current lab head:
+   - `agtvrsn_7701kx31xdq3fnxvq5c2a8mwnxkj`
+2. Первый gate перед любыми улучшениями:
+   - real `tool_calls` populated;
+   - assistant message для tool-path пустой или без служебного текста;
+   - нет `spoken_tool_pseudocode`.
+3. Если real tool calls сохранены:
+   - отдельно добивать duplicate close / filler / ordinary speech after `call_log`.
+4. Не продолжать линии:
+   - `agtvrsn_7201kx313sejen482kcvss6vy781`
+   - `agtvrsn_5501kx31hea9ezzss60cwr6jb20y`
+   - `agtvrsn_7901kx31rzbqeva9gqqbrd69j3cf`
+5. До ввода в live нельзя переносить lab-настройки в боевой `Main`.
+
 ## Сделано
 - Продолжение `2026-07-09` после checkpoint:
   - self-test `4701...`:

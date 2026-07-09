@@ -1,5 +1,52 @@
 # Текущее live-состояние
 
+Обновление `2026-07-09 12:07 MSK` по восстановлению lab-контура после регрессии tool calls:
+- Проверены версии:
+  - `agtvrsn_7201kx313sejen482kcvss6vy781`
+    - `conv_0701kx31a1exfaz9v9scm1qt4v9r`
+    - регрессия: агент произнёс служебный текст `silent call_log with payload...`;
+    - real `tool_calls` не было.
+  - `agtvrsn_5501kx31hea9ezzss60cwr6jb20y`
+    - `conv_8101kx31jd28f0gtdvkbqwmrjzq9`
+    - регрессия: агент голосом произнёс `call_log({...})` / `end_call({...})`.
+  - `agtvrsn_7901kx31rzbqeva9gqqbrd69j3cf`
+    - `conv_4701kx31sj7ffp4s2vkw0qw9pq80`
+    - регрессия: агент снова произнёс `call_log({...})` как обычный текст.
+- Lab-ветка ElevenLabs откатана на actual-tool-call baseline:
+  - current lab head: `agtvrsn_7701kx31xdq3fnxvq5c2a8mwnxkj`
+  - branch: `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+  - Git branch: `codex/eleven-naturalness-lab`
+- Боевой `Main` не трогался.
+- Обновлён анализатор:
+  - `scripts/analyze_eleven_conversation.py`
+  - новый issue: `spoken_tool_pseudocode`
+  - смысл: если агент произносит `call_log(...)`, `end_call(...)`, JSON/payload/identity-поля, audit сразу считает это дефектом.
+
+## Сделано
+- Lab-контур восстановлен на версию, где приоритетом являются реальные tool calls, а не prompt-only псевдокоманды.
+- Неудачные prompt-only terminal helper-подходы не оставлены как рабочий путь.
+- Документация закрепляет, что `7201...`, `5501...`, `7901...` не продолжать.
+
+## На чем остановились
+- Current lab head:
+  - `agtvrsn_7701kx31xdq3fnxvq5c2a8mwnxkj`
+- Это не финальная идеальная версия:
+  - в её родственной проверке были duplicate close / filler / ordinary speech after `call_log`;
+  - но в ней реальные `call_log` / `end_call` работают как platform tool calls.
+- Следующий цикл должен начинаться с проверки именно real tool calls, а не с новых prompt-only формулировок.
+
+## Что делать дальше
+1. Один self-test на `agtvrsn_7701kx31xdq3fnxvq5c2a8mwnxkj`.
+2. Gate:
+   - `tool_calls` реально есть;
+   - нет `spoken_tool_pseudocode`;
+   - агент не произносит JSON, payload, `lead_id`, `phone_primary`, `eleven_conv_id`.
+3. Если gate проходит:
+   - точечно чинить duplicate close и filler в terminal path.
+4. Если gate не проходит:
+   - не продолжать prompt-only эксперименты;
+   - искать причину в tool binding / workflow / platform-интеграции.
+
 Обновление `2026-07-09 11:55 MSK` по продолжению lab-цикла:
 - после `4701...` сделан self-test:
   - `conv_4201kx30pqcjexgvgrp1ca9qxcfm`

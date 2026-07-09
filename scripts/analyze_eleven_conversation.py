@@ -41,6 +41,22 @@ PLACEHOLDER_PATTERNS = [
     r"conv_123\b",
 ]
 
+SPOKEN_TOOL_TEXT_PATTERNS = [
+    r"\bcall_log\s*\(",
+    r"\bend_call\s*\(",
+    r"\bsend_sms_info\s*\(",
+    r"\bcontext_fetch\s*\(",
+    r"silent[_ ]call_log",
+    r"call_log with payload",
+    r"\bpayload\b",
+    r"\blead_id\b",
+    r"\bsource_record_key\b",
+    r"\bphone_primary\b",
+    r"\beleven_conv_id\b",
+    r"\bconversation_id\b",
+    r"\{\\?\"[a-zA-Z_]+\\?\"",
+]
+
 MACHINE_TRANSFER_PATTERNS = [
     r"\bабонент(?:у|ам|а)?\b",
     r"\bчто передать абонент",
@@ -259,6 +275,15 @@ def build_recommendations(issues, bottleneck_counts):
             "Использовать только system-bound conversation fields и не позволять модели печатать fake conv_* вручную.",
         )
 
+    if "spoken_tool_pseudocode" in issue_types:
+        add(
+            "block_spoken_tool_pseudocode",
+            10,
+            "Запретить spoken tool pseudo-code",
+            "Агент произнёс или сгенерировал как обычную реплику текст вида call_log(...), end_call(...) или JSON-поля.",
+            "Вернуть actual platform tool calls: assistant message empty, tool_calls populated, no JSON/tool names in spoken text.",
+        )
+
     if "context_fetch_before_opener" in issue_types:
         add(
             "ban_preopener_context_fetch",
@@ -427,6 +452,13 @@ def analyze(path: Path):
             if "[" in msg and "]" in msg:
                 issues.append({
                     "type": "bracketed_stage_direction",
+                    "time_in_call_secs": turn.get("time_in_call_secs"),
+                    "message": msg,
+                })
+
+            if matches_any(msg, SPOKEN_TOOL_TEXT_PATTERNS):
+                issues.append({
+                    "type": "spoken_tool_pseudocode",
                     "time_in_call_secs": turn.get("time_in_call_secs"),
                     "message": msg,
                 })

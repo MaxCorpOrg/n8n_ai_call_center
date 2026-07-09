@@ -1,5 +1,53 @@
 # 09. Состояние проекта и последние изменения
 
+## 1.31) Обновление 2026-07-09: откат lab на real tool calls и защита от spoken pseudo-code
+
+### Сделано
+- Проверен `agtvrsn_7201kx313sejen482kcvss6vy781`.
+  - self-test: `conv_0701kx31a1exfaz9v9scm1qt4v9r`
+  - дефект: агент произнёс служебную инструкцию `silent call_log with payload...` как обычную речь.
+  - real `tool_calls` не было.
+- Проверены две prompt-only попытки поправить terminal path:
+  - `agtvrsn_5501kx31hea9ezzss60cwr6jb20y`
+    - `conv_8101kx31jd28f0gtdvkbqwmrjzq9`
+    - агент голосом произнёс `call_log({...})` и `end_call({...})`.
+  - `agtvrsn_7901kx31rzbqeva9gqqbrd69j3cf`
+    - `conv_4701kx31sj7ffp4s2vkw0qw9pq80`
+    - агент снова произнёс `call_log({...})` как текст.
+- Lab-ветка ElevenLabs восстановлена на actual-tool-call линию:
+  - current lab head: `agtvrsn_7701kx31xdq3fnxvq5c2a8mwnxkj`
+  - база: payload из `turn_latency_allo_recovery_patch`
+  - эта линия уже показывала реальные `call_log` / `end_call` tool calls в `conv_8401kx30vhakebh9ewa4xw5psnk2`.
+- Обновлён анализатор:
+  - [scripts/analyze_eleven_conversation.py](/home/max/n8n_ai_call_center/scripts/analyze_eleven_conversation.py:41)
+  - добавлен issue `spoken_tool_pseudocode`;
+  - теперь audit подсвечивает, если агент произнёс `call_log(...)`, `end_call(...)`, payload/identity JSON или похожий служебный текст.
+- Неудачные helper-скрипты prompt-only terminal pseudo-code не оставлены в проекте.
+
+### На чем остановились
+- Git branch:
+  - `codex/eleven-naturalness-lab`
+- ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- Current lab head:
+  - `agtvrsn_7701kx31xdq3fnxvq5c2a8mwnxkj`
+- Боевой `Main` не трогался.
+- Текущий главный принцип:
+  - real tool calls важнее красивого prompt-only текста;
+  - prompt-only попытки "silent call_log/end_call" нельзя продолжать, если они приводят к озвучиванию служебных команд.
+
+### Что делать дальше
+1. Начинать следующий цикл только от `agtvrsn_7701kx31xdq3fnxvq5c2a8mwnxkj`.
+2. Сначала проверить gate:
+   - есть real `tool_calls`;
+   - нет `spoken_tool_pseudocode`;
+   - нет служебного JSON в голосе агента.
+3. После этого отдельно чинить:
+   - duplicate close;
+   - filler перед terminal tool-path;
+   - ordinary speech after `call_log`.
+4. Не переносить lab-изменения в боевой `Main`, пока self-tests не проходят без регрессии.
+
 ## 1.30) Обновление 2026-07-09: fast turn + terminal no-filler + prompt-only context guard
 
 ### Сделано
