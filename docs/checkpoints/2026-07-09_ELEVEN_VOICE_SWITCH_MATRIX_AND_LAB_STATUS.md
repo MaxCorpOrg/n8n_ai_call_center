@@ -1,5 +1,49 @@
 # 2026-07-09: Eleven voice switch matrix и текущий lab-статус
 
+## Актуальное обновление `2026-07-09 12:37 MSK`
+
+### Сделано
+- Проверен следующий latency-шаг:
+  - `turn_timeout = 1.3`
+  - `turn_eagerness = normal`
+  - version: `agtvrsn_3601kx33n8wme3rs4hb4tn1h1xgn`
+  - self-test: `conv_1701kx33nysxez386skz1rmz005g`
+- Результат плохой:
+  - max gap вырос до `16s`;
+  - avg gap вырос до `6.25s`;
+  - агент произнёс pseudo-tool текст:
+    - `(call_log with appropriate fields)...silent`
+    - `(end_call) system__message_to_speak=...`
+  - появился helpdesk tail:
+    - `Поняла. Могу чем-то ещё помочь?`
+- Audit усилен:
+  - теперь ловит `call_log with appropriate fields`, `end_call) system__message_to_speak` и standalone `silent` как `spoken_tool_pseudocode`.
+- Lab откатан на безопасный payload-класс `5301`:
+  - current lab head after rollback: `agtvrsn_2101kx33s8ctfgwsx19m67hp3997`
+  - это восстановленный `1.4/normal` payload.
+
+### На чем остановились
+- Current lab head:
+  - `agtvrsn_2101kx33s8ctfgwsx19m67hp3997`
+- Лучший проверенный вариант остаётся:
+  - `turn_timeout = 1.4`
+  - `turn_eagerness = normal`
+  - `gpt-5-mini`
+  - `eleven_v3_conversational`
+- Не использовать:
+  - `agtvrsn_6401kx32y00re3qsenk3ka8t1nea` (`eager`)
+  - `agtvrsn_3601kx33n8wme3rs4hb4tn1h1xgn` (`1.3/normal`)
+
+### Что делать дальше
+1. Не продолжать уменьшать `turn_timeout` ниже `1.4` без другой защиты.
+2. Следующий правильный шаг:
+   - mini test-set на текущем `2101/5301`:
+     - SMS consent;
+     - machine/`абонент`;
+     - confused user;
+   - либо искать latency не в raw timeout, а в prompt/dialogue-flow для short negative.
+3. В live не переносить до прохождения mini test-set.
+
 ## Актуальное обновление `2026-07-09 12:29 MSK`
 
 ### Сделано

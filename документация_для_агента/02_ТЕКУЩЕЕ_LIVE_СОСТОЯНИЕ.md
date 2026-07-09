@@ -1,5 +1,51 @@
 # Текущее live-состояние
 
+Обновление `2026-07-09 12:37 MSK` по latency-проверке:
+- текущий Git branch:
+  - `codex/eleven-naturalness-lab`
+- текущая ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- current lab head:
+  - `agtvrsn_2101kx33s8ctfgwsx19m67hp3997`
+- боевой `Main` не трогался.
+
+## Сделано
+- Проверили `turn_timeout = 1.3`, `turn_eagerness = normal`:
+  - version: `agtvrsn_3601kx33n8wme3rs4hb4tn1h1xgn`
+  - conversation: `conv_1701kx33nysxez386skz1rmz005g`
+- Результат плохой:
+  - max gap вырос до `16s`;
+  - avg gap вырос до `6.25s`;
+  - агент произнёс pseudo-tool текст:
+    - `(call_log with appropriate fields)...silent`
+    - `(end_call) system__message_to_speak=...`
+  - агент ушёл в helpdesk tail:
+    - `Поняла. Могу чем-то ещё помочь?`
+- Audit доработан:
+  - теперь такие pseudo-tool формулировки ловятся как `spoken_tool_pseudocode`.
+- Lab откатан на безопасный `1.4/normal` payload:
+  - current head после rollback: `agtvrsn_2101kx33s8ctfgwsx19m67hp3997`
+
+## На чем остановились
+- Лучший текущий lab-кандидат:
+  - `agtvrsn_2101kx33s8ctfgwsx19m67hp3997`
+- По смыслу это восстановленный `5301`:
+  - `turn_timeout = 1.4`
+  - `turn_eagerness = normal`
+  - `gpt-5-mini + eleven_v3_conversational`
+- Не использовать:
+  - `agtvrsn_6401kx32y00re3qsenk3ka8t1nea`
+  - `agtvrsn_3601kx33n8wme3rs4hb4tn1h1xgn`
+
+## Что делать дальше
+1. Не снижать timeout ниже `1.4` как быстрый фикс.
+2. Следующий шаг:
+   - mini test-set на текущем `2101/5301`:
+     - SMS consent;
+     - machine/`абонент`;
+     - confused user.
+3. В live не переносить до прохождения mini test-set.
+
 Обновление `2026-07-09 12:29 MSK` по текущему лучшему lab-кандидату:
 - текущий Git branch:
   - `codex/eleven-naturalness-lab`

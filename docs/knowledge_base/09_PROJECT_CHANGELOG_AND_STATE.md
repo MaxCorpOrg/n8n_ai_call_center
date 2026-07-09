@@ -1,5 +1,48 @@
 # 09. Состояние проекта и последние изменения
 
+## 1.35) Обновление 2026-07-09: `turn_timeout=1.3/normal` отклонён, lab откатан на `1.4/normal`
+
+### Сделано
+- Проверен вариант:
+  - `turn_timeout = 1.3`
+  - `turn_eagerness = normal`
+  - `agtvrsn_3601kx33n8wme3rs4hb4tn1h1xgn`
+- Self-test:
+  - `conv_1701kx33nysxez386skz1rmz005g`
+- Результат плохой:
+  - max gap `16s`;
+  - avg gap `6.25s`;
+  - spoken pseudo-tool text:
+    - `(call_log with appropriate fields)...silent`
+    - `(end_call) system__message_to_speak=...`
+  - helpdesk tail:
+    - `Поняла. Могу чем-то ещё помочь?`
+- Обновлён [scripts/analyze_eleven_conversation.py](/home/max/n8n_ai_call_center/scripts/analyze_eleven_conversation.py:1):
+  - добавлены новые паттерны для `spoken_tool_pseudocode`.
+- Lab откатан на безопасный `1.4/normal` payload:
+  - current lab head: `agtvrsn_2101kx33s8ctfgwsx19m67hp3997`
+
+### На чем остановились
+- Git branch:
+  - `codex/eleven-naturalness-lab`
+- ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- Current lab head:
+  - `agtvrsn_2101kx33s8ctfgwsx19m67hp3997`
+- Лучший подтверждённый стек:
+  - `gpt-5-mini + eleven_v3_conversational`
+  - `turn_timeout = 1.4`
+  - `turn_eagerness = normal`
+
+### Что делать дальше
+1. Не использовать:
+   - `agtvrsn_6401kx32y00re3qsenk3ka8t1nea`
+   - `agtvrsn_3601kx33n8wme3rs4hb4tn1h1xgn`
+2. Не давить timeout ниже `1.4` как быстрый фикс.
+3. Следующий рабочий путь:
+   - mini test-set на current head;
+   - затем править prompt/dialogue-flow для short negative, если нужно.
+
 ## 1.34) Обновление 2026-07-09: `turn_timeout=1.4/normal` улучшил latency без eager-регрессии
 
 ### Сделано
