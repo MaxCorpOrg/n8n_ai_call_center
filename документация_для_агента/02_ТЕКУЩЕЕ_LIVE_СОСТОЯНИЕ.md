@@ -1,5 +1,81 @@
 # Текущее live-состояние
 
+Обновление `2026-07-09` по Eleven naturalness lab и voice-switch matrix:
+- текущая Git-ветка:
+  - `codex/eleven-naturalness-lab`
+- боевой `Main` ElevenLabs не трогался.
+- lab branch ElevenLabs:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- создан helper для чистого переключения голоса без изменения логики:
+  - `scripts/prepare_eleven_voice_only_variant.sh`
+- создан helper под найденные live-дефекты:
+  - `scripts/prepare_eleven_preopener_and_sms_singleclose_variant.sh`
+- собрана voice matrix:
+  - `4401 logic + Eleven v3 Conversational`
+  - `4401 logic + Eleven Flash v2.5`
+  - `7701 fallback + Eleven v3 Conversational`
+  - `7701 fallback + Eleven Flash v2.5`
+- проведены 3 self-test:
+  - `agtvrsn_2601kx2zn4wvfrwtn5gazrvx329b`:
+    - `4401 + v3`;
+    - opener нормальный;
+    - остались duplicate close и speech after `call_log`.
+  - `agtvrsn_3701kx2ztscwfvasrqnqq6x3wdbs`:
+    - `7701 + v3`;
+    - хуже как база;
+    - вернул `[calm]`;
+    - duplicate close остался.
+  - `agtvrsn_6001kx2zxygcezbtzzwebdf1z0nm`:
+    - `4401 + v3 + plaintext/single-close guard`;
+    - дошёл до SMS;
+    - выявил pre-opener `context_fetch`;
+    - после `call_log` всё ещё была ordinary speech before `end_call`.
+- current lab head now:
+  - `agtvrsn_4701kx303bj4ftnrx6f7n4rdv9zn`
+- смысл текущего `4701...`:
+  - запрет `context_fetch` до exact opener;
+  - SMS consent:
+    - короткий spoken acknowledgement до tools;
+    - `send_sms_info`;
+    - silent `call_log`;
+    - spoken `end_call`;
+    - stop.
+- подробный checkpoint:
+  - `docs/checkpoints/2026-07-09_ELEVEN_VOICE_SWITCH_MATRIX_AND_LAB_STATUS.md`
+
+## Сделано
+- Разделили задачу на две части:
+  - логика разговора;
+  - voice/TTS слой.
+- Подтверждено тестами, что просто взять `7701` как V3-базу нельзя:
+  - он возвращает `[calm]`.
+- Подтверждено тестами, что лучшая база сейчас:
+  - `4401` family,
+  - но с отдельным single-close/pre-opener hardening.
+- Опубликован следующий lab candidate:
+  - `agtvrsn_4701kx303bj4ftnrx6f7n4rdv9zn`
+
+## На чем остановились
+- `4701...` опубликован, но ещё не проверен звонком.
+- Последний цикл звонков уже завершён:
+  - 3 self-test сделаны;
+  - новые звонки не запускать как продолжение этого же цикла без явной новой команды.
+
+## Что делать дальше
+1. Следующим циклом сделать один self-test на:
+   - `agtvrsn_4701kx303bj4ftnrx6f7n4rdv9zn`
+2. Проверить:
+   - нет `context_fetch` до opener;
+   - нет `Алло...` перед opener;
+   - после `да, отправьте` есть короткое spoken acknowledgement;
+   - после `call_log` нет ordinary assistant speech.
+3. Если проходит:
+   - собрать `Flash` voice-only вариант от той же логики;
+   - сравнить с `v3` только по голосу/скорости.
+4. Если не проходит:
+   - сначала добить pre-opener и single-close finalization;
+   - voice experiments не продолжать.
+
 Обновление `2026-07-02` по циклу `1201... -> 5001... -> 0601... -> 6401...`:
 - проведён self-test на:
   - `agtvrsn_1201kwh2kt2pfsna2qcrmv50svda`

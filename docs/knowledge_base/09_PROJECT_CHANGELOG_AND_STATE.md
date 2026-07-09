@@ -1,5 +1,70 @@
 # 09. Состояние проекта и последние изменения
 
+## 1.29) Обновление 2026-07-09: voice-switch matrix для Eleven lab и возврат к clean logic + V3
+
+### Сделано
+- По официальной документации ElevenLabs подтверждён правильный split:
+  - логика агента отдельно;
+  - voice/TTS слой отдельно;
+  - эксперименты только через branch/version/isolated lab.
+- Добавлен helper:
+  - [scripts/prepare_eleven_voice_only_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_voice_only_variant.sh:1)
+- Он позволяет брать проверенный agent snapshot и менять только voice/TTS слой без prompt/workflow/tool правок.
+- Собрана матрица:
+  - `4401 logic + Eleven v3 Conversational`
+  - `4401 logic + Eleven Flash v2.5`
+  - `7701 fallback + Eleven v3 Conversational`
+  - `7701 fallback + Eleven Flash v2.5`
+- Проведены 3 lab self-test:
+  - `2601...` (`4401 + v3`):
+    - opener нормальный;
+    - но остались duplicate close и ordinary speech after `call_log`.
+  - `3701...` (`7701 + v3`):
+    - хуже как база;
+    - вернул `[calm]`;
+    - duplicate close остался.
+  - `6001...` (`4401 + v3 + plaintext/single-close guard`):
+    - дошёл до SMS path;
+    - показал pre-opener `context_fetch`;
+    - после `call_log` всё ещё была ordinary speech.
+- Добавлен helper:
+  - [scripts/prepare_eleven_preopener_and_sms_singleclose_variant.sh](/home/max/n8n_ai_call_center/scripts/prepare_eleven_preopener_and_sms_singleclose_variant.sh:1)
+- Опубликован текущий lab head:
+  - `agtvrsn_4701kx303bj4ftnrx6f7n4rdv9zn`
+- Смысл `4701...`:
+  - no `context_fetch` before exact opener;
+  - SMS consent path:
+    - short spoken acknowledgement before tools;
+    - `send_sms_info`;
+    - silent `call_log`;
+    - spoken `end_call`;
+    - stop.
+- Подробный checkpoint:
+  - [docs/checkpoints/2026-07-09_ELEVEN_VOICE_SWITCH_MATRIX_AND_LAB_STATUS.md](/home/max/n8n_ai_call_center/docs/checkpoints/2026-07-09_ELEVEN_VOICE_SWITCH_MATRIX_AND_LAB_STATUS.md:1)
+
+### На чем остановились
+- Git branch:
+  - `codex/eleven-naturalness-lab`
+- ElevenLabs lab branch:
+  - `agtbrch_3701kv7waz0teny9xvsgv7sjt0bp`
+- Current lab head:
+  - `agtvrsn_4701kx303bj4ftnrx6f7n4rdv9zn`
+- Боевой `Main` не трогался.
+- `7701` больше не использовать как текущую V3-базу без отдельной причины, потому что он вернул `[calm]`.
+
+### Что делать дальше
+1. Один self-test на `agtvrsn_4701kx303bj4ftnrx6f7n4rdv9zn`.
+2. Проверить:
+   - нет `context_fetch` до opener;
+   - нет `Алло...` перед opener;
+   - SMS consent даёт короткий acknowledgement до tool-path;
+   - после `call_log` нет ordinary assistant speech.
+3. Если проходит:
+   - сделать voice-only `Flash` вариант от той же логики и сравнить только голос/скорость.
+4. Если не проходит:
+   - не продолжать voice experiments;
+   - сначала добить pre-opener и single-close finalization.
+
 ## 1.28) Обновление 2026-07-02: цикл `1201... -> 5001... -> 0601... -> 6401...` сузил реальный дефект до финализации refusal-path
 
 ### Сделано
