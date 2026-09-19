@@ -1,0 +1,17 @@
+[Unit]
+Description=ElevenLabs outbound HTTP relay
+Wants=network-online.target
+After=network-online.target
+[Service]
+Type=simple
+EnvironmentFile=/root/.eleven_outbound_relay.env
+ExecStart=/usr/bin/python3 /opt/eleven_outbound_relay.py
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+[Install]
+WantedBy=multi-user.target

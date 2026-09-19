@@ -352,3 +352,14 @@
 - Файл `_50.xlsx` собран как private-practice кандидатная база на 50 строк: явные `clinic/center/salon/medical/lab/shop/agency` исключены, но нижние строки из-за live-блокировок Prodoctorov требуют ручной QA, если нужен строго формат “только ФИО частного специалиста”.
 - Ошибка бота `Permission denied` была связана с root-owned preview-файлом `.runtime/cosmetologist_hunter/previews/контакты_косметологов_москва_49.json`; права исправлены на `aicore:aicore`.
 - Осторожно: live workflow `COSMETOLOGIST_HUNTER_TELEGRAM_LIVE` ещё хранит Telegram/Mistral/hunter token в Code node. Это нужно вынести в env/credentials отдельной правкой.
+
+## Перенос копии Eleven relay — 2026-09-19
+
+### Сделано
+Развёрнута дополнительная копия relay на 77.91.115.47:8787, доступ только от сервера n8n; проверены health и read-only Agents API. Код синхронизирован с FR-сервером, добавлены шаблоны и автономные тесты. См. `docs/call-translation-bridge/12_RELAY_RU_SERVER_20260919.md`.
+
+### На чем остановились
+Новый relay готов, исходная копия сохранена. Live workflows не переключались, реальный SIP-звонок не выполнялся. Это изменение не подтверждает перенос live-трафика.
+
+### Что делать дальше
+При переключении caller проверить все актуальные relay URL в live workflows, сохранить их backup и заменить адрес на новый, сохранив auth и структуру запроса. Проверка реального звонка должна быть отдельным явно разрешённым тестом.
